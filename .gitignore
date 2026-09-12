@@ -1,0 +1,148 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+# Python lib directories (but not frontend src/lib)
+/lib/
+/lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Environments
+.env
+.env.local
+.env.*.local
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ty
+.ty_cache/
+
+# ruff
+.ruff_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pytype
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Local development
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local scaffolding metadata is not part of the source release.
+.fastapi-fullstack.json
+.fastapi-fullstack.json.pending
+.fastapi-fullstack.json.candidate
+
+# Project specific
+
+# Dependency/build directories (the frontend also has its own ignore file).
+node_modules/
+.next/
+.turbo/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# Runtime data, downloaded models and machine-specific configuration.
+/backend/media/
+/backend/data/
+/backend/chroma_data/
+/backend/models_cache/
+/sandbox/.env*
+!/sandbox/.env.example
+/sandbox/.venv/
+/sandbox/data/
+.claude/settings.local.json
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+
+# Private deployment/acceptance evidence is not a source release.
+# Keep these files on the server; do not publish logs, screenshots, account
+# fixtures, database backups or infrastructure inventory with the initial commit.
+/docs/releases/
+/docs/maintenance-*.md
+# Internal architecture research and upstream comparison notes remain local.
+/docs/proposals/
+/backups/
+*.dump
+*.sql.gz

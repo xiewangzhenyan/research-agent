@@ -1,0 +1,16 @@
+"use client";
+
+import { ChatContainer } from "@/components/chat";
+
+export default function ChatPage() {
+  // The ?id= query param is read by useConversations.fetchConversations on mount;
+  // it sets currentConversationId AND loads messages atomically. Pre-setting the
+  // id here would short-circuit that loader and leave the chat empty on refresh.
+  return (
+    <div className="console-chat-layout flex min-h-0 flex-1">
+      <div className="min-w-0 flex-1">
+        <ChatContainer />
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,62 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { RetrievalTester } from "./retrieval-tester";
+import { DEFAULT_RETRIEVAL_CONFIG } from "@/lib/knowledge";
+
+const base = { id: "base-a", name: "通用资料", description: "", document_count: 1, chunk_count: 1 };
+const result = { items: [], diagnostics: { config: DEFAULT_RETRIEVAL_CONFIG, total_chunks: 1, merged_candidates: 0, returned: 0, keyword_eligible: 0, semantic_eligible: 0, keyword_candidates: 0, semantic_candidates: 0, overlap_removed: 0, limit_removed: 0, embedding_ms: 0, total_ms: 12 } };
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+it("tests draft settings without saving and explicitly saves account defaults", async () => {
+  const fetch = vi.fn(async (url: string, options?: RequestInit) => new Response(JSON.stringify(url.endsWith("search") ? result : options?.method === "PUT" ? JSON.parse(options.body as string) : DEFAULT_RETRIEVAL_CONFIG)));
+  vi.stubGlobal("fetch", fetch);
+  render(<RetrievalTester base={base} readyCount={1} />);
+  await waitFor(() => expect(screen.getByRole("radio", { name: /关键词检索/ })).toBeEnabled());
+  fireEvent.click(screen.getByRole("radio", { name: /关键词检索/ }));
+  fireEvent.change(screen.getByLabelText("检索问题"), { target: { value: "POLICY620" } });
+  fireEvent.click(screen.getByRole("button", { name: "开始检索" }));
+  await screen.findByText(/找到 0 个片段/);
+  const search = fetch.mock.calls.find(([url]) => url.endsWith("search"));
+  expect(JSON.parse(search![1]!.body as string).retrieval_config.mode).toBe("keyword");
+  expect(fetch.mock.calls.some(([, options]) => options?.method === "PUT")).toBe(false);
+  fireEvent.click(screen.getByText(/高级检索设置/));
+  fireEvent.click(screen.getByRole("button", { name: "保存为账号检索设置" }));
+  await waitFor(() => expect(fetch.mock.calls.some(([, options]) => options?.method === "PUT")).toBe(true));
+  await waitFor(() => expect(screen.getByRole("button", { name: "保存为账号检索设置" })).toBeDisabled());
+});
+it("discards results when the query changes, including an in-flight stale response", async () => {
+  let resolve!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn((url: string) => url.endsWith("search") ? new Promise<Response>((r) => { resolve = r; }) : Promise.resolve(new Response(JSON.stringify(DEFAULT_RETRIEVAL_CONFIG)))));
+  render(<RetrievalTester base={base} readyCount={1} />);
+  await waitFor(() => expect(screen.getByRole("radio", { name: /混合检索/ })).toBeEnabled());
+  fireEvent.change(screen.getByLabelText("检索问题"), { target: { value: "旧问题" } });
+  fireEvent.click(screen.getByRole("button", { name: "开始检索" }));
+  fireEvent.change(screen.getByLabelText("检索问题"), { target: { value: "新问题" } });
+  await act(async () => resolve(new Response(JSON.stringify(result))));
+  expect(screen.queryByText(/找到 0 个片段/)).toBeNull();
+  expect(screen.getByRole("button", { name: "开始检索" })).toBeEnabled();
+});
+it("does not silently use defaults after settings fail to load", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ detail: "设置加载失败" }), { status: 503 })));
+  render(<RetrievalTester base={base} readyCount={1} />);
+  await screen.findByRole("alert");
+  expect(screen.getByRole("button", { name: "开始检索" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "重新加载设置" })).toBeEnabled();
+});
+it("enables enhancement controls and saves both account switches explicitly", async () => {
+  const fetch = vi.fn(async (_url: string, options?: RequestInit) => new Response(JSON.stringify(options?.method === "PUT" ? JSON.parse(options.body as string) : DEFAULT_RETRIEVAL_CONFIG)));
+  vi.stubGlobal("fetch", fetch);
+  render(<RetrievalTester base={base} readyCount={1} />);
+  await waitFor(() => expect(screen.getByRole("radio", { name: /混合检索/ })).toBeEnabled());
+  fireEvent.click(screen.getByText(/高级检索设置/));
+  expect(screen.getByLabelText(/重排候选数/)).toBeDisabled();
+  expect(screen.getByLabelText(/前后扩展范围/)).toBeDisabled();
+  fireEvent.click(screen.getByRole("checkbox", { name: "启用本地重排" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "启用回答前上下文扩展" }));
+  expect(screen.getByLabelText(/重排候选数/)).toBeEnabled();
+  expect(screen.getByLabelText(/前后扩展范围/)).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "保存为账号检索设置" }));
+  await waitFor(() => expect(fetch.mock.calls.some(([, options]) => options?.method === "PUT")).toBe(true));
+  const saved = JSON.parse(fetch.mock.calls.find(([, options]) => options?.method === "PUT")![1]!.body as string);
+  expect(saved.rerank_enabled).toBe(true);
+  expect(saved.context_enabled).toBe(true);
+});

@@ -1,0 +1,499 @@
+{
+  "description": "人工编写的合成制度/操作资料，仅供回归，不代表真实用户资料质量。固定划分，禁止用 holdout 调参后报告为独立结果。",
+  "documents": [
+    {
+      "id": "travel",
+      "title": "星河差旅制度",
+      "content": "星河项目员工住宿每日上限为 650 元，餐饮每日上限为 180 元。须在出差结束后 15 个工作日内提交报销，附发票和审批单。"
+    },
+    {
+      "id": "access",
+      "title": "研发权限规范",
+      "content": "北辰研发仓库仅项目成员可访问。权限申请由直属主管审批，信息中心在 2 个工作日内开通。离职当天回收所有权限。"
+    },
+    {
+      "id": "backup",
+      "title": "数据库备份手册",
+      "content": "晨曦数据库每日 02:30 进行全量备份。备份保留 30 天，存储于隔离服务器。每月第一个周五执行恢复演练，负责人为赵工。"
+    },
+    {
+      "id": "incident",
+      "title": "故障响应流程",
+      "content": "海潮平台一级故障需在 10 分钟内响应，由值班负责人协调。故障恢复后 48 小时内完成复盘报告，不得在报告中包含用户密码。"
+    },
+    {
+      "id": "purchase",
+      "title": "设备采购规定",
+      "content": "远山项目单笔采购超过 5000 元需部门负责人及财务双重审批。申请材料包括用途说明和三家报价。设备到货后由资产管理员登记。"
+    },
+    {
+      "id": "meeting",
+      "title": "会议室预约指南",
+      "content": "月球实验室会议室开放时间为 09:00 至 18:00。最多提前 7 天预约，每次不超过 2 小时。取消预约应至少提前 30 分钟。"
+    },
+    {
+      "id": "release",
+      "title": "上线发布规范",
+      "content": "云帆系统仅允许每周二、周四 20:00 至 22:00 发布。上线需要测试报告和回滚方案。发布失败由当班工程师执行回滚。"
+    },
+    {
+      "id": "leave",
+      "title": "年假申请规则",
+      "content": "青禾部门年假须提前 5 个工作日申请，由直属主管审批。连续休假超过 10 天需要部门经理加签。年假余额在员工自助平台查询。"
+    },
+    {
+      "id": "contract",
+      "title": "合同归档办法",
+      "content": "松柏公司合同签署后 3 个工作日内归档。纸质原件交法务室，电子扫描件保存至合同系统。合同管理员为陈静，保存期限为 10 年。"
+    },
+    {
+      "id": "training",
+      "title": "新员工培训安排",
+      "content": "流光部门新员工入职第一周完成安全培训。结业测验达到 80 分为合格，未通过者在 7 天内补考。培训资料由人事专员提供。"
+    },
+    {
+      "id": "visitor",
+      "title": "访客管理制度",
+      "content": "白鹭园区访客须提前 1 天由接待人登记。进入园区需出示身份证件并佩戴访客证。访客不得独自进入研发楼，离开时归还访客证。"
+    },
+    {
+      "id": "inventory",
+      "title": "库存盘点规则",
+      "content": "星港仓库每月最后一个工作日盘点，盘点期间暂停出入库。差异超过 1000 元需财务复核。盘点报告由仓库主管签字。"
+    }
+  ],
+  "cases": [
+    {
+      "id": "travel-0",
+      "split": "development",
+      "question": "星河出差住宿一天能报多少钱？",
+      "expected_document": "travel"
+    },
+    {
+      "id": "travel-1",
+      "split": "development",
+      "question": "星河差旅餐饮每日限额是多少？",
+      "expected_document": "travel"
+    },
+    {
+      "id": "travel-2",
+      "split": "development",
+      "question": "星河差旅报销需要什么材料？",
+      "expected_document": "travel"
+    },
+    {
+      "id": "travel-follow",
+      "split": "development",
+      "question": "那最晚什么时候申请？",
+      "history": [
+        {
+          "role": "user",
+          "content": "星河出差住宿一天能报多少钱？"
+        }
+      ],
+      "expected_document": "travel"
+    },
+    {
+      "id": "access-0",
+      "split": "development",
+      "question": "北辰代码仓库谁能访问？",
+      "expected_document": "access"
+    },
+    {
+      "id": "access-1",
+      "split": "development",
+      "question": "北辰权限申请由谁审批？",
+      "expected_document": "access"
+    },
+    {
+      "id": "access-2",
+      "split": "development",
+      "question": "北辰员工离职后何时关闭权限？",
+      "expected_document": "access"
+    },
+    {
+      "id": "access-follow",
+      "split": "development",
+      "question": "那多久能开通？",
+      "history": [
+        {
+          "role": "user",
+          "content": "北辰代码仓库谁能访问？"
+        }
+      ],
+      "expected_document": "access"
+    },
+    {
+      "id": "backup-0",
+      "split": "development",
+      "question": "晨曦数据库什么时候备份？",
+      "expected_document": "backup"
+    },
+    {
+      "id": "backup-1",
+      "split": "development",
+      "question": "晨曦备份保存多长时间？",
+      "expected_document": "backup"
+    },
+    {
+      "id": "backup-2",
+      "split": "development",
+      "question": "晨曦数据库恢复演练由谁负责？",
+      "expected_document": "backup"
+    },
+    {
+      "id": "backup-follow",
+      "split": "development",
+      "question": "那恢复演练什么时候做？",
+      "history": [
+        {
+          "role": "user",
+          "content": "晨曦数据库什么时候备份？"
+        }
+      ],
+      "expected_document": "backup"
+    },
+    {
+      "id": "incident-0",
+      "split": "development",
+      "question": "海潮一级故障响应时限是多少？",
+      "expected_document": "incident"
+    },
+    {
+      "id": "incident-1",
+      "split": "development",
+      "question": "海潮故障谁来协调处理？",
+      "expected_document": "incident"
+    },
+    {
+      "id": "incident-2",
+      "split": "development",
+      "question": "海潮复盘报告不能写什么？",
+      "expected_document": "incident"
+    },
+    {
+      "id": "incident-follow",
+      "split": "development",
+      "question": "那恢复后多久完成复盘？",
+      "history": [
+        {
+          "role": "user",
+          "content": "海潮一级故障响应时限是多少？"
+        }
+      ],
+      "expected_document": "incident"
+    },
+    {
+      "id": "purchase-0",
+      "split": "development",
+      "question": "远山采购多少钱需要双重审批？",
+      "expected_document": "purchase"
+    },
+    {
+      "id": "purchase-1",
+      "split": "development",
+      "question": "远山采购申请要提交哪些文件？",
+      "expected_document": "purchase"
+    },
+    {
+      "id": "purchase-2",
+      "split": "development",
+      "question": "远山新设备由谁登记？",
+      "expected_document": "purchase"
+    },
+    {
+      "id": "purchase-follow",
+      "split": "development",
+      "question": "那由哪些人审批？",
+      "history": [
+        {
+          "role": "user",
+          "content": "远山采购多少钱需要双重审批？"
+        }
+      ],
+      "expected_document": "purchase"
+    },
+    {
+      "id": "meeting-0",
+      "split": "development",
+      "question": "月球实验室会议室几点开放？",
+      "expected_document": "meeting"
+    },
+    {
+      "id": "meeting-1",
+      "split": "development",
+      "question": "月球会议室单次能用多久？",
+      "expected_document": "meeting"
+    },
+    {
+      "id": "meeting-2",
+      "split": "development",
+      "question": "月球会议室取消预约需提前多久？",
+      "expected_document": "meeting"
+    },
+    {
+      "id": "meeting-follow",
+      "split": "development",
+      "question": "那最多提前几天预约？",
+      "history": [
+        {
+          "role": "user",
+          "content": "月球实验室会议室几点开放？"
+        }
+      ],
+      "expected_document": "meeting"
+    },
+    {
+      "id": "release-0",
+      "split": "development",
+      "question": "云帆允许在哪些日子发布？",
+      "expected_document": "release"
+    },
+    {
+      "id": "release-1",
+      "split": "development",
+      "question": "云帆上线需要什么材料？",
+      "expected_document": "release"
+    },
+    {
+      "id": "release-2",
+      "split": "development",
+      "question": "云帆发布失败谁负责回滚？",
+      "expected_document": "release"
+    },
+    {
+      "id": "release-follow",
+      "split": "development",
+      "question": "那具体是几点到几点？",
+      "history": [
+        {
+          "role": "user",
+          "content": "云帆允许在哪些日子发布？"
+        }
+      ],
+      "expected_document": "release"
+    },
+    {
+      "id": "leave-0",
+      "split": "development",
+      "question": "青禾年假要提前多久申请？",
+      "expected_document": "leave"
+    },
+    {
+      "id": "leave-1",
+      "split": "development",
+      "question": "青禾年假在哪里查余额？",
+      "expected_document": "leave"
+    },
+    {
+      "id": "leave-2",
+      "split": "development",
+      "question": "青禾连续年假超过几天需要加签？",
+      "expected_document": "leave"
+    },
+    {
+      "id": "leave-follow",
+      "split": "development",
+      "question": "那谁来加签？",
+      "history": [
+        {
+          "role": "user",
+          "content": "青禾年假要提前多久申请？"
+        }
+      ],
+      "expected_document": "leave"
+    },
+    {
+      "id": "contract-0",
+      "split": "holdout",
+      "question": "松柏合同多久内归档？",
+      "expected_document": "contract"
+    },
+    {
+      "id": "contract-1",
+      "split": "holdout",
+      "question": "松柏合同纸质原件交到哪里？",
+      "expected_document": "contract"
+    },
+    {
+      "id": "contract-2",
+      "split": "holdout",
+      "question": "松柏合同电子扫描件存在哪里？",
+      "expected_document": "contract"
+    },
+    {
+      "id": "contract-follow",
+      "split": "holdout",
+      "question": "那合同保存多少年？",
+      "history": [
+        {
+          "role": "user",
+          "content": "松柏合同多久内归档？"
+        }
+      ],
+      "expected_document": "contract"
+    },
+    {
+      "id": "training-0",
+      "split": "holdout",
+      "question": "流光新人什么时候参加安全培训？",
+      "expected_document": "training"
+    },
+    {
+      "id": "training-1",
+      "split": "holdout",
+      "question": "流光培训测验多少分合格？",
+      "expected_document": "training"
+    },
+    {
+      "id": "training-2",
+      "split": "holdout",
+      "question": "流光培训资料找谁领取？",
+      "expected_document": "training"
+    },
+    {
+      "id": "training-follow",
+      "split": "holdout",
+      "question": "那不合格多久内补考？",
+      "history": [
+        {
+          "role": "user",
+          "content": "流光新人什么时候参加安全培训？"
+        }
+      ],
+      "expected_document": "training"
+    },
+    {
+      "id": "visitor-0",
+      "split": "holdout",
+      "question": "白鹭访客要提前多久登记？",
+      "expected_document": "visitor"
+    },
+    {
+      "id": "visitor-1",
+      "split": "holdout",
+      "question": "白鹭访客进入园区需要什么？",
+      "expected_document": "visitor"
+    },
+    {
+      "id": "visitor-2",
+      "split": "holdout",
+      "question": "白鹭访客能否独自进入研发楼？",
+      "expected_document": "visitor"
+    },
+    {
+      "id": "visitor-follow",
+      "split": "holdout",
+      "question": "那离开时需要做什么？",
+      "history": [
+        {
+          "role": "user",
+          "content": "白鹭访客要提前多久登记？"
+        }
+      ],
+      "expected_document": "visitor"
+    },
+    {
+      "id": "inventory-0",
+      "split": "holdout",
+      "question": "星港仓库何时盘点？",
+      "expected_document": "inventory"
+    },
+    {
+      "id": "inventory-1",
+      "split": "holdout",
+      "question": "星港盘点期间可以出库吗？",
+      "expected_document": "inventory"
+    },
+    {
+      "id": "inventory-2",
+      "split": "holdout",
+      "question": "星港盘点报告由谁签字？",
+      "expected_document": "inventory"
+    },
+    {
+      "id": "inventory-follow",
+      "split": "holdout",
+      "question": "那差异超过多少需要复核？",
+      "history": [
+        {
+          "role": "user",
+          "content": "星港仓库何时盘点？"
+        }
+      ],
+      "expected_document": "inventory"
+    },
+    {
+      "id": "unknown-0",
+      "split": "development",
+      "question": "星河项目海外住宿是否另有标准？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-1",
+      "split": "development",
+      "question": "北辰仓库的管理员电话号码是多少？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-2",
+      "split": "development",
+      "question": "晨曦数据库使用哪个云厂商？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-3",
+      "split": "development",
+      "question": "海潮平台上个月有几次故障？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-4",
+      "split": "development",
+      "question": "远山采购供应商的银行账号是多少？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-5",
+      "split": "development",
+      "question": "月球实验室会议室有多少个座位？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-6",
+      "split": "development",
+      "question": "云帆系统周日的发布成功率是多少？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-7",
+      "split": "development",
+      "question": "青禾年假能否折现以及折现比例？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-8",
+      "split": "holdout",
+      "question": "松柏合同违约金如何计算？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-9",
+      "split": "holdout",
+      "question": "流光培训讲师的姓名是什么？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-10",
+      "split": "holdout",
+      "question": "白鹭园区停车费每小时多少钱？",
+      "expected_document": null
+    },
+    {
+      "id": "unknown-11",
+      "split": "holdout",
+      "question": "星港仓库库存总价值是多少？",
+      "expected_document": null
+    }
+  ]
+}

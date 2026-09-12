@@ -1,0 +1,10 @@
+FROM python:3.12.12-slim-bookworm
+RUN pip install --no-cache-dir numpy==2.2.6 pandas==2.3.3 matplotlib==3.10.8
+RUN groupadd -g 65532 runner && useradd -u 65532 -g 65532 -M runner
+RUN mkdir /inputs
+COPY runner.py /opt/agent-runner.py
+USER 65532:65532
+WORKDIR /work
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV MPLBACKEND=Agg MPLCONFIGDIR=/tmp/matplotlib OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
+ENTRYPOINT ["python", "-I", "-B", "-c"]

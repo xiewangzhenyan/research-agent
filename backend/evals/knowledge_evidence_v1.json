@@ -1,0 +1,371 @@
+{
+  "description": "Synthetic regression for adjacent page evidence loss; not real scientific papers or independently sampled accuracy. Each question uses one selected document.",
+  "documents": [
+    {
+      "id": "A",
+      "title": "LSPR study A",
+      "blocks": [
+        {
+          "page": 1,
+          "text": "LSPR study A. The refractive-index sensitivity is 151 nm/RIU.",
+          "location": {}
+        },
+        {
+          "page": 2,
+          "text": "LSPR study A. The measurement wavelength range is 510 to 710 nm.",
+          "location": {}
+        },
+        {
+          "page": 3,
+          "text": "LSPR study A. The incubation time is 18 minutes.",
+          "location": {}
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "title": "LSPR study B",
+      "blocks": [
+        {
+          "page": 1,
+          "text": "LSPR study B 合成实验。折射率灵敏度为 263 nm/RIU。",
+          "location": {}
+        },
+        {
+          "page": 2,
+          "text": "LSPR study B 合成实验。测量波长范围为 520 至 720 nm。",
+          "location": {}
+        },
+        {
+          "page": 3,
+          "text": "LSPR study B 合成实验。孵育时间为 24 分钟。",
+          "location": {}
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "title": "LSPR study C",
+      "blocks": [
+        {
+          "page": 1,
+          "text": "LSPR study C. The refractive-index sensitivity is 374 nm/RIU.",
+          "location": {}
+        },
+        {
+          "page": 2,
+          "text": "LSPR study C. The measurement wavelength range is 530 to 730 nm.",
+          "location": {}
+        },
+        {
+          "page": 3,
+          "text": "LSPR study C. The incubation time is 36 minutes.",
+          "location": {}
+        }
+      ]
+    },
+    {
+      "id": "D",
+      "title": "LSPR study D",
+      "blocks": [
+        {
+          "page": 1,
+          "text": "LSPR study D 合成实验。折射率灵敏度为 485 nm/RIU。",
+          "location": {}
+        },
+        {
+          "page": 2,
+          "text": "LSPR study D 合成实验。测量波长范围为 540 至 740 nm。",
+          "location": {}
+        },
+        {
+          "page": 3,
+          "text": "LSPR study D 合成实验。孵育时间为 42 分钟。",
+          "location": {}
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "A-1",
+      "split": "development",
+      "question": "LSPR study A 的折射率灵敏度和测量波长范围分别是多少？",
+      "document_ids": [
+        "A"
+      ],
+      "expected_document": "A",
+      "expected_evidence": [
+        {
+          "document_id": "A",
+          "page": 1
+        },
+        {
+          "document_id": "A",
+          "page": 2
+        }
+      ]
+    },
+    {
+      "id": "A-2",
+      "split": "development",
+      "question": "LSPR study A 的测量波长范围和孵育时间分别是多少？",
+      "document_ids": [
+        "A"
+      ],
+      "expected_document": "A",
+      "expected_evidence": [
+        {
+          "document_id": "A",
+          "page": 2
+        },
+        {
+          "document_id": "A",
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "A-3",
+      "split": "development",
+      "question": "LSPR study A 的折射率灵敏度、测量波长范围和孵育时间分别是多少？",
+      "document_ids": [
+        "A"
+      ],
+      "expected_document": "A",
+      "expected_evidence": [
+        {
+          "document_id": "A",
+          "page": 1
+        },
+        {
+          "document_id": "A",
+          "page": 2
+        },
+        {
+          "document_id": "A",
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "A-unknown",
+      "split": "development",
+      "question": "LSPR study A 的设备采购价格是多少？",
+      "document_ids": [
+        "A"
+      ],
+      "expected_document": null
+    },
+    {
+      "id": "B-1",
+      "split": "development",
+      "question": "LSPR study B 的折射率灵敏度和测量波长范围分别是多少？",
+      "document_ids": [
+        "B"
+      ],
+      "expected_document": "B",
+      "expected_evidence": [
+        {
+          "document_id": "B",
+          "page": 1
+        },
+        {
+          "document_id": "B",
+          "page": 2
+        }
+      ]
+    },
+    {
+      "id": "B-2",
+      "split": "development",
+      "question": "LSPR study B 的测量波长范围和孵育时间分别是多少？",
+      "document_ids": [
+        "B"
+      ],
+      "expected_document": "B",
+      "expected_evidence": [
+        {
+          "document_id": "B",
+          "page": 2
+        },
+        {
+          "document_id": "B",
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "B-3",
+      "split": "development",
+      "question": "LSPR study B 的折射率灵敏度、测量波长范围和孵育时间分别是多少？",
+      "document_ids": [
+        "B"
+      ],
+      "expected_document": "B",
+      "expected_evidence": [
+        {
+          "document_id": "B",
+          "page": 1
+        },
+        {
+          "document_id": "B",
+          "page": 2
+        },
+        {
+          "document_id": "B",
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "B-unknown",
+      "split": "development",
+      "question": "LSPR study B 的设备采购价格是多少？",
+      "document_ids": [
+        "B"
+      ],
+      "expected_document": null
+    },
+    {
+      "id": "C-1",
+      "split": "holdout",
+      "question": "LSPR study C 的折射率灵敏度和测量波长范围分别是多少？",
+      "document_ids": [
+        "C"
+      ],
+      "expected_document": "C",
+      "expected_evidence": [
+        {
+          "document_id": "C",
+          "page": 1
+        },
+        {
+          "document_id": "C",
+          "page": 2
+        }
+      ]
+    },
+    {
+      "id": "C-2",
+      "split": "holdout",
+      "question": "LSPR study C 的测量波长范围和孵育时间分别是多少？",
+      "document_ids": [
+        "C"
+      ],
+      "expected_document": "C",
+      "expected_evidence": [
+        {
+          "document_id": "C",
+          "page": 2
+        },
+        {
+          "document_id": "C",
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "C-3",
+      "split": "holdout",
+      "question": "LSPR study C 的折射率灵敏度、测量波长范围和孵育时间分别是多少？",
+      "document_ids": [
+        "C"
+      ],
+      "expected_document": "C",
+      "expected_evidence": [
+        {
+          "document_id": "C",
+          "page": 1
+        },
+        {
+          "document_id": "C",
+          "page": 2
+        },
+        {
+          "document_id": "C",
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "C-unknown",
+      "split": "holdout",
+      "question": "LSPR study C 的设备采购价格是多少？",
+      "document_ids": [
+        "C"
+      ],
+      "expected_document": null
+    },
+    {
+      "id": "D-1",
+      "split": "holdout",
+      "question": "LSPR study D 的折射率灵敏度和测量波长范围分别是多少？",
+      "document_ids": [
+        "D"
+      ],
+      "expected_document": "D",
+      "expected_evidence": [
+        {
+          "document_id": "D",
+          "page": 1
+        },
+        {
+          "document_id": "D",
+          "page": 2
+        }
+      ]
+    },
+    {
+      "id": "D-2",
+      "split": "holdout",
+      "question": "LSPR study D 的测量波长范围和孵育时间分别是多少？",
+      "document_ids": [
+        "D"
+      ],
+      "expected_document": "D",
+      "expected_evidence": [
+        {
+          "document_id": "D",
+          "page": 2
+        },
+        {
+          "document_id": "D",
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "D-3",
+      "split": "holdout",
+      "question": "LSPR study D 的折射率灵敏度、测量波长范围和孵育时间分别是多少？",
+      "document_ids": [
+        "D"
+      ],
+      "expected_document": "D",
+      "expected_evidence": [
+        {
+          "document_id": "D",
+          "page": 1
+        },
+        {
+          "document_id": "D",
+          "page": 2
+        },
+        {
+          "document_id": "D",
+          "page": 3
+        }
+      ]
+    },
+    {
+      "id": "D-unknown",
+      "split": "holdout",
+      "question": "LSPR study D 的设备采购价格是多少？",
+      "document_ids": [
+        "D"
+      ],
+      "expected_document": null
+    }
+  ]
+}

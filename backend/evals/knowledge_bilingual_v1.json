@@ -1,0 +1,327 @@
+{
+  "description": "Synthetic bilingual scientific terminology regression, not real papers or an accuracy estimate. Fixed development/holdout cases; do not tune using holdout.",
+  "documents": [
+    {
+      "id": "lspr",
+      "title": "Localized surface plasmon resonance",
+      "content": "Localized surface plasmon resonance arises from collective conduction electron oscillations in metal nanostructures. The resonance wavelength changes with the surrounding dielectric environment."
+    },
+    {
+      "id": "meta",
+      "title": "Metasurface phase design",
+      "content": "A metasurface uses subwavelength scatterers to control the phase of transmitted light. The synthetic design uses a phase gradient to steer a beam."
+    },
+    {
+      "id": "lod",
+      "title": "Detection threshold",
+      "content": "The limit of detection is determined from blank variability and a calibration slope. In this artificial example the threshold is 7 picomolar."
+    },
+    {
+      "id": "nsb",
+      "title": "Surface adsorption",
+      "content": "Nonspecific adsorption can generate background signals even when the target analyte is absent. A blocking step reduces unwanted attachment to the surface."
+    },
+    {
+      "id": "qfactor",
+      "title": "Resonance linewidth",
+      "content": "The quality factor is the resonance frequency divided by its linewidth. A narrow resonance has a higher quality factor when its center frequency is held fixed."
+    },
+    {
+      "id": "antibody",
+      "title": "Binding recognition",
+      "content": "An antibody binds an antigen through its variable region. In the artificial binding protocol, the incubation time is 18 minutes."
+    },
+    {
+      "id": "cn_buffer",
+      "title": "缓冲液配制",
+      "content": "磷酸盐缓冲盐水用于稳定溶液酸碱度。这份合成流程规定缓冲液的 pH 为 7.2，不代表实际实验建议。"
+    },
+    {
+      "id": "spr",
+      "title": "Planar surface waves",
+      "content": "Surface plasmon resonance in this example is excited on a planar metal film using a prism. The propagating mode differs from a localized particle resonance."
+    },
+    {
+      "id": "sensitivity",
+      "title": "Index calibration",
+      "content": "Refractive index sensitivity is reported as the wavelength shift per refractive index unit. The artificial sensor has a sensitivity of 142 nm/RIU."
+    },
+    {
+      "id": "gold",
+      "title": "Particle fabrication",
+      "content": "Gold nanoparticles are stabilized using citrate in this artificial preparation. The mean particle diameter in the fixture is 36 nm."
+    },
+    {
+      "id": "fom",
+      "title": "Sensor performance",
+      "content": "The figure of merit for this wavelength sensor is its refractive index sensitivity divided by the resonance linewidth. This definition is different from a resonance quality factor."
+    },
+    {
+      "id": "elisa",
+      "title": "Enzyme assay",
+      "content": "The enzyme-linked immunosorbent assay produces a colorimetric readout after substrate addition. The artificial plate is washed four times before the detection step."
+    },
+    {
+      "id": "functional",
+      "title": "Surface chemistry",
+      "content": "Surface functionalization attaches receptor molecules to the substrate. A thiol group can anchor the synthetic receptor to a gold surface."
+    },
+    {
+      "id": "cn_polar",
+      "title": "偏振控制",
+      "content": "偏振描述光电场的振动方向。本合成案例用半波片旋转线偏振方向，与实际设备参数无关。"
+    },
+    {
+      "id": "cn_micro",
+      "title": "微流控输运",
+      "content": "微流控通道将样品输送到检测区。合成示例的流量为每分钟 4 微升，不是实际实验建议。"
+    },
+    {
+      "id": "cn_dna",
+      "title": "核酸识别",
+      "content": "脱氧核糖核酸的互补碱基配对用于探针识别。本合成方案使用固定于表面的单链探针。"
+    }
+  ],
+  "cases": [
+    {
+      "id": "lspr-1",
+      "split": "development",
+      "question": "局域表面等离激元共振的物理起源是什么？",
+      "expected_document": "lspr"
+    },
+    {
+      "id": "lspr-2",
+      "split": "development",
+      "question": "LSPR 的共振波长受周围什么环境影响？",
+      "expected_document": "lspr"
+    },
+    {
+      "id": "meta-1",
+      "split": "development",
+      "question": "超表面通过什么结构调控透射光的相位？",
+      "expected_document": "meta"
+    },
+    {
+      "id": "meta-2",
+      "split": "development",
+      "question": "超表面的相位梯度用于什么？",
+      "expected_document": "meta"
+    },
+    {
+      "id": "lod-1",
+      "split": "development",
+      "question": "检测限如何由空白波动与校准曲线计算？",
+      "expected_document": "lod"
+    },
+    {
+      "id": "lod-2",
+      "split": "development",
+      "question": "这个示例中的检测限是多少？",
+      "expected_document": "lod"
+    },
+    {
+      "id": "nsb-1",
+      "split": "development",
+      "question": "非特异性吸附为何会产生背景信号？",
+      "expected_document": "nsb"
+    },
+    {
+      "id": "nsb-2",
+      "split": "development",
+      "question": "如何降低非特异性吸附？",
+      "expected_document": "nsb"
+    },
+    {
+      "id": "qfactor-1",
+      "split": "development",
+      "question": "品质因数与共振线宽有什么关系？",
+      "expected_document": "qfactor"
+    },
+    {
+      "id": "qfactor-2",
+      "split": "development",
+      "question": "共振中心频率固定时，线宽越窄品质因数怎样变化？",
+      "expected_document": "qfactor"
+    },
+    {
+      "id": "antibody-1",
+      "split": "development",
+      "question": "抗体通过哪个区域结合抗原？",
+      "expected_document": "antibody"
+    },
+    {
+      "id": "antibody-2",
+      "split": "development",
+      "question": "这个方案中抗原与抗体的孵育时间是多少？",
+      "expected_document": "antibody"
+    },
+    {
+      "id": "cn_buffer-1",
+      "split": "development",
+      "question": "What pH is specified for the phosphate buffered saline?",
+      "expected_document": "cn_buffer"
+    },
+    {
+      "id": "cn_buffer-2",
+      "split": "development",
+      "question": "磷酸盐缓冲盐水在流程中有何作用？",
+      "expected_document": "cn_buffer"
+    },
+    {
+      "id": "spr-1",
+      "split": "development",
+      "question": "表面等离激元共振示例通过什么激发？",
+      "expected_document": "spr"
+    },
+    {
+      "id": "spr-2",
+      "split": "development",
+      "question": "SPR 示例的金属薄膜是平面还是颗粒？",
+      "expected_document": "spr"
+    },
+    {
+      "id": "sensitivity-1",
+      "split": "holdout",
+      "question": "折射率灵敏度采用什么单位？",
+      "expected_document": "sensitivity"
+    },
+    {
+      "id": "sensitivity-2",
+      "split": "holdout",
+      "question": "合成传感器的折射率灵敏度是多少？",
+      "expected_document": "sensitivity"
+    },
+    {
+      "id": "gold-1",
+      "split": "holdout",
+      "question": "金纳米颗粒使用什么稳定剂？",
+      "expected_document": "gold"
+    },
+    {
+      "id": "gold-2",
+      "split": "holdout",
+      "question": "这里的金纳米颗粒平均直径是多少？",
+      "expected_document": "gold"
+    },
+    {
+      "id": "fom-1",
+      "split": "holdout",
+      "question": "该波长传感器的优值如何定义？",
+      "expected_document": "fom"
+    },
+    {
+      "id": "fom-2",
+      "split": "holdout",
+      "question": "这个示例的 FOM 与共振线宽有何关系？",
+      "expected_document": "fom"
+    },
+    {
+      "id": "elisa-1",
+      "split": "holdout",
+      "question": "酶联免疫吸附测定采用什么读出方式？",
+      "expected_document": "elisa"
+    },
+    {
+      "id": "elisa-2",
+      "split": "holdout",
+      "question": "该 ELISA 流程检测前清洗几次？",
+      "expected_document": "elisa"
+    },
+    {
+      "id": "functional-1",
+      "split": "holdout",
+      "question": "表面功能化如何将受体固定在金表面？",
+      "expected_document": "functional"
+    },
+    {
+      "id": "functional-2",
+      "split": "holdout",
+      "question": "表面功能化固定的是什么分子？",
+      "expected_document": "functional"
+    },
+    {
+      "id": "cn_polar-1",
+      "split": "holdout",
+      "question": "What component rotates polarization in the example?",
+      "expected_document": "cn_polar"
+    },
+    {
+      "id": "cn_polar-2",
+      "split": "holdout",
+      "question": "偏振描述的是光的什么性质？",
+      "expected_document": "cn_polar"
+    },
+    {
+      "id": "cn_micro-1",
+      "split": "holdout",
+      "question": "How does microfluidics deliver the sample?",
+      "expected_document": "cn_micro"
+    },
+    {
+      "id": "cn_micro-2",
+      "split": "holdout",
+      "question": "微流控示例的流量是多少？",
+      "expected_document": "cn_micro"
+    },
+    {
+      "id": "cn_dna-1",
+      "split": "holdout",
+      "question": "How does deoxyribonucleic acid enable probe recognition?",
+      "expected_document": "cn_dna"
+    },
+    {
+      "id": "cn_dna-2",
+      "split": "holdout",
+      "question": "该方案使用什么类型的脱氧核糖核酸探针？",
+      "expected_document": "cn_dna"
+    },
+    {
+      "id": "development-unknown-1",
+      "split": "development",
+      "question": "今天上海天气怎样？",
+      "expected_document": null
+    },
+    {
+      "id": "development-unknown-2",
+      "split": "development",
+      "question": "超表面方案的采购报价是多少？",
+      "expected_document": null
+    },
+    {
+      "id": "development-unknown-3",
+      "split": "development",
+      "question": "抗体供应商的联系电话是什么？",
+      "expected_document": null
+    },
+    {
+      "id": "development-unknown-4",
+      "split": "development",
+      "question": "软件许可证何时到期？",
+      "expected_document": null
+    },
+    {
+      "id": "holdout-unknown-1",
+      "split": "holdout",
+      "question": "金纳米颗粒在哪家商店购买？",
+      "expected_document": null
+    },
+    {
+      "id": "holdout-unknown-2",
+      "split": "holdout",
+      "question": "微流控设备的保修日期是哪天？",
+      "expected_document": null
+    },
+    {
+      "id": "holdout-unknown-3",
+      "split": "holdout",
+      "question": "请给出太空飞船的发射时间。",
+      "expected_document": null
+    },
+    {
+      "id": "holdout-unknown-4",
+      "split": "holdout",
+      "question": "这个课题组明年的招生人数是多少？",
+      "expected_document": null
+    }
+  ]
+}

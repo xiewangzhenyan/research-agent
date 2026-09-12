@@ -1,0 +1,1114 @@
+{
+  "common": {
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "新建",
+    "search": "搜索",
+    "back": "返回",
+    "next": "下一步",
+    "previous": "上一步",
+    "submit": "提交",
+    "close": "关闭",
+    "confirm": "确认",
+    "yes": "是",
+    "no": "否",
+    "done": "完成",
+    "retry": "重试",
+    "skipToContent": "跳至内容",
+    "live": "实时",
+    "offline": "离线",
+    "aiDisclaimer": "AI 可能出错，请核对重要信息。"
+  },
+  "navigation": {
+    "home": "首页",
+    "dashboard": "概览",
+    "profile": "个人资料",
+    "settings": "设置",
+    "logout": "退出登录"
+  },
+  "nav": {
+    "dashboard": "概览",
+    "chat": "对话",
+    "knowledge": "知识库",
+    "knowledgeBases": "知识库",
+    "knowledgeBasesDesc": "文档与集合",
+    "rag": "RAG",
+    "ragSearch": "RAG 搜索",
+    "ragSearchDesc": "查询与导入",
+    "team": "团队",
+    "organizations": "组织",
+    "organizationsDesc": "工作区与成员",
+    "billing": "账单",
+    "admin": "管理",
+    "profile": "个人资料",
+    "settings": "设置",
+    "overview": "概述",
+    "users": "用户",
+    "conversations": "对话",
+    "ratings": "评分",
+    "stripeEvents": "Stripe 事件",
+    "systemHealth": "系统状态",
+    "system": "系统",
+    "account": "账户",
+    "notifications": "通知",
+    "appearance": "外观",
+    "slashCommands": "斜杠命令",
+    "search": "搜索",
+    "home": "首页",
+    "kb": "知识库",
+    "usage": "使用量",
+    "credits": "积分",
+    "invoices": "发票",
+    "paymentMethods": "付款方式",
+    "subscription": "订阅",
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出登录",
+    "toggleMenu": "切换菜单",
+    "navigate": "导航",
+    "apiDocs": "API文档",
+    "responseRatings": "回复评分",
+    "allConversations": "所有对话",
+    "settingsSection": "设置",
+    "billingSection": "账单"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "email": "邮箱",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "forgotPassword": "忘记密码？",
+    "noAccount": "还没有账户？",
+    "hasAccount": "已有账户？",
+    "loginSuccess": "登录成功",
+    "registerSuccess": "账户创建成功",
+    "logoutSuccess": "成功退出",
+    "invalidCredentials": "邮箱或密码错误",
+    "emailRequired": "请输入邮箱",
+    "passwordRequired": "请输入密码",
+    "passwordMismatch": "两次输入的密码不一致",
+    "continueWithGoogle": "使用 Google 登录",
+    "signUpWithGoogle": "使用 Google 注册",
+    "orContinueWith": "或使用以下方式继续",
+    "orRegisterWith": "或使用邮箱注册",
+    "redirecting": "正在重定向...",
+    "loggingIn": "正在登录...",
+    "creatingAccount": "正在创建账户...",
+    "nameOptional": "姓名（可选）",
+    "createAccount": "创建账户",
+    "welcomeBack": "欢迎回来",
+    "getStarted": "开始设置您的账户",
+    "forgotShort": "忘记了？",
+    "namePlaceholder": "我们该怎么称呼你呢？",
+    "emailPlaceholder": "请输入邮箱地址",
+    "orSignInWith": "或通过以下方式登录",
+    "orSignUpWith": "或通过以下方式注册",
+    "resetPassword": {
+      "eyebrow": "重置密码",
+      "heading": "设置新密码",
+      "intro": "请设置一个未在其他网站使用过的密码，至少 8 个字符，并包含大小写字母和数字。",
+      "newPassword": "新密码",
+      "confirm": "确认",
+      "passwordsMatch": "匹配",
+      "passwordsDontMatch": "密码不匹配",
+      "submit": "更新密码",
+      "submitting": "正在更新…",
+      "minLength": "密码必须至少为 8 个字符",
+      "successToast": "密码已更新。登录以继续。",
+      "invalidLink": "重置链接无效或已过期。",
+      "backToSignIn": "返回登录",
+      "strengthWeak": "弱",
+      "strengthFair": "一般",
+      "strengthGood": "良好",
+      "strengthStrong": "强"
+    },
+    "magicLink": {
+      "verifying": "正在登录…",
+      "verifyingHint": "正在验证您的登录链接，请稍候。",
+      "success": "已登录",
+      "successHint": "正在重定向到您的工作区...",
+      "errorHeading": "无法让您登录",
+      "errorMissingToken": "未提供令牌。请求新的登录链接。",
+      "errorInvalid": "登录链接无效或已过期。",
+      "signInWithPassword": "使用密码登录",
+      "requestNewLink": "请求新链接"
+    },
+    "usageHelp": "注册前查看使用说明",
+    "shell": {
+      "backHome": "返回首页",
+      "tagline": "你的知识与智能工作空间",
+      "heading": "让知识汇聚，",
+      "headingAccent": "让答案有据。",
+      "description": "将文档整理为专属知识库，在对话中查找信息、理解内容，并回到原文核对依据。",
+      "documents": "整理资料",
+      "knowledge": "连接知识",
+      "answers": "开启对话",
+      "feature1": "专属知识库",
+      "feature2": "自然语言问答",
+      "feature3": "原文引用",
+      "footer": "从一份资料，到一个有依据的答案。"
+    },
+    "loginHeading": "登录工作空间",
+    "loginDescription": "继续管理你的知识库与对话。",
+    "registerHeading": "创建你的账号",
+    "registerDescription": "建立知识库，开始与自己的资料对话。",
+    "emailInvalid": "请输入有效的邮箱地址",
+    "passwordPlaceholder": "请输入密码",
+    "passwordHint": "至少 8 个字符",
+    "repeatPassword": "请再次输入密码",
+    "passwordMinimum": "至少 8 位",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
+    "loginFailed": "暂时无法登录，请稍后重试。",
+    "registerFailed": "注册失败，请稍后重试。",
+    "accountDisabled": "账号暂不可用，请联系站点管理员。",
+    "emailExists": "该邮箱已注册，请直接登录。",
+    "tooManyAttempts": "操作过于频繁，请稍后重试。",
+    "invalidInput": "请检查填写的信息后重试。",
+    "serviceUnavailable": "服务暂时不可用，请稍后重试。",
+    "oauthSignin": "使用 {provider} 登录",
+    "oauthSignup": "使用 {provider} 注册",
+    "forgotHeading": "找回密码",
+    "forgotDescription": "自动邮件找回暂未开放。请通过现有联系渠道联系站点管理员；已登录时，可在账户设置中修改密码。",
+    "backToLogin": "返回登录",
+    "missingResetHeading": "重置链接无效或已过期",
+    "missingResetDescription": "请确认链接是否完整。如需找回密码，请查看当前可用的找回方式。",
+    "recoveryOptions": "查看找回方式",
+    "emailLinkHeading": "检查登录邮件",
+    "emailLinkDescription": "如果你已申请邮箱登录链接，请在邮箱中打开邮件并按提示继续。",
+    "emailLinkHint": "未收到邮件时，请检查垃圾邮件，或返回登录页使用密码登录。",
+    "emailLinkLabel": "邮箱登录",
+    "emailLinkRecipient": "收件邮箱：{email}"
+  },
+  "profile": {
+    "title": "个人资料",
+    "personalInfo": "个人信息",
+    "name": "姓名",
+    "email": "邮箱",
+    "changePassword": "更改密码",
+    "currentPassword": "当前密码",
+    "newPassword": "新密码",
+    "updateProfile": "更新个人资料",
+    "deleteAccount": "删除账户",
+    "deleteAccountWarning": "此操作无法撤销，您的所有数据都将被永久删除。"
+  },
+  "chat": {
+    "title": "聊天",
+    "newChat": "新聊天",
+    "sendMessage": "输入消息...",
+    "thinking": "思考中...",
+    "noConversations": "还没有对话",
+    "startNewChat": "新建一个对话即可开始",
+    "deleteConversation": "删除对话",
+    "archiveConversation": "存档对话",
+    "renameConversation": "重命名对话",
+    "conversations": "对话",
+    "rename": "重命名",
+    "share": "分享",
+    "archive": "归档",
+    "delete": "删除",
+    "newConversation": "新对话",
+    "analyzeFiles": "分析附件",
+    "copyMessage": "复制",
+    "helpful": "有帮助",
+    "notHelpful": "没有帮助",
+    "saveConversationToRate": "先保存对话才能评分",
+    "ratingRemoved": "评分已移除",
+    "thankYouFeedback": "感谢您的反馈！",
+    "ratingFailed": "提交评分失败",
+    "whatWentWrong": "出了什么问题？",
+    "feedbackHelp": "您可以告诉我们哪里不够好，帮助我们持续改进。",
+    "describeIssue": "描述问题...（可选）",
+    "skipComment": "跳过说明",
+    "shareConversation": "分享对话",
+    "shareDescription": "与其他用户共享此对话或生成公共链接。",
+    "userIdOrEmail": "用户 ID 或电子邮件",
+    "generateShareLink": "生成分享链接",
+    "sharedWith": "已共享给",
+    "conversationShared": "对话已共享",
+    "linkGenerated": "已生成分享链接",
+    "accessRevoked": "访问权限被撤销",
+    "revokeAccess": "撤销访问权限",
+    "copyLink": "链接已复制到剪贴板",
+    "failedToShare": "分享对话失败",
+    "failedToGenerateLink": "生成链接失败",
+    "failedToRevoke": "撤销访问权限失败",
+    "active": "进行中",
+    "archived": "已归档",
+    "restore": "恢复",
+    "noArchivedConversations": "没有已归档的对话",
+    "archivedConversationHint": "归档后的对话会显示在这里。",
+    "expandSidebar": "展开对话侧栏",
+    "collapseSidebar": "收起对话侧栏"
+  },
+  "admin": {
+    "conversationsTitle": "管理员：对话",
+    "conversationsDesc": "浏览和管理所有对话和用户。",
+    "ratingsTitle": "回复评分",
+    "conversations": "对话",
+    "users": "用户",
+    "search": "搜索...",
+    "clearUserFilter": "清除用户筛选",
+    "title": "标题",
+    "owner": "所有者",
+    "messages": "消息",
+    "created": "已创建",
+    "status": "状态",
+    "untitled": "无题",
+    "readOnly": "消息（只读）",
+    "noConversations": "未找到任何对话。",
+    "noUsers": "没有找到用户。",
+    "view": "查看",
+    "viewChats": "查看聊天记录",
+    "email": "电子邮件",
+    "name": "姓名",
+    "joined": "已加入",
+    "pageOf": "第 {page} 页（共 {total}）",
+    "total": "共{count}",
+    "allRatings": "所有评级",
+    "likesOnly": "仅喜欢",
+    "dislikesOnly": "仅不喜欢",
+    "withCommentsOnly": "仅限评论",
+    "export": "导出",
+    "totalRatings": "总评分",
+    "likes": "喜欢",
+    "dislikes": "不喜欢",
+    "averageRating": "平均评分",
+    "ratingsOverTime": "评分趋势",
+    "date": "日期",
+    "rating": "评分",
+    "comment": "评论",
+    "message": "消息",
+    "user": "用户",
+    "actions": "操作",
+    "viewConversation": "查看对话",
+    "accessDenied": "拒绝访问"
+  },
+  "errors": {
+    "generic": "出了点问题",
+    "notFound": "找不到页面",
+    "unauthorized": "您无权查看此页面",
+    "forbidden": "禁止访问",
+    "serverError": "服务器错误。请稍后重试。",
+    "networkError": "网络错误。请检查您的连接。"
+  },
+  "organizations": {
+    "title": "组织机构",
+    "description": "管理您的组织并在它们之间切换。",
+    "newOrg": "新组织",
+    "personal": "个人的",
+    "manage": "管理",
+    "switchTo": "切换到",
+    "noOrgs": "还没有组织",
+    "createFirst": "创建您的第一个组织",
+    "createTitle": "创建组织",
+    "nameLabel": "组织名称",
+    "namePlaceholder": "我的团队",
+    "creating": "创造...",
+    "created": "组织创建",
+    "updated": "组织更新",
+    "deleted": "组织已删除",
+    "failedLoad": "无法加载组织",
+    "failedCreate": "创建组织失败"
+  },
+  "members": {
+    "title": "会员",
+    "invite": "邀请",
+    "inviteTitle": "邀请会员",
+    "emailLabel": "电子邮件",
+    "emailPlaceholder": "同事@example.com",
+    "roleLabel": "角色",
+    "roleMember": "成员",
+    "roleAdmin": "行政",
+    "roleOwner": "所有者",
+    "sending": "正在发送...",
+    "sendInvite": "发送邀请",
+    "inviteSent": "邀请已发送至{email}",
+    "failedInvite": "发送邀请失败",
+    "roleUpdated": "角色更新",
+    "failedRole": "更新角色失败",
+    "memberRemoved": "会员已删除",
+    "failedRemove": "删除会员失败",
+    "you": "（你）",
+    "joined": "已加入",
+    "pendingInvitations": "待处理的邀请",
+    "pendingDescription": "尚未接受的邀请",
+    "revoke": "撤销",
+    "revokeSuccess": "邀请已被撤销",
+    "failedRevoke": "撤销邀请失败"
+  },
+  "knowledgeBases": {
+    "title": "知识库",
+    "description": "管理用于 AI 检索的文档集合。",
+    "newKB": "新知识库",
+    "createTitle": "创建知识库",
+    "nameLabel": "姓名",
+    "namePlaceholder": "产品文档",
+    "descriptionLabel": "说明（可选）",
+    "descriptionPlaceholder": "此知识库将包含哪些文档？",
+    "scopeLabel": "范围",
+    "scopePersonal": "个人——只有你",
+    "scopeOrganization": "组织——所有成员",
+    "scopeApp": "应用程序范围内",
+    "active": "积极的",
+    "inactive": "不活跃",
+    "created": "创建知识库",
+    "updated": "知识库已更新",
+    "deleted": "知识库已删除",
+    "failedLoad": "知识库加载失败",
+    "failedCreate": "创建知识库失败"
+  },
+  "billing": {
+    "title": "计费",
+    "description": "管理您的 {org} 订阅。",
+    "subscription": "计费和订阅",
+    "subscriptionDesc": "升级以添加更多座位并解锁功能。",
+    "subscriptionDescPaid": "管理您的订阅和账单详细信息。",
+    "seatsUsed": "使用座位数",
+    "upgrade": "升级计划",
+    "manageBilling": "管理账单",
+    "redirecting": "正在重定向...",
+    "successMessage": "订阅更新成功！",
+    "tierFree": "自由的",
+    "tierSolo": "独奏",
+    "tierTeam": "团队",
+    "tierBusiness": "商业"
+  },
+  "invitations": {
+    "title": "团队邀请",
+    "description": "您已被邀请加入某个组织。",
+    "accept": "接受邀请",
+    "accepting": "加入...",
+    "acceptSuccess": "加入组织！",
+    "redirecting": "正在重定向到您的组织...",
+    "failedTitle": "无法接受邀请",
+    "failedDesc": "邀请可能已过期或已被使用。",
+    "goDashboard": "转到仪表板"
+  },
+  "footer": {
+    "copyright": "版权所有"
+  },
+  "dashboard": {
+    "eyebrow": "工作空间",
+    "greetingMorning": "早上好",
+    "greetingAfternoon": "下午好",
+    "greetingEvening": "晚上好",
+    "description": "这是您工作区今天的最新情况。",
+    "newChat": "新建对话",
+    "operational": "运行正常",
+    "apiOffline": "服务暂不可用",
+    "workspaceMetrics": "工作区数据",
+    "conversations": "对话",
+    "acrossAllChats": "所有对话总计",
+    "knowledgeBase": "知识库",
+    "vectors": "向量",
+    "collectionsIndexed": "已索引 {count} 个集合",
+    "indexedVectors": "已索引向量",
+    "recentActivity": "最近对话",
+    "viewAll": "查看全部",
+    "activityLoadFailed": "无法加载最近对话",
+    "retry": "重试",
+    "nothingYet": "还没有对话",
+    "emptyActivity": "开始一次对话，之后可从这里继续。",
+    "startChat": "开始对话",
+    "newConversation": "新对话",
+    "conversation": "对话",
+    "creditsAdded": "+{count} 积分",
+    "creditsUsed": "{count} 积分",
+    "quickActions": "快捷操作",
+    "uploadToKnowledge": "上传到知识库",
+    "settings": "设置",
+    "apiDocs": "API 文档",
+    "adminActions": "管理员操作",
+    "responseRatings": "回复评分",
+    "manageRatings": "查看和管理评分",
+    "allConversations": "全部对话",
+    "inspectChats": "查看所有用户的对话",
+    "finishSetup": "完成工作区设置",
+    "finishSetupDescription": "选择智能助手、连接数据并邀请团队成员，两分钟即可完成。",
+    "continue": "继续",
+    "dismiss": "关闭",
+    "knowledgeStatus": "知识库",
+    "help": "使用帮助"
+  },
+  "landing": {
+    "heroTitle": "打造智能化",
+    "heroHighlight": "应用",
+    "heroTitleEnd": "充满信心",
+    "heroSubtitle": "一个生产就绪的全栈平台，具有人工智能支持的聊天、知识库检索、安全身份验证和现代化的仪表板。",
+    "getStarted": "开始使用",
+    "signIn": "登录",
+    "featureAiChat": "AI 支持的聊天",
+    "featureAiChatDesc": "对话式人工智能助手，具有实时流媒体、对话历史记录和工具调用功能。",
+    "featureRag": "知识库",
+    "featureRagDesc": "通过检索增强生成在文档中进行矢量搜索。摄取 PDF、DOCX 等。",
+    "featureAuth": "安全认证",
+    "featureAuthDesc": "基于 JWT 的身份验证，具有刷新令牌、OAuth 集成、会话管理和基于角色的访问控制。",
+    "featureDashboard": "仪表板",
+    "featureDashboardDesc": "系统健康监控、用户管理、采集统计一目了然。",
+    "featureApi": "REST API",
+    "featureApiDesc": "自动记录的 FastAPI 后端，具有 OpenAPI 规范、版本化端点和异步数据库访问。",
+    "featureRealtime": "实时交互",
+    "featureRealtimeDesc": "WebSocket 支持的流媒体可实现即时 AI 响应和整个应用程序的实时更新。",
+    "techStackTitle": "采用现代技术建造",
+    "ctaTitle": "准备好开始了吗？",
+    "ctaSubtitle": "创建您的帐户并开始探索该平台。",
+    "createAccount": "创建账户",
+    "exploreApi": "探索API",
+    "footerDesc": "具有企业级功能的全栈人工智能应用平台。",
+    "footerProduct": "产品",
+    "footerResources": "资源",
+    "apiDocs": "API文档",
+    "learnMore": "了解更多",
+    "copyright": "版权所有。"
+  },
+  "marketing": {
+    "nav": {
+      "features": "功能",
+      "howItWorks": "工作原理",
+      "pricing": "服务说明",
+      "faq": "常见问题",
+      "blog": "博客",
+      "changelog": "变更日志",
+      "about": "关于",
+      "contact": "联系我们",
+      "help": "帮助",
+      "community": "社区",
+      "security": "安全",
+      "getStarted": "开始使用",
+      "signIn": "登入",
+      "platform": "平台",
+      "solutions": "解决方案",
+      "customers": "客户",
+      "resources": "资源"
+    },
+    "menu": {
+      "product": "产品",
+      "solutions": "解决方案",
+      "resources": "资源",
+      "seePricing": "查看定价",
+      "talkToSales": "与销售人员交谈",
+      "items": {
+        "overview": {
+          "label": "概述",
+          "desc": "整个平台一览"
+        },
+        "howItWorks": {
+          "label": "它是如何运作的",
+          "desc": "从注册到第一个答复只需几分钟"
+        },
+        "insights": {
+          "label": "见解",
+          "desc": "跟踪使用情况、答案质量和投资回报率"
+        },
+        "changelog": {
+          "label": "变更日志",
+          "desc": "新功能，每周发布"
+        },
+        "support": {
+          "label": "客户支持",
+          "desc": "通过接地气的答案更快地解决问题"
+        },
+        "sales": {
+          "label": "销售团队",
+          "desc": "立即显示正确的甲板、文档和编号"
+        },
+        "knowledge": {
+          "label": "内部知识",
+          "desc": "一个可以询问所有工具的地方"
+        },
+        "research": {
+          "label": "研究与分析",
+          "desc": "通过引用进行总结、比较和决定"
+        },
+        "help": {
+          "desc": "指南、教程和答案"
+        },
+        "api": {
+          "desc": "基于我们的 REST API 构建"
+        },
+        "security": {
+          "desc": "我们如何保证您的数据安全"
+        },
+        "community": {
+          "desc": "加入对话"
+        },
+        "blog": {
+          "desc": "产品新闻和手册"
+        }
+      }
+    },
+    "footer": {
+      "tagline": "了解您工作的 AI 助手。",
+      "product": "产品",
+      "company": "公司",
+      "resources": "资源",
+      "helpCenter": "帮助中心",
+      "apiDocs": "API文档",
+      "terms": "条款",
+      "privacy": "隐私",
+      "cookies": "Cookie",
+      "operational": "所有系统均可运行"
+    },
+    "cookies": {
+      "title": "我们使用cookies",
+      "description": "基本 cookie 让您保持登录状态。可选 cookie 帮助我们了解产品的使用方式。",
+      "policyLink": "cookie 政策",
+      "acceptAll": "全部接受",
+      "rejectOptional": "拒绝可选",
+      "preferences": "偏好设置",
+      "savePreferences": "保存首选项",
+      "back": "后退",
+      "essential": "基本的",
+      "essentialDesc": "需要保持登录状态。无法禁用。",
+      "analytics": "分析",
+      "analyticsDesc": "汇总、匿名的使用数据。",
+      "functional": "功能性",
+      "functionalDesc": "记住偏好（主题、入门状态）。"
+    },
+    "common": {
+      "lastUpdated": "最后更新{date}",
+      "readPost": "阅读帖子",
+      "read": "阅读",
+      "backToBlog": "返回博客",
+      "keepReading": "继续阅读",
+      "seeAlso": "参见",
+      "minRead": "阅读约 {count} 分钟",
+      "needHelp": "需要定制集成吗？",
+      "contactUs": "联系我们"
+    },
+    "legal": {
+      "eyebrow": "合法的",
+      "terms": {
+        "title": "服务条款",
+        "summary": "您与{appName}之间的法律协议。尽可能使用通俗易懂的语言；精确我们必须的地方。"
+      },
+      "privacy": {
+        "title": "隐私政策",
+        "summary": "我们收集什么、为什么收集以及您可以采取哪些措施。我们永远不会使用您的数据进行训练。"
+      },
+      "cookies": {
+        "title": "Cookie 政策",
+        "summary": "我们在您的浏览器中存储的内容、原因以及如何选择退出。"
+      }
+    },
+    "about": {
+      "eyebrow": "关于",
+      "title": "我们构建{appName}，这样其他创始人就不必这样做。",
+      "description": "交付真正的 AI SaaS（身份验证、计费、RAG、代理、整个无聊堆栈）的最快方式，而无需每次都重新连接相同的管道。",
+      "whyTitle": "为什么存在这个",
+      "why1": "每个 AI 副项目都以相同的方式开始：一个美好的想法，然后是四个星期的 YAML、三个关于会话存储的决定，以及一个令人遗憾的手动 webhook 处理程序。",
+      "why2": "我们开源了管道，并在实际生产应用程序中不断迭代它，以便下一个交付人工智能产品的人可以开始实际产品的一天。",
+      "byTheNumbers": "从数字来看",
+      "stat_apps": "生产应用程序已发货",
+      "stat_deploy": "首次部署的平均时间",
+      "stat_frameworks": "支持的人工智能框架",
+      "stat_license": "执照",
+      "valuesEyebrow": "我们相信什么",
+      "valuesTitle": "原则，而不是高雅的陈词滥调。",
+      "values": [
+        {
+          "key": "船舶钻孔",
+          "title": "运送镗削零件",
+          "description": "身份验证、计费、可观察性 — 已连接并经过测试，以便您可以专注于让您的产品与众不同的方面。"
+        },
+        {
+          "key": "默认值",
+          "title": "经久耐用的默认设置",
+          "description": "我们选择能够大规模使用的约定：类型化 API、存储库服务拆分、无处不在的异步。"
+        },
+        {
+          "key": "开放固执己见",
+          "title": "开放但固执己见",
+          "description": "麻省理工学院许可的源代码，您可以自由分叉。强违约，因此阻力最小的路径也是正确的路径。"
+        },
+        {
+          "key": "爱工具",
+          "title": "人工智能作为工具，而不是目标",
+          "description": "RAG、代理、流媒体——一流但可选。打造能够很好地利用人工智能的冷静产品。"
+        }
+      ],
+      "teamLabel": "团队",
+      "teamTitle": "小团队。表面积大。",
+      "team": [
+        {
+          "initials": "F",
+          "role": "创始人",
+          "line": "工程·产品"
+        },
+        {
+          "initials": "操作系统",
+          "role": "开源",
+          "line": "社区贡献"
+        },
+        {
+          "initials": "乙",
+          "role": "Beta 测试员",
+          "line": "抢先体验客户"
+        }
+      ],
+      "quoteLine1": "构建产品。",
+      "quoteLine2": "我们会处理",
+      "quoteLine3": "无聊的部分。",
+      "quoteByline": "宣言",
+      "seePricing": "查看定价",
+      "ctaEyebrow": "准备好？",
+      "ctaTitle": "尝试一下——不需要卡。",
+      "ctaPrimary": "开始使用",
+      "ctaSecondary": "与我们交谈"
+    },
+    "contact": {
+      "eyebrow": "接触",
+      "title": "与我们交谈。",
+      "description": "销售、支持、合作伙伴关系，或者只是打个招呼 - 选择适合的渠道，我们会回复您。",
+      "channels": "渠道",
+      "sendMessage": "给我们留言",
+      "office": "办公室",
+      "officeNote": "远程优先团队。工作时间大致重叠为 UTC 08:00–18:00。",
+      "channelsList": [
+        {
+          "key": "支持",
+          "label": "电子邮件支持",
+          "description": "工作日我们会在{sla}内回复。"
+        },
+        {
+          "key": "帮助",
+          "label": "帮助中心",
+          "value": "常见问题解答和指南",
+          "description": "大多数问题都在那里得到解答。"
+        },
+        {
+          "key": "不和谐",
+          "label": "社区不和谐",
+          "value": "与构建者异步聊天",
+          "description": "摆脱困境的最快方法。"
+        },
+        {
+          "key": "github",
+          "label": "GitHub 问题",
+          "value": "错误、功能请求",
+          "description": "源码问题。"
+        }
+      ],
+      "responseSla": "{sla} 响应 SLA",
+      "formNote": "Form 首先尝试后端 /api/v1/contact 端点。如果未实现，它将打开您的邮件客户端 (mailto)。更新联系信息",
+      "form": {
+        "name": "姓名",
+        "email": "电子邮件",
+        "topic": "话题",
+        "topic_support": "支持",
+        "topic_sales": "销售量",
+        "topic_partnerships": "合作伙伴",
+        "topic_press": "新闻/其他",
+        "message": "信息",
+        "messagePlaceholder": "告诉我们一些你正在做什么的事情......",
+        "send": "发送消息",
+        "sending": "正在发送...",
+        "sentTitle": "消息已发送",
+        "sentBody": "谢谢 - 我们会在工作日 24 小时内回复您。",
+        "fallbackOpened": "电子邮件已打开",
+        "fallbackBody": "您的邮件客户端应该正在起草一条消息。如果没有发生任何事情，请直接给我们发电子邮件。",
+        "errorRequired": "请填写姓名、电子邮件和留言。",
+        "errorEmail": "请输入有效的电子邮件地址。",
+        "policyHint": "工作日我们会在 24 小时内回复。发送此信息即表示您同意我们的",
+        "policy": "隐私政策"
+      }
+    },
+    "help": {
+      "eyebrow": "帮助",
+      "title": "我们能提供什么帮助？",
+      "description": "浏览主题或直接跳到问题。还卡住了吗？电子邮件支持——我们回复速度快。",
+      "browseLabel": "浏览",
+      "topics": [
+        {
+          "id": "入门",
+          "iconKey": "钥匙",
+          "title": "入门",
+          "description": "注册、首次聊天、连接您的数据。"
+        },
+        {
+          "id": "聊天",
+          "iconKey": "信息",
+          "title": "聊天和代理",
+          "description": "流媒体、工具调用、切换模型。"
+        },
+        {
+          "id": "知识库",
+          "iconKey": "书",
+          "title": "知识库",
+          "description": "收藏、同步源、搜索。"
+        },
+        {
+          "id": "计费",
+          "iconKey": "信用",
+          "title": "计费",
+          "description": "计划、积分、发票、座位。"
+        },
+        {
+          "id": "工作空间",
+          "iconKey": "设置",
+          "title": "工作空间",
+          "description": "成员、邀请、API 密钥。"
+        },
+        {
+          "id": "安全",
+          "iconKey": "盾",
+          "title": "安全",
+          "description": "身份验证、数据保留、加密。"
+        }
+      ],
+      "faqGroups": [
+        {
+          "id": "入门",
+          "title": "入门",
+          "items": [
+            {
+              "q": "如何创建我的第一次对话？",
+              "a": "登录，点击仪表板上的“新聊天”，然后输入提示。代理将流式传输响应，包括其沿途进行的任何工具调用。"
+            },
+            {
+              "q": "我可以从 Google 云端硬盘导入数据吗？",
+              "a": "是的 - 在知识库下，添加 Google 云端硬盘的同步源。您将通过 OAuth 进行身份验证并选择一个文件夹。文件按照您选择的时间表重新同步。"
+            },
+            {
+              "q": "默认使用哪种AI模型？",
+              "a": "我们默认每个提供商都保持合理的成本/质量平衡。您可以从聊天输入中的模型选择器中切换每个对话的模型。"
+            }
+          ]
+        },
+        {
+          "id": "聊天",
+          "title": "聊天和代理",
+          "items": [
+            {
+              "q": "助理为什么要停下来请求批准？",
+              "a": "某些工具（写入操作、发送消息、Web 获取）可以配置为需要人工批准。您将看到一个内嵌的确认面板 - 批准或拒绝，然后客服人员将恢复。"
+            },
+            {
+              "q": "我可以重新生成响应吗？",
+              "a": "将鼠标悬停在最新的助理消息上，然后单击重新生成图标。代理使用相同的模型和工具重新运行最后一个提示。"
+            }
+          ]
+        },
+        {
+          "id": "知识库",
+          "title": "知识库",
+          "items": [
+            {
+              "q": "支持哪些文件格式？",
+              "a": "PDF、DOCX、MD、TXT 开箱即用。启用 LlamaParse 后，可支持 130 多种格式，包括 PPT、XLSX、图像等。"
+            },
+            {
+              "q": "搜索排名如何？",
+              "a": "嵌入的余弦相似度。可以为每个集合配置分数阈值和重新排名。"
+            }
+          ]
+        },
+        {
+          "id": "计费",
+          "title": "计费",
+          "items": [
+            {
+              "q": "未使用的积分可以滚动吗？",
+              "a": "每月订阅积分在每个计费周期结束时到期。即用即付充值永不过期。"
+            },
+            {
+              "q": "座位如何运作？",
+              "a": "每个计划都包含基本座位数。从计费门户添加席位 - 按比例计费并立即收费。"
+            }
+          ]
+        },
+        {
+          "id": "工作空间",
+          "title": "工作空间",
+          "items": [
+            {
+              "q": "如何邀请队友？",
+              "a": "在仪表板上，单击“邀请团队”。输入电子邮件 - 他们将获得一个神奇的链接来加入您的工作区。"
+            },
+            {
+              "q": "在哪里生成 API 密钥？",
+              "a": "设置 → API 密钥。密钥在创建时就会显示；将您的存储在秘密管理器中。随时撤销。"
+            }
+          ]
+        },
+        {
+          "id": "安全",
+          "title": "安全",
+          "items": [
+            {
+              "q": "我的数据是如何加密的？",
+              "a": "传输中使用 TLS，静止时使用 AES-256。使用 KMS 管理的密钥加密的数据库备份。有关详细信息，请参阅安全性页面。"
+            },
+            {
+              "q": "你用我的数据进行训练吗？",
+              "a": "不会。您的提示和上传的文档绝不会用于训练任何模型（我们的或第三方的）。"
+            }
+          ]
+        }
+      ],
+      "stillStuckEyebrow": "还卡住了吗？",
+      "stillStuckTitle": "与真实的人交谈。",
+      "stillStuckBody": "电子邮件是摆脱困境最快的方法。工作日我们会在 24 小时内回复。",
+      "stillStuckCta": "联系支持人员"
+    },
+    "changelog": {
+      "eyebrow": "变更日志",
+      "title": "什么是新的",
+      "description": "{appName} 中发布、改进和修复发货。"
+    },
+    "community": {
+      "eyebrow": "社区",
+      "title": "建筑商一起加快运输速度。",
+      "description": "一个由开发人员和创始人组成的小型、固执己见的社区，在模板之上发布人工智能产品。异步、技术性、低噪音。",
+      "channels": [
+        {
+          "key": "不和谐",
+          "title": "不和谐",
+          "description": "与其他构建者实时异步聊天。分享您要运送的物品，摆脱困境。",
+          "cta": "加入服务器",
+          "eyebrow": "最活跃"
+        },
+        {
+          "key": "github",
+          "title": "GitHub",
+          "description": "源代码、问题、讨论。给书签添加星标，如果遇到错误则提出问题。",
+          "cta": "查看存储库"
+        },
+        {
+          "key": "叽叽喳喳",
+          "title": "推特/X",
+          "description": "内置公共更新、发行说明和偶尔的技术主题。",
+          "cta": "跟随"
+        },
+        {
+          "key": "YouTube",
+          "title": "办公时间",
+          "description": "每周办公时间直播——我们会演示真实的构建并回答问题。",
+          "cta": "在 YouTube 上观看"
+        }
+      ],
+      "guidelinesTitle": "指南",
+      "guidelinesIntro": "我们的标准很高，但规则很短。善待彼此，在正确的地方发帖，不要发垃圾邮件。",
+      "guidelines": [
+        {
+          "title": "乐于助人",
+          "description": "尽可能回答问题。即使将某人指向正确的文档页面也是有意义的。"
+        },
+        {
+          "title": "具体一点",
+          "description": "分享你尝试过的东西胜过分享你想要的东西。日志、代码、屏幕截图——具体胜于抽象。"
+        },
+        {
+          "title": "分享胜利",
+          "description": "寄东西了？告诉我们。我们在时事通讯和社交媒体上推出炫酷的产品。"
+        },
+        {
+          "title": "不卖",
+          "description": "不要通过 DM 垃圾邮件进行推介。不要在帮助频道中发布与您无关的启动内容。我们通常会保持沉默，但不会禁止。"
+        }
+      ]
+    },
+    "security": {
+      "eyebrow": "安全",
+      "title": "我们像对待我们的数据一样对待您的数据。",
+      "description": "实用、严肃的安全姿势。我们默认了无聊的选择，记录我们所做的事情，并快速修补。",
+      "pillars": [
+        {
+          "iconKey": "锁",
+          "title": "无处不在的加密",
+          "description": "传输中使用 TLS 1.2+，静止时使用 AES-256。使用 KMS 管理的密钥进行加密备份，每季度轮换一次。"
+        },
+        {
+          "iconKey": "钥匙",
+          "title": "默认情况下强授权",
+          "description": "Bcrypt 密码哈希、JWT 访问 + 刷新令牌、可选的 OAuth 提供程序、恒定时间比较的 API 密钥。"
+        },
+        {
+          "iconKey": "用户检查",
+          "title": "最低权限访问",
+          "description": "应用程序内基于角色的访问控制、生产中的范围数据库角色、审核记录的管理操作。"
+        },
+        {
+          "iconKey": "数据库",
+          "title": "租户隔离",
+          "description": "每个组织的数据分区。跨租户查询在存储库层受到保护，在 API 上从不受信任。"
+        },
+        {
+          "iconKey": "眼睛",
+          "title": "我们不会根据您的数据进行训练",
+          "description": "提示、文档和对话绝不会用于训练任何模型。时期。"
+        },
+        {
+          "iconKey": "盾",
+          "title": "漏洞响应",
+          "description": "依赖项中的 CVE 补丁在 72 小时内合并。协调披露研究人员报告的问题。"
+        }
+      ],
+      "checklistTitle": "我们所做的，简单明了",
+      "checklist": [
+        "所有流量均采用 TLS 1.2+； HSTS预载",
+        "用于数据库和对象存储的 AES-256 静态加密",
+        "JWT 短期访问令牌（15 分钟）+ httpOnly 刷新令牌",
+        "API 密钥散列在数据库中；从未记录或回显",
+        "存储库层的每组织行级范围",
+        "Stripe 处理所有卡数据——我们从未见过 PAN/CVV",
+        "每日自动备份，保留 30 天",
+        "针对任何面向用户的事件发布的事件事后分析"
+      ],
+      "vulnTitle": "报告漏洞",
+      "vulnBody": "发现什么了吗？我们想知道。发送电子邮件至 {email} 并附上重现步骤。我们将在 48 小时内确认并赞扬遵循协调披露的研究人员。",
+      "vulnContactCta": "联系我们"
+    },
+    "blog": {
+      "eyebrow": "博客",
+      "title": "研讨会的笔记。",
+      "description": "工程深入研究、产品决策和偶尔的咆哮。每两周发布一次帖子，没有营销废话。",
+      "featured": "精选",
+      "noPostsTitle": "还没有帖子",
+      "noPostsDesc": "将第一个 MDX 放入内容/博客并重建 - 索引会自动呈现。",
+      "endOfPost": "帖子结束"
+    },
+    "landing": {
+      "metaDescription": "了解团队工作内容的 AI 助手。连接文档、工具和数据，基于团队已有的信息提供可靠答案。",
+      "hero": {
+        "eyebrow": "认识一下您团队的 AI 同事",
+        "titlePre": "真正",
+        "titleHighlight": "懂得",
+        "titleEm": "团队工作的 AI。",
+        "description": "通过 AI 对话分析、总结和创作内容，也可以添加聊天附件进行提问。",
+        "ctaPrimary": "免费开始",
+        "ctaSecondary": "查看使用帮助",
+        "stat_teams": "需要时随时可用",
+        "stat_speed": "AI 实时流式回复",
+        "stat_uptime": "工作区与数据保护",
+        "ratingLabel": "为知识问答与智能工作流而设计",
+        "trustNote": "安全登录 · 独立工作区"
+      },
+      "social": {
+        "title": "受到各行业团队的信赖"
+      },
+      "how": {
+        "eyebrow": "它是如何运作的",
+        "title": "打造智慧团队的三个步骤"
+      },
+      "features": {
+        "eyebrow": "功能",
+        "title": "开箱即用的完整功能",
+        "subtitle": "省去重复搭建基础设施的时间，把精力投入真正重要的产品功能。"
+      },
+      "data": {
+        "eyebrow": "检索的工作原理",
+        "title": "内容有依据，答案有引用"
+      },
+      "testimonials": {
+        "eyebrow": "深受团队喜爱",
+        "titlePre": "与我们一起",
+        "titleEm": "高效交付。"
+      },
+      "pricing": {
+        "eyebrow": "服务说明",
+        "titlePre": "从已开放的功能",
+        "titleEm": "开始",
+        "subtitle": "查看当前可用服务与功能状态。",
+        "teaser": {
+          "seats": "团队规模",
+          "seatsUnit": "用户",
+          "perMonth": "/月",
+          "seeFull": "查看完整比较 →",
+          "custom": "我们来谈谈",
+          "billedMonthly": "按月计费 · 随时取消",
+          "perSeatUnit": "/用户/月"
+        }
+      },
+      "faq": {
+        "eyebrow": "常见问题",
+        "title": "您可能想了解这些。",
+        "items": [
+          {
+            "q": "现在可以使用哪些功能？",
+            "a": "账号登录、AI 对话、聊天附件、对话历史、个人设置，以及管理员的用户和对话管理。"
+          },
+          {
+            "q": "知识库可以上传了吗？",
+            "a": "在知识库中上传文档，等待处理完成，然后在聊天输入框上方连接知识库。回答中的引用可展开查看原文。"
+          },
+          {
+            "q": "默认模型是什么？",
+            "a": "默认模型由管理员配置，聊天输入框的模型菜单会显示当前默认模型和可选模型。"
+          },
+          {
+            "q": "消息和附件会发到哪里？",
+            "a": "账号、对话和附件由本站服务器保存。发送消息时，相关上下文和可解析附件内容会发送给管理员配置的模型服务。"
+          },
+          {
+            "q": "有付费套餐和团队邀请吗？",
+            "a": "当前未开放在线支付、付费套餐、团队邀请和云盘同步。"
+          },
+          {
+            "q": "遇到问题怎么办？",
+            "a": "先查看使用帮助，再通过现有联系渠道向管理员提供页面地址、操作步骤和错误提示。"
+          }
+        ]
+      },
+      "finalCta": {
+        "statValue": "24/7",
+        "statLabel": "随时准备回答您的下一个问题",
+        "titlePre": "团队的下一个答案",
+        "titleEm": "只差一个问题。",
+        "description": "登录后即可开始对话，使用已开放的功能。",
+        "primary": "免费开始",
+        "secondary": "查看服务说明"
+      }
+    },
+    "pricing": {
+      "eyebrow": "定价",
+      "title": "简单、透明的定价",
+      "description": "开始免费。准备好后即可升级 - 每个计划都包含 14 天的试用期。",
+      "monthly": "每月",
+      "annual": "按年",
+      "savePill": "−20%",
+      "startTrial": "开始免费试用",
+      "mostPopular": "最受欢迎",
+      "demoBanner": "当前展示基础方案，最终价格以结算页面为准。",
+      "loved": "深受建设者喜爱",
+      "lovedTitle": "选择我们的团队",
+      "faqTitle": "定价问题，已解答",
+      "perMonth": "/月",
+      "perYear": "/年",
+      "trialBadge": "{days}天免费试用",
+      "faqs": [
+        {
+          "q": "我以后可以改变计划吗？",
+          "a": "是的 — 可以随时从您的计费门户升级、降级或取消。自动按比例更改。"
+        },
+        {
+          "q": "未使用的积分可以滚动吗？",
+          "a": "未使用的每月积分将在每个计费周期结束时到期。您单独购买的充值积分包永远不会过期。"
+        },
+        {
+          "q": "你们接受什么付款方式？",
+          "a": "所有主要信用卡和借记卡均通过 Stripe 进行，以及年度计划中的 ACH 和 SEPA。企业可以通过发票支付。"
+        },
+        {
+          "q": "有免费试用吗？",
+          "a": "是的。每个付费计划都附带 14 天免费试用期 - 无需信用卡即可开始。"
+        },
+        {
+          "q": "是否支持私有化部署？",
+          "a": "企业客户可以选择私有化部署和更多数据控制能力，请联系我们沟通具体需求。"
+        },
+        {
+          "q": "你们提供按年计费的折扣吗？",
+          "a": "年度计划可免费使用 2 个月（约节省 17%）。切换上面的计费开关即可查看年度定价。"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,66 @@
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv/
+ENV/
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+.tox
+.nox
+
+# Documentation
+docs/_build/
+*.md
+!README.md
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Development files
+.env
+.env.local
+.env.*
+*.db
+*.sqlite
+
+# Runtime data and caches belong in volumes, never in image layers.
+media/
+data/
+chroma_data/
+models_cache/
+.cache/
+.ruff_cache/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.docker
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Misc
+.DS_Store
+Thumbs.db
+*.log

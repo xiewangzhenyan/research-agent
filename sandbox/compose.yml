@@ -1,0 +1,23 @@
+# Deploy on a separate execution node. Never add the application/database network.
+services:
+  manager:
+    build:
+      context: .
+      dockerfile: Dockerfile.manager
+    environment:
+      SANDBOX_TOKEN: ${SANDBOX_TOKEN:?Set a dedicated random secret}
+      SANDBOX_IMAGE: ${SANDBOX_IMAGE:?Set the sha256 image ID of the fixed runner}
+      SANDBOX_CONCURRENCY: ${SANDBOX_CONCURRENCY:-1}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - sandbox_state:/data
+    ports:
+      - "127.0.0.1:38006:38006"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+volumes:
+  sandbox_state:
