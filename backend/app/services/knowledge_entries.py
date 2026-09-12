@@ -10,13 +10,14 @@ from app.core.exceptions import AlreadyExistsError, BadRequestError, NotFoundErr
 from app.db.models.knowledge import KnowledgeBase, KnowledgeChunk, KnowledgeDocument
 from app.schemas.knowledge_entry import FAQCreate, ManualCreate
 from app.services.knowledge import KnowledgeService
-from app.services.knowledge_index import split_blocks, split_document
+from app.services.knowledge_index import MAX_CHUNKS_PER_DOCUMENT, split_blocks, split_document
 
 
 def source_text(entry):
     if entry["kind"] == "manual":
         return f"# {entry['title']}\n\n{entry['content']}\n"
-    return f"问题：{entry['question']}\n答案：{entry['answer']}\n"
+    alternatives = "".join(f"相似问法：{q}\n" for q in entry.get("alternative_questions", []))
+    return f"问题：{entry['question']}\n{alternatives}答案：{entry['answer']}\n"
 
 
 def entry_chunks(entry, config):
@@ -26,24 +27,41 @@ def entry_chunks(entry, config):
             size=config.chunk_size,
             overlap=config.chunk_overlap,
         )
-    # Keep the question with every answer segment, within the existing encoder bound.
-    prefix = f"问题：{entry['question']}\n答案："
-    budget = config.chunk_size - len(prefix)
+    # Each phrasing has its own searchable chunks and the same answer boundaries.
+    # Never concatenate all questions and truncate the answer to fit the encoder.
+    questions = [entry["question"], *entry.get("alternative_questions", [])]
+    prefixes = [f"问题：{question}\n答案：" for question in questions]
+    budget = config.chunk_size - max(map(len, prefixes))
     parts = split_document(
         [(None, entry["answer"])], size=budget, overlap=min(config.chunk_overlap, budget // 3)
     )
+    if len(parts) * len(prefixes) > MAX_CHUNKS_PER_DOCUMENT:
+        raise ValueError("问答片段过多，请缩短答案或减少相似问法。")
     return [
         part
         | {
+            "position": variant * len(parts) + part["position"],
             "content": prefix + part["content"],
-            "location": {"kind": "faq", "section": entry["question"]},
+            "location": {
+                "kind": "faq",
+                "section": entry["question"],
+                **(
+                    {"question_variant": variant, "answer_part": part["position"]}
+                    if len(questions) > 1
+                    else {}
+                ),
+            },
         }
+        for variant, prefix in enumerate(prefixes)
         for part in parts
     ]
 
 
 def content_values(body):
     data = body.model_dump(exclude={"revision"})
+    # Preserve existing FAQ hashes so saving an unchanged legacy entry is a no-op.
+    if data.get("alternative_questions") == []:
+        data.pop("alternative_questions")
     raw = json.dumps(data, ensure_ascii=False, sort_keys=True).encode()
     title = data.get("title") or data["question"]
     return data, title + ".md", hashlib.sha256(raw).hexdigest(), len(source_text(data).encode())

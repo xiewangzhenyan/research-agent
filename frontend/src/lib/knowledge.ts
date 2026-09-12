@@ -21,7 +21,7 @@ export interface KnowledgeDocument {
 }
 export type KnowledgeEntry =
   | { kind: "manual"; title: string; content: string }
-  | { kind: "faq"; question: string; answer: string };
+  | { kind: "faq"; question: string; answer: string; alternative_questions?: string[] };
 export interface EntryRead {
   document_id: string;
   revision: number;

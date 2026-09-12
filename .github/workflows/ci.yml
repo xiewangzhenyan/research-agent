@@ -51,7 +51,7 @@ jobs:
         run: uv run --directory backend ty check
 
   conversation-access:
-    name: Conversation access regression
+    name: Knowledge and conversation regression
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -61,12 +61,17 @@ jobs:
         run: uv python install 3.12
       - name: Install dependencies
         run: uv sync --directory backend --dev --frozen
-      - name: Check account isolation and conversation persistence
+      - name: Check knowledge indexing, retrieval, account isolation and conversations
         run: >-
           uv run --directory backend pytest
           tests/api/test_conversation_access.py
           tests/test_services_conversation.py
-          tests/test_model_config.py -q
+          tests/test_model_config.py
+          tests/test_knowledge_entries.py
+          tests/test_knowledge_enrichment.py
+          tests/test_knowledge_retrieval.py
+          tests/test_knowledge_index.py
+          tests/test_retrieval_snapshot.py -q
 
   test:
     runs-on: ubuntu-latest

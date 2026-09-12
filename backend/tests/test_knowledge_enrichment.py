@@ -17,6 +17,65 @@ from app.services.knowledge_enrichment import (
 from app.services.knowledge_index import rank_chunks
 
 
+def faq_chunk(i, *, part=0, variant=0, doc="a", generation="one"):
+    return chunk(
+        i,
+        doc=doc,
+        generation=generation,
+        location={
+            "kind": "faq",
+            "section": "问题",
+            "answer_part": part,
+            "question_variant": variant,
+        },
+    )
+
+
+def test_faq_phrasings_do_not_fill_results_with_duplicate_answers():
+    chunks = [faq_chunk(0), faq_chunk(1, variant=1), faq_chunk(2, doc="other")]
+    stats = {}
+    hits = rank_chunks(
+        "question", [1, 0], chunks, config=RetrievalConfig(mode="semantic"), diagnostics=stats
+    )
+    assert len(hits) == 2
+    assert {hit["document_id"] for hit in hits} == {"a", "other"}
+    assert stats["overlap_removed"] == 1
+
+
+def test_context_does_not_repeat_faq_answers_or_wrap_into_another_phrasing():
+    chunks = [
+        faq_chunk(0),
+        faq_chunk(1, part=1),
+        faq_chunk(2, variant=1),
+        faq_chunk(3, part=1, variant=1),
+    ]
+    hits = expand_context(
+        [chunks[1]], chunks, RetrievalConfig(context_enabled=True, context_window=2), {}
+    )
+    assert [hit["id"] for hit in hits] == [chunks[1]["id"], chunks[0]["id"]]
+    hits = expand_context([chunks[0], chunks[3]], chunks, RetrievalConfig(context_enabled=True), {})
+    assert len(hits) == 2
+
+
+@pytest.mark.anyio
+async def test_rerank_keeps_best_faq_phrasing_without_losing_another_answer_part():
+    chunks = [faq_chunk(0), faq_chunk(1, variant=1), faq_chunk(2, part=1, variant=1)]
+    response = httpx.Response(
+        200,
+        request=httpx.Request("POST", "http://local/rank"),
+        json={
+            "scores": [1, 7, 3],
+            "model": RERANK_MODEL,
+            "revision": RERANK_REVISION,
+        },
+    )
+    with patch("httpx.AsyncClient.post", AsyncMock(return_value=response)):
+        hits = await rerank_candidates(
+            "question", chunks, 6, {"overlap_removed": 0, "limit_removed": 0}
+        )
+    assert [hit["id"] for hit in hits] == [chunks[1]["id"], chunks[2]["id"]]
+
+
 def chunk(i, *, doc="a", generation="one", page=None, location=None, content=None):
     return {
         "id": f"{doc}-{generation}-{i}",
@@ -111,7 +170,7 @@ def test_budget_keeps_whole_chunks_and_ten_source_limit():
     assert len(result) == 10
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_rerank_precedes_overlap_deduplication_and_preserves_original_rank():
     chunks = [chunk(i) for i in range(3)]
     stats = {}
@@ -134,7 +193,7 @@ async def test_rerank_precedes_overlap_deduplication_and_preserves_original_rank
     assert result[0]["score_type"] == "reranker" and stats["overlap_removed"] == 2
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "scores,model", [([1], RERANK_MODEL), ([1, "nan"], RERANK_MODEL), ([1, 2], "wrong")]
 )
@@ -151,7 +210,7 @@ async def test_invalid_model_output_fails_closed(scores, model):
         await rerank_candidates("原文", [chunk(0), chunk(1)], 1, {})
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_unavailable_reranker_does_not_silently_return_old_ranking():
     with (
         patch("httpx.AsyncClient.post", AsyncMock(side_effect=httpx.ConnectError("unavailable"))),

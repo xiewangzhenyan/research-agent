@@ -1,6 +1,7 @@
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { BRAND_ASSETS } from "./src/lib/brand-assets";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n.ts");
 
@@ -56,12 +57,27 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
 
+  async redirects() {
+    return [
+      { source: "/icon", destination: BRAND_ASSETS.png32, permanent: false },
+      { source: "/apple-icon", destination: BRAND_ASSETS.apple, permanent: false },
+    ];
+  },
+
   // Security headers
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+      {
+        source: "/brand/:asset*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+      {
+        source: "/favicon.ico",
+        headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
       },
       // Relax framing for the file endpoint so the chat preview panel can
       // embed PDFs/HTML in an iframe from the same origin. Listed AFTER the

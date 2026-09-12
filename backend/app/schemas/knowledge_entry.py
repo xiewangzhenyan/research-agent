@@ -3,7 +3,7 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class EntryText(BaseModel):
@@ -29,6 +29,23 @@ class FAQCreate(EntryText):
     kind: Literal["faq"]
     question: str = Field(min_length=1, max_length=150)
     answer: str = Field(min_length=1, max_length=10000)
+    alternative_questions: list[Annotated[str, Field(min_length=1, max_length=150)]] = Field(
+        default_factory=list, max_length=5
+    )
+
+    @model_validator(mode="after")
+    def normalize_alternatives(self):
+        seen = {self.question.casefold()}
+        unique = []
+        for question in self.alternative_questions:
+            question = question.strip()
+            if not question or "\x00" in question:
+                raise ValueError("相似问法不能为空或包含空字符")
+            if question.casefold() not in seen:
+                unique.append(question)
+                seen.add(question.casefold())
+        self.alternative_questions = unique
+        return self
 
 
 class ManualUpdate(ManualCreate):

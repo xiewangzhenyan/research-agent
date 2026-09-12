@@ -110,7 +110,7 @@ def test_diagnostics_count_overlap_and_empty_scope():
     assert stats["total_chunks"] == stats["returned"] == 0
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_keyword_service_does_not_load_embedding_model():
     service = KnowledgeService(AsyncMock(), uuid4())
     service.get_retrieval_config = AsyncMock(return_value=RetrievalConfig(mode="keyword"))

@@ -172,7 +172,20 @@ def tokens(text: str) -> list[str]:
     return result
 
 
+def same_faq_answer(candidate, other):
+    a, b = candidate.get("location") or {}, other.get("location") or {}
+    return (
+        candidate["document_id"] == other["document_id"]
+        and candidate.get("index_generation") == other.get("index_generation")
+        and a.get("kind") == b.get("kind") == "faq"
+        and type(a.get("answer_part")) is int
+        and a["answer_part"] == b.get("answer_part")
+    )
+
+
 def overlaps_selected(candidate, selected):
+    if any(same_faq_answer(candidate, item) for item in selected):
+        return True
     return any(
         x["document_id"] == candidate["document_id"]
         and abs(x["position"] - candidate["position"]) <= 1

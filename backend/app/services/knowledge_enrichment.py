@@ -7,7 +7,7 @@ import httpx
 
 from app.core.config import settings
 from app.core.exceptions import BadRequestError
-from app.services.knowledge_index import overlaps_selected
+from app.services.knowledge_index import overlaps_selected, same_faq_answer
 
 RERANK_MODEL = "BAAI/bge-reranker-base"
 RERANK_REVISION = "2cfc18c9415c912f9d8155881c133215df768a70"
@@ -99,11 +99,15 @@ def expand_context(seeds, chunks, config, stats):
                 a, b = seed.get("location") or {}, neighbor.get("location") or {}
                 if a.get("section") != b.get("section") or a.get("table") != b.get("table"):
                     continue
+                if a.get("question_variant") != b.get("question_variant"):
+                    continue
                 if neighbor["id"] in seen:
                     if neighbor["id"] in added:
                         parents = added[neighbor["id"]]["context_of"]
                         if seed["id"] not in parents:
                             parents.append(seed["id"])
+                    continue
+                if any(same_faq_answer(neighbor, item) for item in result):
                     continue
                 if (
                     len(result) >= 10

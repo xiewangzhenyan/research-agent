@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 38000",
     "build": "next build",
+    "generate:icons": "bun scripts/generate-icons.tsx",
     "analyze": "ANALYZE=true next build",
     "start": "next start -p 38000",
     "lint": "eslint .",

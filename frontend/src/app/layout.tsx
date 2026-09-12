@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Geist_Mono, Inter, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import { defaultLocale } from "@/i18n";
+import { BRAND_ASSETS } from "@/lib/brand-assets";
 import { SITE } from "@/lib/seo";
 
 const cjk = Noto_Sans_SC({
@@ -66,10 +67,12 @@ export const metadata: Metadata = {
     googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
   },
   icons: {
-    // /icon.tsx + /apple-icon.tsx render PNGs via next/og — declare them as PNG
-    // so browsers don't reject the response on a Content-Type mismatch.
-    icon: [{ url: "/icon", sizes: "32x32", type: "image/png" }],
-    apple: [{ url: "/apple-icon", sizes: "180x180", type: "image/png" }],
+    icon: [
+      { url: BRAND_ASSETS.png32, sizes: "32x32", type: "image/png" },
+      { url: BRAND_ASSETS.svg, sizes: "any", type: "image/svg+xml" },
+    ],
+    shortcut: BRAND_ASSETS.favicon,
+    apple: [{ url: BRAND_ASSETS.apple, sizes: "180x180", type: "image/png" }],
   },
   manifest: "/manifest.webmanifest",
 };

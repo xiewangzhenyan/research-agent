@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { BRAND_ASSETS } from "@/lib/brand-assets";
 import { SITE } from "@/lib/seo";
 
 export default function manifest(): MetadataRoute.Manifest {
@@ -14,8 +15,9 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: SITE.themeColor,
     categories: ["productivity", "education"],
     icons: [
-      { src: "/icon", sizes: "32x32", type: "image/png", purpose: "any" },
-      { src: "/apple-icon", sizes: "180x180", type: "image/png", purpose: "any" },
+      { src: BRAND_ASSETS.png192, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: BRAND_ASSETS.png512, sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: BRAND_ASSETS.maskable, sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }

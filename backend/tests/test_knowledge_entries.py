@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
-from app.core.exceptions import AlreadyExistsError, BadRequestError
+from app.core.exceptions import AlreadyExistsError, BadRequestError, NotFoundError
 from app.schemas.knowledge import ChunkingConfig
 from app.schemas.knowledge_entry import EntryCreate, FAQCreate, FAQUpdate, ManualCreate
 from app.services.knowledge_entries import (
@@ -57,6 +57,69 @@ def test_manual_source_and_digest_are_deterministic_and_type_specific():
     assert size == len(source_text(data).encode()) and len(digest) == 64
     assert entry_chunks(data, ChunkingConfig())[0]["content"] == "# 标题\n\n正文"
     assert content_values(FAQCreate(kind="faq", question="标题", answer="正文"))[2] != digest
+
+
+@pytest.mark.parametrize("questions", [[" "], ["a\x00"], ["x" * 151], ["q"] * 6, "question"])
+def test_invalid_alternatives_are_rejected(questions):
+    with pytest.raises(ValidationError):
+        FAQCreate(kind="faq", question="标准问题", answer="答案", alternative_questions=questions)
+
+
+def test_alternatives_are_normalized_and_legacy_content_hash_is_unchanged():
+    import hashlib
+    import json
+
+    legacy = {"kind": "faq", "question": "LSPR", "answer": "标准答案"}
+    body = FAQCreate(**legacy, alternative_questions=[" lspr ", "如何测量？", " 如何测量？ "])
+    assert body.alternative_questions == ["如何测量？"]
+    assert "相似问法：如何测量？\n" in source_text(body.model_dump())
+    old_hash = hashlib.sha256(
+        json.dumps(legacy, ensure_ascii=False, sort_keys=True).encode()
+    ).hexdigest()
+    assert content_values(FAQCreate(**legacy))[2] == old_hash
+    assert content_values(body)[2] != old_hash
+
+
+@pytest.mark.parametrize("size", [256, 450, 500])
+def test_every_phrasing_keeps_the_complete_long_answer_and_original_citation(size):
+    entry = FAQCreate(
+        kind="faq",
+        question="标准问题",
+        answer="ABCDEFGHIJ" * 250 + "最后的限制条件",
+        alternative_questions=["最长问法" * 37, "简短问法"],
+    ).model_dump()
+    chunks = entry_chunks(entry, ChunkingConfig(chunk_size=size))
+    assert [c["position"] for c in chunks] == list(range(len(chunks)))
+    assert all(len(c["content"]) <= size for c in chunks)
+    assert all(c["location"]["section"] == "标准问题" for c in chunks)
+    variants = [[c for c in chunks if c["location"]["question_variant"] == i] for i in range(3)]
+    assert len({len(group) for group in variants}) == 1
+    for group in variants:
+        assert "最后的限制条件" in group[-1]["content"]
+    for pieces in zip(*variants, strict=True):
+        assert len({c["content"].split("\n答案：", 1)[1] for c in pieces}) == 1
+        assert len({c["location"]["answer_part"] for c in pieces}) == 1
+
+
+@pytest.mark.anyio
+async def test_foreign_entry_update_cannot_touch_index_or_source():
+    db = AsyncMock()
+    db.scalar.return_value = None
+    service = KnowledgeEntryService(db, uuid4())
+    service.get_base = AsyncMock()
+    with pytest.raises(NotFoundError):
+        await service.update_entry(
+            uuid4(),
+            FAQUpdate(
+                kind="faq",
+                question="q",
+                answer="a",
+                alternative_questions=["alias"],
+                revision=1,
+            ),
+        )
+    service.get_base.assert_not_called()
+    db.execute.assert_not_called()
 
 
 @pytest.mark.anyio
