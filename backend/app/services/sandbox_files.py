@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001
 """Bounded file validation shared by task submission and remote result ingestion."""
 
 import base64

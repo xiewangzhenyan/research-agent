@@ -120,7 +120,9 @@ async def persist_user_turn(
             await service.list_attached_files(file_ids, user_id=user.id)
         # A null requested ID means an explicitly new conversation.
         if requested_conversation_id:
-            conv = await service.get_conversation(UUID(requested_conversation_id), user_id=user.id)
+            conv = await service.get_conversation(
+                UUID(requested_conversation_id), user_id=user.id, access="owner"
+            )
             conversation_id = str(conv.id)
             newly_created = False
         else:
@@ -136,7 +138,7 @@ async def persist_user_turn(
                 UUID(conversation_id), ConversationUpdate(**knowledge_settings), user_id=user.id
             )
         user_msg = await service.add_message(
-            UUID(conversation_id), MessageCreate(role="user", content=user_message)
+            UUID(conversation_id), MessageCreate(role="user", content=user_message), user_id=user.id
         )
         if file_ids:
             await service.link_files_to_message(user_msg.id, file_ids, user_id=user.id)
@@ -159,6 +161,8 @@ async def persist_assistant_turn(
     collected_tool_calls: list[dict[str, Any]],
     thinking: str | None = None,
     effective_config: dict | None = None,
+    *,
+    user_id: UUID,
 ) -> str | None:
     """Persist the assistant message and any tool calls. Returns the saved message id."""
     try:
@@ -173,6 +177,7 @@ async def persist_assistant_turn(
                     model_name=model_name,
                     effective_config=effective_config,
                 ),
+                user_id=user_id,
             )
             if any(tc.get("tool_name") == "search_knowledge_base" for tc in collected_tool_calls):
                 from app.services.knowledge_citations import persist_citations

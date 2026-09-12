@@ -44,7 +44,7 @@ def test_long_faq_answer_keeps_question_and_fits_encoder_without_losing_tail(siz
     chunks = entry_chunks(entry, ChunkingConfig(chunk_size=size, chunk_overlap=overlap))
     assert len(chunks) > 1
     assert all(len(c["content"]) <= size and c["page"] is None for c in chunks)
-    assert all(c["content"].startswith("问题：" + entry["question"] + "\n答案：") for c in chunks)  # noqa: RUF001 - source punctuation
+    assert all(c["content"].startswith("问题：" + entry["question"] + "\n答案：") for c in chunks)
     assert "最终条件620元" in chunks[-1]["content"]
     assert [c["position"] for c in chunks] == list(range(len(chunks)))
     assert all(c["location"]["kind"] == "faq" for c in chunks)

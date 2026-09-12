@@ -1,12 +1,12 @@
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import AuthorizationError, NotFoundError
 from app.db.models.conversation import Conversation, Message, ToolCall
 from app.repositories import (
     chat_file_repo,
@@ -76,7 +76,11 @@ class ConversationService:
 
             for conv in items:
                 messages, _ = await self.list_messages(
-                    conv.id, skip=0, limit=self.MESSAGE_EXPORT_LIMIT, include_tool_calls=True
+                    conv.id,
+                    skip=0,
+                    limit=self.MESSAGE_EXPORT_LIMIT,
+                    include_tool_calls=True,
+                    user_id=None,
                 )
                 conv_messages_map[str(conv.id)] = messages
                 all_message_ids.extend([m.id for m in messages if m.id])
@@ -150,8 +154,10 @@ class ConversationService:
         conversation_id: UUID,
         *,
         include_messages: bool = False,
-        user_id: UUID | None = None,
+        user_id: UUID | None,
+        access: Literal["read", "edit", "owner"] = "read",
     ) -> Conversation:
+        """Resolve explicit access; None is reserved for authenticated admin callers."""
         conversation = await conversation_repo.get_conversation_by_id(
             self.db, conversation_id, include_messages=include_messages
         )
@@ -160,15 +166,14 @@ class ConversationService:
                 message="Conversation not found",
                 details={"conversation_id": str(conversation_id)},
             )
-        if (
-            user_id is not None
-            and hasattr(conversation, "user_id")
-            and conversation.user_id is not None
-            and str(conversation.user_id) != str(user_id)
-        ):
-            # Not the owner — check if user has a share granting access
-            share = await conversation_share_repo.get_share(self.db, conversation_id, user_id)
-            if not share:
+        if user_id is not None and conversation.user_id != user_id:
+            # Unowned legacy records are private, not implicitly public. Sharing
+            # grants read/edit access only; lifecycle changes remain owner-only.
+            share = None
+            if conversation.user_id is not None and access != "owner":
+                share = await conversation_share_repo.get_share(self.db, conversation_id, user_id)
+            permissions = {"view", "edit"} if access == "read" else {"edit"}
+            if not share or share.permission not in permissions:
                 raise NotFoundError(
                     message="Conversation not found",
                     details={"conversation_id": str(conversation_id)},
@@ -292,13 +297,19 @@ class ConversationService:
         self,
         conversation_id: UUID,
         data: ConversationUpdate,
-        user_id: UUID | None = None,
+        *,
+        user_id: UUID | None,
     ) -> Conversation:
         conversation = await self.get_conversation(
             conversation_id,
             user_id=user_id,
+            access="edit",
         )
         update_data = data.model_dump(exclude_unset=True)
+        if user_id is not None and "is_demo" in update_data:
+            raise AuthorizationError(message="Only administrators can change public demo status")
+        if user_id is not None and conversation.user_id != user_id and "is_archived" in update_data:
+            raise NotFoundError(message="Conversation not found")
         if {
             "active_knowledge_base_ids",
             "active_knowledge_document_ids",
@@ -336,22 +347,30 @@ class ConversationService:
     async def archive_conversation(
         self,
         conversation_id: UUID,
-        user_id: UUID | None = None,
+        *,
+        user_id: UUID,
     ) -> Conversation:
+        if user_id is None:
+            raise NotFoundError(message="Conversation not found")
         conversation = await self.get_conversation(
             conversation_id,
             user_id=user_id,
+            access="owner",
         )
         return await conversation_repo.archive_conversation(self.db, db_conversation=conversation)
 
     async def delete_conversation(
         self,
         conversation_id: UUID,
-        user_id: UUID | None = None,
+        *,
+        user_id: UUID,
     ) -> bool:
+        if user_id is None:
+            raise NotFoundError(message="Conversation not found")
         conversation = await self.get_conversation(
             conversation_id,
             user_id=user_id,
+            access="owner",
         )
         await conversation_repo.delete_conversation(self.db, db_conversation=conversation)
         return True
@@ -360,7 +379,8 @@ class ConversationService:
         self,
         conversation_id: UUID,
     ) -> Conversation:
-        return await self.get_conversation(conversation_id, include_messages=True)
+        # Called only by the CurrentAdmin-protected inspection endpoint.
+        return await self.get_conversation(conversation_id, include_messages=True, user_id=None)
 
     async def list_demo_conversations(
         self, *, skip: int = 0, limit: int = 50
@@ -410,10 +430,10 @@ class ConversationService:
         skip: int = 0,
         limit: int = 100,
         include_tool_calls: bool = False,
-        user_id: UUID | None = None,
+        user_id: UUID | None,
     ) -> tuple[list[Message | MessageRead], int]:
-        """When user_id is provided, messages are enriched with user_rating and rating_count."""
-        await self.get_conversation(conversation_id)
+        """Authorize before loading messages, then enrich with the caller's ratings."""
+        await self.get_conversation(conversation_id, user_id=user_id)
         items = await conversation_repo.get_messages_by_conversation(
             self.db,
             conversation_id,
@@ -444,8 +464,14 @@ class ConversationService:
         self,
         conversation_id: UUID,
         data: MessageCreate,
+        *,
+        user_id: UUID,
     ) -> Message:
-        await self.get_conversation(conversation_id)
+        if user_id is None:
+            raise NotFoundError(message="Conversation not found")
+        await self.get_conversation(
+            conversation_id, user_id=user_id, access="edit" if data.role == "user" else "owner"
+        )
         return await conversation_repo.create_message(
             self.db,
             conversation_id=conversation_id,

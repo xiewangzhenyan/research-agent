@@ -43,7 +43,8 @@ def test_phosphate_buffer_does_not_imply_saline():
 
 
 def test_pdf_whitespace_and_english_word_forms():
-    assert "折射率灵敏度" in retrieval_aliases("refractive‐index\nsensitivity")
+    # PDF extraction can introduce U+2010 instead of the ASCII hyphen.
+    assert "折射率灵敏度" in retrieval_aliases("refractive‐index\nsensitivity")  # noqa: RUF001
     assert "抗体" in retrieval_aliases("ANTIBODIES")
     assert "酶联免疫吸附测定" in retrieval_aliases("enzyme-linked immunosorbent assay")
 

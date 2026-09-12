@@ -11,6 +11,7 @@ jobs:
   git-sync:
     name: Git synchronization checks
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,6 +26,7 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -48,8 +50,27 @@ jobs:
       - name: Run ty
         run: uv run --directory backend ty check
 
+  conversation-access:
+    name: Conversation access regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: Set up Python
+        run: uv python install 3.12
+      - name: Install dependencies
+        run: uv sync --directory backend --dev --frozen
+      - name: Check account isolation and conversation persistence
+        run: >-
+          uv run --directory backend pytest
+          tests/api/test_conversation_access.py
+          tests/test_services_conversation.py
+          tests/test_model_config.py -q
+
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16-alpine
@@ -107,6 +128,7 @@ jobs:
 
   test-frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -142,6 +164,7 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -157,14 +180,15 @@ jobs:
         run: uv sync --directory backend --dev
 
       - name: Install pip-audit
-        run: uv pip install pip-audit
+        run: uv pip install --python backend/.venv/bin/python pip-audit
 
       - name: Run pip-audit
-        run: uv run pip-audit --require-hashes=false --progress-spinner=off
+        run: .venv/bin/pip-audit --progress-spinner=off
         working-directory: backend
 
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [lint, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:

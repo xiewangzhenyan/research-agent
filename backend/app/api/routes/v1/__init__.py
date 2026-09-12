@@ -40,7 +40,9 @@ v1_router.include_router(
 v1_router.include_router(admin_stats.router, prefix="/admin", tags=["admin:stats"])
 
 from app.api.routes.v1 import knowledge
+
 v1_router.include_router(knowledge.router, tags=["knowledge"])
 
 from app.api.routes.v1 import agent_runs
+
 v1_router.include_router(agent_runs.router)

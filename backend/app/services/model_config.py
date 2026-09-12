@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001 - Chinese user-facing messages.
 """One server policy for discovery and all generation paths."""
 
 import hashlib

@@ -9,6 +9,7 @@ import asyncio
 import json
 import time
 from pathlib import Path
+from typing import Any
 
 from app.services.knowledge_answer import grounded_answer, rewrite_query
 from app.services.knowledge_index import MODEL, embed, rank_chunks, split_blocks
@@ -39,7 +40,7 @@ async def main():
         corpus, await asyncio.to_thread(embed, [c["content"] for c in corpus]), strict=True
     ):
         chunk["embedding"] = vector
-    results = []
+    results: list[dict[str, Any]] = []
     for case in fixture["cases"]:
         started = time.monotonic()
         query, strategy = await rewrite_query(case["question"], case.get("history", []), None)
@@ -52,7 +53,7 @@ async def main():
             if not case.get("document_ids") or c["document_id"] in case["document_ids"]
         ]
         hits = rank_chunks(query, vector, candidates, top_k=10, expand_terms=not args.no_expansion)
-        row = {
+        row: dict[str, Any] = {
             "id": case["id"],
             "split": case["split"],
             "query_strategy": strategy,

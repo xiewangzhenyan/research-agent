@@ -74,10 +74,13 @@ def test_input_owner_and_content_snapshot(tmp_path):
                 await load_inputs(None, uid, [fid], snapshot)
             with pytest.raises(BadRequestError):
                 await load_inputs(None, uid, [fid, fid])
-        with patch(
-            "app.services.sandbox_files.FileUploadService.get_user_file",
-            AsyncMock(side_effect=NotFoundError(message="missing")),
-        ), pytest.raises(NotFoundError):
+        with (
+            patch(
+                "app.services.sandbox_files.FileUploadService.get_user_file",
+                AsyncMock(side_effect=NotFoundError(message="missing")),
+            ),
+            pytest.raises(NotFoundError),
+        ):
             await load_inputs(None, uuid4(), [fid])
 
     asyncio.run(check())

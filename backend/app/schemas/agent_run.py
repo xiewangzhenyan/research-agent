@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001 - Chinese user-facing copy
 """Strict, bounded task contracts; checkpoint identifiers never come from clients."""
 
 from datetime import datetime

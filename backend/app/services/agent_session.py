@@ -29,7 +29,7 @@ from sqlalchemy import select
 
 from app.agents.assistant import Deps, get_agent
 from app.api.deps import get_conversation_service
-from app.core.exceptions import AppException, BadRequestError, NotFoundError
+from app.core.exceptions import AppException, BadRequestError
 from app.db.models.conversation import Message
 from app.db.models.user import User
 from app.db.session import get_db_context
@@ -177,9 +177,9 @@ class AgentSession:
             self.conversation_history = []
             if data.get("conversation_id"):
                 cid = UUID(data["conversation_id"])
-                conversation = await service.get_conversation(cid, user_id=self.user.id)
-                if conversation.user_id != self.user.id:
-                    raise NotFoundError(message="仅会话所有者可以继续对话")
+                conversation = await service.get_conversation(
+                    cid, user_id=self.user.id, access="owner"
+                )
                 if base_ids_raw is None:
                     base_ids_raw = conversation.active_knowledge_base_ids
                 if "knowledge_document_ids" not in data:
@@ -364,6 +364,7 @@ class AgentSession:
                     collected_tool_calls,
                     thinking="".join(collected_thinking) or None,
                     effective_config=configuration.model_dump(),
+                    user_id=self.user.id,
                 )
                 if not assistant_msg_id:
                     await send_event(

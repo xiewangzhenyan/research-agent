@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001
 """Authenticated bounded control-plane client; never executes code locally."""
 
 import asyncio

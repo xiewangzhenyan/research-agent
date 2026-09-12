@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from app.schemas.base import BaseSchema, TimestampSchema
 from app.schemas.model_config import EffectiveGenerationConfig
@@ -76,6 +76,14 @@ class MessageCreate(MessageBase):
     model_name: str | None = Field(default=None, max_length=100, description="AI model used")
     tokens_used: int | None = Field(default=None, ge=0, description="Token count")
     effective_config: EffectiveGenerationConfig | None = None
+
+
+class UserMessageCreate(BaseSchema):
+    """Client-submitted text; assistant/system messages are server-generated."""
+
+    model_config = ConfigDict(extra="forbid")
+    role: Literal["user"] = "user"
+    content: str = Field(min_length=1, max_length=30000)
 
 
 class MessageFileRead(BaseSchema):

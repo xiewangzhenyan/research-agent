@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, SIM117 - Chinese fixtures; explicit nested mock scope
+# ruff: noqa: SIM117 - Chinese fixtures; explicit nested mock scope
 """Real PostgreSQL/pgvector boundaries, BM25 math, index lifecycle and model provenance."""
 
 import asyncio

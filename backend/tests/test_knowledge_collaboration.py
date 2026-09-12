@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, SIM117 - Chinese fixtures; explicit assertion scope
+# ruff: noqa: SIM117 - Chinese fixtures; explicit assertion scope
 """Collaboration boundaries, revision budget and recovery; isolated DB only."""
 
 import asyncio

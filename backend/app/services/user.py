@@ -7,7 +7,12 @@ from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import AlreadyExistsError, AuthenticationError, BadRequestError, NotFoundError
+from app.core.exceptions import (
+    AlreadyExistsError,
+    AuthenticationError,
+    BadRequestError,
+    NotFoundError,
+)
 from app.core.security import (
     get_password_hash,
     verify_password,
@@ -140,7 +145,9 @@ class UserService:
 
         return await user_repo.update(self.db, db_user=user, update_data=update_data)
 
-    async def change_password(self, user_id: UUID, current_password: str, new_password: str) -> None:
+    async def change_password(
+        self, user_id: UUID, current_password: str, new_password: str
+    ) -> None:
         user = await self.get_by_id(user_id)
         if not user.hashed_password or not verify_password(current_password, user.hashed_password):
             raise BadRequestError(message="Current password is incorrect")

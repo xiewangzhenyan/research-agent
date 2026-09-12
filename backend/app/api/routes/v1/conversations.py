@@ -23,11 +23,13 @@ from app.schemas.conversation import (
     MessageCreate,
     MessageList,
     MessageRead,
+    UserMessageCreate,
 )
 from app.schemas.conversation_share import (
     ConversationShareCreate,
     ConversationShareList,
     ConversationShareRead,
+    SharedConversationRead,
 )
 from app.schemas.message_rating import (
     MessageRatingCreate,
@@ -81,7 +83,7 @@ async def list_shared_with_me(
     return ConversationList(items=items, total=total)
 
 
-@router.get("/shared/{token}", response_model=ConversationReadWithMessages)
+@router.get("/shared/{token}", response_model=SharedConversationRead)
 async def get_shared_conversation(
     token: str,
     share_service: ConversationShareSvc,
@@ -210,12 +212,14 @@ async def list_messages(
 )
 async def add_message(
     conversation_id: UUID,
-    data: MessageCreate,
+    data: UserMessageCreate,
     conversation_service: ConversationSvc,
     current_user: CurrentUser,
 ) -> Any:
     """Add a message to a conversation."""
-    return await conversation_service.add_message(conversation_id, data)
+    return await conversation_service.add_message(
+        conversation_id, MessageCreate(role="user", content=data.content), user_id=current_user.id
+    )
 
 
 @router.post(
@@ -306,4 +310,4 @@ async def revoke_share(
     current_user: CurrentUser,
 ) -> None:
     """Revoke a conversation share."""
-    await share_service.revoke_share(share_id, current_user.id)
+    await share_service.revoke_share(share_id, current_user.id, conversation_id=conversation_id)

@@ -28,16 +28,24 @@ async def get_many(db: AsyncSession, file_ids: Iterable[UUID], *, user_id: UUID)
     ids = list(file_ids)
     if not ids:
         return []
-    result = await db.execute(select(ChatFile).where(ChatFile.id.in_(ids), ChatFile.user_id == user_id))
+    result = await db.execute(
+        select(ChatFile).where(ChatFile.id.in_(ids), ChatFile.user_id == user_id)
+    )
     return list(result.scalars().all())
 
 
-async def link_to_message(db: AsyncSession, *, message_id: UUID, file_ids: Iterable[UUID], user_id: UUID) -> None:
+async def link_to_message(
+    db: AsyncSession, *, message_id: UUID, file_ids: Iterable[UUID], user_id: UUID
+) -> None:
     """Link multiple chat files to a message by setting message_id on each."""
     ids = list(file_ids)
     if not ids:
         return
-    await db.execute(sql_update(ChatFile).where(ChatFile.id.in_(ids), ChatFile.user_id == user_id, ChatFile.message_id.is_(None)).values(message_id=message_id))
+    await db.execute(
+        sql_update(ChatFile)
+        .where(ChatFile.id.in_(ids), ChatFile.user_id == user_id, ChatFile.message_id.is_(None))
+        .values(message_id=message_id)
+    )
     await db.flush()
 
 

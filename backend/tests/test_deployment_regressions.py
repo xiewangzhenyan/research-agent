@@ -1,4 +1,5 @@
 """Regressions for live account actions and readable chat attachments."""
+
 import io
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -23,7 +24,9 @@ async def test_registration_cannot_choose_admin():
     with patch("app.services.user.user_repo") as repo:
         repo.get_by_email = AsyncMock(return_value=None)
         repo.create = AsyncMock()
-        await service.register(UserCreate(email="regression@example.com", password="test-password", role="admin"))
+        await service.register(
+            UserCreate(email="regression@example.com", password="test-password", role="admin")
+        )
         assert repo.create.call_args.kwargs["role"] == "user"
         assert repo.create.call_args.kwargs["is_app_admin"] is False
 
@@ -51,12 +54,24 @@ async def test_password_route_validates_and_uses_authenticated_user():
     app.dependency_overrides[get_user_service] = lambda: service
     try:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            response = await client.post("/api/v1/auth/password/change", json={"current_password": "old-password", "new_password": "short"})
+            response = await client.post(
+                "/api/v1/auth/password/change",
+                json={"current_password": "old-password", "new_password": "short"},
+            )
             assert response.status_code == 422
             service.change_password.assert_not_awaited()
-            response = await client.post("/api/v1/auth/password/change", json={"current_password": "old-password", "new_password": "new-password", "user_id": str(uuid4())})
+            response = await client.post(
+                "/api/v1/auth/password/change",
+                json={
+                    "current_password": "old-password",
+                    "new_password": "new-password",
+                    "user_id": str(uuid4()),
+                },
+            )
             assert response.status_code == 204
-            service.change_password.assert_awaited_once_with(user.id, "old-password", "new-password")
+            service.change_password.assert_awaited_once_with(
+                user.id, "old-password", "new-password"
+            )
     finally:
         app.dependency_overrides.clear()
 
@@ -80,6 +95,7 @@ async def test_profile_cannot_bypass_current_password():
 async def test_real_document_parsers():
     import pymupdf
     from docx import Document
+
     service = FileUploadService(AsyncMock())
     with pymupdf.open() as pdf:
         page = pdf.new_page()
@@ -94,10 +110,15 @@ async def test_real_document_parsers():
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("content,mime,name", [(b"not a pdf", "application/pdf", "broken.pdf"), (b"\xff\xfe", "text/plain", "invalid.txt")])
+@pytest.mark.parametrize(
+    "content,mime,name",
+    [(b"not a pdf", "application/pdf", "broken.pdf"), (b"\xff\xfe", "text/plain", "invalid.txt")],
+)
 async def test_unreadable_upload_never_claims_success(content, mime, name):
     service = FileUploadService(AsyncMock())
     with patch("app.services.file_upload.get_file_storage") as storage:
         with pytest.raises(BadRequestError, match="No readable text"):
-            await service.upload(user_id=uuid4(), file_data=content, filename=name, content_type=mime)
+            await service.upload(
+                user_id=uuid4(), file_data=content, filename=name, content_type=mime
+            )
         storage.assert_not_called()

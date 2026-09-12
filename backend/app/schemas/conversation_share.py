@@ -17,6 +17,7 @@ __all__ = [
     "ConversationShareCreate",
     "ConversationShareList",
     "ConversationShareRead",
+    "SharedConversationRead",
 ]
 
 
@@ -49,6 +50,32 @@ class ConversationShareList(BaseSchema):
 
     items: list[ConversationShareRead]
     total: int
+
+
+class SharedMessageRead(BaseSchema):
+    id: UUID
+    role: Literal["user", "assistant"]
+    content: str
+    created_at: datetime | None = None
+
+
+class SharedConversationContent(BaseSchema):
+    id: UUID
+    title: str | None = None
+    messages: list[SharedMessageRead]
+
+
+class PublicShareRead(BaseSchema):
+    id: UUID
+    permission: Literal["view"] = "view"
+    share_token: str
+
+
+class SharedConversationRead(BaseSchema):
+    """A public text-only projection, without account, tool or attachment metadata."""
+
+    conversation: SharedConversationContent
+    share: PublicShareRead
 
 
 class AdminConversationRead(BaseSchema):

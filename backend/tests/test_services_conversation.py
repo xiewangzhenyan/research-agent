@@ -87,7 +87,7 @@ class TestConversationServiceGetConversation:
         with patch("app.services.conversation.conversation_repo") as mock_repo:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=mock_conv)
 
-            result = await service.get_conversation(conv_id)
+            result = await service.get_conversation(conv_id, user_id=None)
 
             assert result.id == conv_id
             mock_repo.get_conversation_by_id.assert_called_once_with(
@@ -101,7 +101,7 @@ class TestConversationServiceGetConversation:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=None)
 
             with pytest.raises(NotFoundError):
-                await service.get_conversation(uuid4())
+                await service.get_conversation(uuid4(), user_id=None)
 
     @pytest.mark.anyio
     async def test_get_conversation_with_messages(self, service: ConversationService):
@@ -112,7 +112,7 @@ class TestConversationServiceGetConversation:
         with patch("app.services.conversation.conversation_repo") as mock_repo:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=mock_conv)
 
-            result = await service.get_conversation(conv_id, include_messages=True)
+            result = await service.get_conversation(conv_id, include_messages=True, user_id=None)
 
             assert result.id == conv_id
             mock_repo.get_conversation_by_id.assert_called_once_with(
@@ -161,22 +161,21 @@ class TestConversationServiceGetConversation:
         with patch("app.services.conversation.conversation_repo") as mock_repo:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=mock_conv)
 
-            result = await service.get_conversation(conv_id)
+            result = await service.get_conversation(conv_id, user_id=None)
 
             assert result.id == conv_id
 
     @pytest.mark.anyio
-    async def test_get_conversation_null_owner_allows_any_user(self, service: ConversationService):
-        """get_conversation succeeds when conversation has no user_id set."""
+    async def test_get_conversation_null_owner_is_private(self, service: ConversationService):
+        """Legacy conversations without an owner are not implicitly public."""
         conv_id = uuid4()
         mock_conv = MockConversation(id=conv_id, user_id=None)
 
         with patch("app.services.conversation.conversation_repo") as mock_repo:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=mock_conv)
 
-            result = await service.get_conversation(conv_id, user_id=uuid4())
-
-            assert result.id == conv_id
+            with pytest.raises(NotFoundError):
+                await service.get_conversation(conv_id, user_id=uuid4())
 
 
 class TestConversationServiceListConversations:
@@ -288,7 +287,7 @@ class TestConversationServiceUpdate:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=mock_conv)
             mock_repo.update_conversation = AsyncMock(return_value=updated_conv)
 
-            result = await service.update_conversation(conv_id, mock_update)
+            result = await service.update_conversation(conv_id, mock_update, user_id=None)
 
             assert result.title == "Updated Title"
             mock_repo.update_conversation.assert_called_once()
@@ -303,7 +302,7 @@ class TestConversationServiceUpdate:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=None)
 
             with pytest.raises(NotFoundError):
-                await service.update_conversation(uuid4(), mock_update)
+                await service.update_conversation(uuid4(), mock_update, user_id=None)
 
     @pytest.mark.anyio
     async def test_update_checks_ownership(self, service: ConversationService):
@@ -343,14 +342,14 @@ class TestConversationServiceArchive:
     async def test_archive_conversation_succeeds(self, service: ConversationService):
         """archive_conversation archives and returns the conversation."""
         conv_id = uuid4()
-        mock_conv = MockConversation(id=conv_id)
+        mock_conv = MockConversation(id=conv_id, user_id=uuid4())
         archived_conv = MockConversation(id=conv_id, is_archived=True)
 
         with patch("app.services.conversation.conversation_repo") as mock_repo:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=mock_conv)
             mock_repo.archive_conversation = AsyncMock(return_value=archived_conv)
 
-            result = await service.archive_conversation(conv_id)
+            result = await service.archive_conversation(conv_id, user_id=mock_conv.user_id)
 
             assert result.is_archived is True
             mock_repo.archive_conversation.assert_called_once_with(
@@ -364,7 +363,7 @@ class TestConversationServiceArchive:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=None)
 
             with pytest.raises(NotFoundError):
-                await service.archive_conversation(uuid4())
+                await service.archive_conversation(uuid4(), user_id=uuid4())
 
     @pytest.mark.anyio
     async def test_archive_checks_ownership(self, service: ConversationService):
@@ -402,13 +401,13 @@ class TestConversationServiceDelete:
     async def test_delete_own_conversation_succeeds(self, service: ConversationService):
         """delete_conversation succeeds for conversation owner."""
         conv_id = uuid4()
-        mock_conv = MockConversation(id=conv_id)
+        mock_conv = MockConversation(id=conv_id, user_id=uuid4())
 
         with patch("app.services.conversation.conversation_repo") as mock_repo:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=mock_conv)
             mock_repo.delete_conversation = AsyncMock(return_value=None)
 
-            result = await service.delete_conversation(conv_id)
+            result = await service.delete_conversation(conv_id, user_id=mock_conv.user_id)
 
             assert result is True
             mock_repo.delete_conversation.assert_called_once_with(
@@ -422,7 +421,7 @@ class TestConversationServiceDelete:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=None)
 
             with pytest.raises(NotFoundError):
-                await service.delete_conversation(uuid4())
+                await service.delete_conversation(uuid4(), user_id=uuid4())
 
     @pytest.mark.anyio
     async def test_delete_checks_ownership(self, service: ConversationService):
@@ -505,7 +504,7 @@ class TestConversationServiceListMessages:
             mock_repo.get_messages_by_conversation = AsyncMock(return_value=mock_messages)
             mock_repo.count_messages = AsyncMock(return_value=2)
 
-            items, total = await service.list_messages(conv_id)
+            items, total = await service.list_messages(conv_id, user_id=None)
 
             assert len(items) == 2
             assert total == 2
@@ -517,7 +516,7 @@ class TestConversationServiceListMessages:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=None)
 
             with pytest.raises(NotFoundError):
-                await service.list_messages(uuid4())
+                await service.list_messages(uuid4(), user_id=None)
 
     @pytest.mark.anyio
     async def test_list_messages_with_pagination(self, service: ConversationService):
@@ -530,7 +529,7 @@ class TestConversationServiceListMessages:
             mock_repo.get_messages_by_conversation = AsyncMock(return_value=[])
             mock_repo.count_messages = AsyncMock(return_value=0)
 
-            await service.list_messages(conv_id, skip=5, limit=10)
+            await service.list_messages(conv_id, skip=5, limit=10, user_id=None)
 
             call_kwargs = mock_repo.get_messages_by_conversation.call_args
             assert call_kwargs[1]["skip"] == 5
@@ -547,7 +546,7 @@ class TestConversationServiceListMessages:
             mock_repo.get_messages_by_conversation = AsyncMock(return_value=[])
             mock_repo.count_messages = AsyncMock(return_value=0)
 
-            await service.list_messages(conv_id, include_tool_calls=True)
+            await service.list_messages(conv_id, include_tool_calls=True, user_id=None)
 
             call_kwargs = mock_repo.get_messages_by_conversation.call_args
             assert call_kwargs[1]["include_tool_calls"] is True
@@ -570,7 +569,7 @@ class TestConversationServiceAddMessage:
     async def test_add_message_succeeds(self, service: ConversationService):
         """add_message creates and returns a message."""
         conv_id = uuid4()
-        mock_conv = MockConversation(id=conv_id)
+        mock_conv = MockConversation(id=conv_id, user_id=uuid4())
         mock_msg = MockMessage(conversation_id=conv_id, role="user", content="Hello")
         mock_data = MagicMock()
         mock_data.role = "user"
@@ -582,7 +581,7 @@ class TestConversationServiceAddMessage:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=mock_conv)
             mock_repo.create_message = AsyncMock(return_value=mock_msg)
 
-            result = await service.add_message(conv_id, mock_data)
+            result = await service.add_message(conv_id, mock_data, user_id=mock_conv.user_id)
 
             assert result.content == "Hello"
             assert result.role == "user"
@@ -597,7 +596,7 @@ class TestConversationServiceAddMessage:
             mock_repo.get_conversation_by_id = AsyncMock(return_value=None)
 
             with pytest.raises(NotFoundError):
-                await service.add_message(uuid4(), mock_data)
+                await service.add_message(uuid4(), mock_data, user_id=uuid4())
 
 
 class TestConversationServiceDeleteMessage:

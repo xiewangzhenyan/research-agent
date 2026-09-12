@@ -6,7 +6,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.exceptions import AlreadyExistsError, AuthorizationError, NotFoundError
+from app.core.exceptions import (
+    AlreadyExistsError,
+    AuthorizationError,
+    NotFoundError,
+    ValidationError,
+)
 from app.repositories import conversation_repo, conversation_share_repo, user_repo
 
 logger = logging.getLogger(__name__)
@@ -65,6 +70,8 @@ class ConversationShareService:
             )
         if conv.user_id != shared_by:
             raise AuthorizationError(message="Only the conversation owner can share it")
+        if generate_link and permission != "view":
+            raise ValidationError(message="Public links only support read-only sharing")
 
         share_token = None
 
@@ -114,10 +121,10 @@ class ConversationShareService:
 
         return await conversation_share_repo.get_shares_for_conversation(self.db, conversation_id)
 
-    async def revoke_share(self, share_id: UUID, user_id: UUID) -> None:
+    async def revoke_share(self, share_id: UUID, user_id: UUID, *, conversation_id: UUID) -> None:
         """Revoke a share. Owner of conversation or the shared_with user can revoke."""
         share = await conversation_share_repo.get_by_id(self.db, share_id)
-        if not share:
+        if not share or share.conversation_id != conversation_id:
             raise NotFoundError(message="Share not found", details={"share_id": str(share_id)})
 
         # Owner or the recipient can revoke
@@ -158,11 +165,12 @@ class ConversationShareService:
                         "created_at": m.created_at.isoformat() if m.created_at else None,
                     }
                     for m in (conv.messages or [])
+                    if m.role in {"user", "assistant"}
                 ],
             },
             "share": {
                 "id": str(share.id),
-                "permission": share.permission,
+                "permission": "view",
                 "share_token": share.share_token,
             },
         }

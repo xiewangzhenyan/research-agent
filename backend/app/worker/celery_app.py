@@ -25,4 +25,6 @@ celery_app.conf.update(
 celery_app.autodiscover_tasks(["app.worker.tasks"])
 
 celery_app.conf.imports = ("app.worker.tasks.knowledge",)
-celery_app.conf.beat_schedule = {"dispatch-knowledge": {"task": "knowledge.dispatch", "schedule": 30.0}}
+celery_app.conf.beat_schedule = {
+    "dispatch-knowledge": {"task": "knowledge.dispatch", "schedule": 30.0}
+}

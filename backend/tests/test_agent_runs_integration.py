@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001 - Chinese fixtures
 """Opt-in integration tests against a disposable migrated PostgreSQL database.
 
 RUN_TASK_DB_TESTS=1 python -m pytest tests/test_agent_runs_integration.py

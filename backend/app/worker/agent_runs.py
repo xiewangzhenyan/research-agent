@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001 - Chinese user-facing copy
 """Dedicated PostgreSQL task worker: python -m app.worker.agent_runs [--setup].
 
 Session advisory locks prevent overlapping graph writers across workers/restarts.

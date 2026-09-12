@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001 - Chinese user-facing copy
 """Authorized task submission, cancellation and durable human replies."""
 
 import hashlib

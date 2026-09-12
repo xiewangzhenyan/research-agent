@@ -17,9 +17,22 @@ __all__ = [
     "MessageRating",
     "ConversationShare",
     "UserSlashCommand",
+    "KnowledgeBase",
+    "KnowledgeDocument",
+    "KnowledgeChunk",
+    "KnowledgeCitation",
+    "AgentRun",
+    "AgentRunEvent",
+    "KnowledgeSearchChunk",
+    "RunArtifact",
 ]
 
-from app.db.models.knowledge import KnowledgeBase, KnowledgeDocument, KnowledgeChunk, KnowledgeCitation
+from app.db.models.knowledge import (
+    KnowledgeBase,
+    KnowledgeDocument,
+    KnowledgeChunk,
+    KnowledgeCitation,
+)
 
 from app.db.models.agent_run import AgentRun, AgentRunEvent
 
