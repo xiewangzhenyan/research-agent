@@ -186,6 +186,8 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
+    # asyncio.run handles SIGINT by cancelling tasks and closing checkpoint connections.
+    stop_signal: SIGINT
     stop_grace_period: 15s
     healthcheck:
       disable: true

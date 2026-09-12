@@ -53,6 +53,10 @@ docker builder prune --force --filter until=24h --max-used-space 4GB
 
 - 只构建有变化的服务；修改前端公开环境变量会使相应构建层自动失效，无需
   惯例性使用 `--no-cache`。
+- 后端发布按 API、后台任务进程、重排服务分批更新并检查就绪状态，避免某个
+  worker 停机等待拖延整个 API 启动。更新前检查运行中的任务，Celery 使用足够
+  完成长任务的停止宽限期；Agent worker 使用 `SIGINT`，由 `asyncio.run` 取消
+  协程并关闭检查点连接，未完成任务由持久化状态恢复。
 - 后端用 `COPY --chown` 设置所有权，虚拟环境与源代码分层复制。不要对
   `/app` 再执行递归 `chown`，否则依赖树会在新镜像层中复制一遍。
 - `.dockerignore` 排除宿主机虚拟环境、运行数据、模型缓存、环境配置和开发缓存。
