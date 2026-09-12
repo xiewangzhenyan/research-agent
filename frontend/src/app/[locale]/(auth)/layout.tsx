@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { ArrowLeft, Database, FileText, MessageSquare, Quote, Sparkles } from "lucide-react";
+import { ArrowLeft, Database, FileText, MessageSquare, Quote } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
-import { APP_NAME } from "@/lib/constants";
+import { APP_BRAND, APP_NAME } from "@/lib/constants";
+import { ResearchMark } from "@/components/brand/research-mark";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("auth.shell");
@@ -11,12 +12,12 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
     <div className="auth-shell">
       <header className="auth-header">
         <Link href={home} className="auth-brand">
-          <span className="auth-brand-icon">
-            <Sparkles size={21} aria-hidden />
-          </span>
+          <ResearchMark size={40} className="shrink-0" />
           <span>
             {APP_NAME}
-            <small>{t("tagline")}</small>
+            <small>
+              {APP_BRAND} · {t("tagline")}
+            </small>
           </span>
         </Link>
         <Link href={home} className="auth-back">
@@ -39,7 +40,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
             <div className="auth-orbit-ring" />
             <div className="auth-orbit-ring auth-orbit-ring-inner" />
             <div className="auth-orbit-center">
-              <Sparkles size={30} />
+              <ResearchMark size={48} />
             </div>
             <div className="auth-orbit-node auth-orbit-doc">
               <FileText size={19} />
@@ -75,7 +76,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
       </main>
       <footer className="auth-footer">
         <span>
-          © {new Date().getFullYear()} {APP_NAME}
+          © {new Date().getFullYear()} {APP_NAME} · {APP_BRAND}
         </span>
         <span>{t("footer")}</span>
       </footer>

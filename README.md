@@ -1,6 +1,11 @@
-# Agent
+# Research Agent
 
-面向知识管理与任务协作的 AI 工作平台，集成原生知识库、流式对话、可恢复后台任务及多角色资料协作。
+**LSPRAI · 科研知识库与 AI 助手**
+
+面向课题组知识积累与科研协作，汇集经典文献、基础知识和研究资料，支持引用问答、流式对话、可恢复后台任务及多角色资料协作。可用于 LSPR、超表面、生化基础等方向的科研入门，也可按课题组需求建设其他领域的知识库。
+
+- 项目仓库：[xiewangzhenyan/research-agent](https://github.com/xiewangzhenyan/research-agent)
+- 在线入口：[agent.lsprai.com](https://agent.lsprai.com)
 
 ## 当前能力
 
@@ -89,6 +94,7 @@ bun run test:run
 - [沙箱说明](sandbox/README.md)
 - [磁盘维护](docs/storage-maintenance.md)
 - [安全说明](SECURITY.md)
+- [GitHub 同步说明](docs/github-sync.md)
 
 ## 许可
 

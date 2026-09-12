@@ -165,7 +165,7 @@ export interface SocialLink {
   icon: SocialIcon;
 }
 
-// Keep this empty until LSPR AI's official social profiles are available.
+// Keep this empty until LSPRAI's official social profiles are available.
 // Generic placeholder profiles must never be shown as product-owned links.
 export const SOCIAL_LINKS: SocialLink[] = [];
 

@@ -10,16 +10,15 @@
 
 import type { Metadata } from "next";
 
-import { APP_NAME } from "@/lib/constants";
+import { APP_BRAND, APP_DESCRIPTION, APP_NAME } from "@/lib/constants";
 import { defaultLocale, locales } from "@/i18n";
 
 export const SITE = {
   name: APP_NAME,
   /** Tagline used in title templates + OG defaults. */
-  tagline: "Your private AI workspace",
+  tagline: `${APP_BRAND} 科研知识库与 AI 助手`,
   /** One-paragraph default description (≤160 chars for SERP truncation). */
-  description:
-    "Bring conversations, documents, and intelligent workflows together in one secure AI workspace.",
+  description: APP_DESCRIPTION,
   /** Canonical absolute origin. NO trailing slash. */
   url:
     (process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") as string | undefined) ??
@@ -34,10 +33,11 @@ export const SITE = {
     "team knowledge",
     "AI agent",
     "RAG",
-    "team productivity",
+    "research assistant",
     "knowledge base",
     "internal search",
-    "B2B SaaS",
+    "科研知识库",
+    APP_BRAND,
   ],
   /** Locale defaults — pulls from your i18n config. */
   defaultLocale,
@@ -69,24 +69,22 @@ interface PageMetaInput {
 export function pageMetadata(input: PageMetaInput): Metadata {
   const locale = input.locale ?? SITE.defaultLocale;
   const path = normalizePath(input.path ?? "/");
-  const localizedPath = locale === SITE.defaultLocale
-    ? path
-    : path === "/" ? `/${locale}` : `/${locale}${path}`;
+  const localizedPath =
+    locale === SITE.defaultLocale ? path : path === "/" ? `/${locale}` : `/${locale}${path}`;
   const canonical = `${SITE.url}${localizedPath}`;
   const title = input.title === SITE.name ? SITE.name : `${input.title} | ${SITE.name}`;
   const ogImageUrl = input.ogImage ?? `${SITE.url}/opengraph-image`;
 
   return {
-    title,
+    title: { absolute: title },
     description: input.description,
     keywords: [...SITE.keywords],
     alternates: {
       canonical,
       languages: Object.fromEntries(
         SITE.locales.map((loc) => {
-          const localePath = loc === SITE.defaultLocale
-            ? path
-            : path === "/" ? `/${loc}` : `/${loc}${path}`;
+          const localePath =
+            loc === SITE.defaultLocale ? path : path === "/" ? `/${loc}` : `/${loc}${path}`;
           return [loc, `${SITE.url}${localePath}`];
         }),
       ),

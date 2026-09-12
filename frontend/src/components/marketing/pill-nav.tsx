@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { LanguageSwitcherCompact } from "@/components/language-switcher";
+import { ResearchMark } from "@/components/brand/research-mark";
 import type { NavIcon, NavItem } from "@/components/marketing/footer-config";
 import { ROUTES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -127,20 +128,7 @@ export function PillNav({ brand, links, ctaLabel, ctaHref, secondaryCta }: PillN
           href={ROUTES.HOME}
           className="font-display text-foreground flex shrink-0 items-center gap-2.5 text-base font-bold tracking-tight"
         >
-          <span
-            aria-hidden
-            className="inline-flex h-7 w-7 items-center justify-center rounded-[0.6rem]"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--color-brand), oklch(from var(--color-brand) calc(l - 0.14) c h))",
-              boxShadow:
-                "inset 0 1px 0 oklch(100% 0 0 / 0.25), 0 6px 16px -8px oklch(from var(--color-brand) l c h / 0.8)",
-            }}
-          >
-            <span className="text-brand-foreground font-display text-sm leading-none font-extrabold">
-              {brand.charAt(0).toUpperCase()}
-            </span>
-          </span>
+          <ResearchMark size={28} className="shrink-0" />
           {brand}
         </Link>
 
@@ -149,6 +137,7 @@ export function PillNav({ brand, links, ctaLabel, ctaHref, secondaryCta }: PillN
             item.items ? (
               <div
                 key={item.label}
+                role="presentation"
                 className="relative"
                 onMouseEnter={() => hoverOpen(i)}
                 onMouseLeave={hoverClose}

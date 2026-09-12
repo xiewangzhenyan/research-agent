@@ -1,5 +1,7 @@
-export const APP_NAME = "LSPR AI";
-export const APP_DESCRIPTION = "A private AI workspace for conversations, knowledge, and intelligent workflows.";
+export const APP_NAME = "Research Agent";
+export const APP_BRAND = "LSPRAI";
+export const APP_DESCRIPTION =
+  "LSPRAI 科研知识库与 AI 助手，连接研究文献、基础知识与可追溯的引用问答。";
 
 export const API_ROUTES = {
   LOGIN: "/auth/login",

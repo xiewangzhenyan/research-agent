@@ -2,8 +2,10 @@
 
 ## Project Overview
 
-**agent** - An AI workspace with native knowledge retrieval, persistent tasks,
-source citations, and bounded multi-role collaboration.
+**Research Agent** — LSPRAI's research knowledge base and AI assistant, with native
+knowledge retrieval, persistent tasks, source citations, and bounded multi-role collaboration.
+
+Follow the GitHub synchronization and deployment disk rules in `AGENTS.md`.
 
 **Stack:** FastAPI + Pydantic v2, PostgreSQL (async via asyncpg)
 , JWT + API Key auth, Redis, PydanticAI, Celery, Next.js 15 (i18n)

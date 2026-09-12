@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { Database, ArrowUpRight, ShieldCheck } from "lucide-react";
+import { APP_NAME } from "@/lib/constants";
 export default function Page() {
   return (
     <main id="main" className="cosmic-landing min-h-dvh px-6 py-20">
       <div className="mx-auto max-w-3xl">
         <Link href="/" className="text-brand text-sm">
-          ← LSPR AI
+          ← {APP_NAME}
         </Link>
         <Database className="text-brand mt-16 mb-6 h-10 w-10" />
         <h1 className="text-4xl font-semibold">你的专属知识空间</h1>

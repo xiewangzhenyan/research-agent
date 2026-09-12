@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks";
 import { ThemeToggle } from "@/components/theme";
 import { LanguageSwitcherCompact } from "@/components/language-switcher";
 import { APP_NAME, ROUTES } from "@/lib/constants";
+import { ResearchMark } from "@/components/brand/research-mark";
 import { LogOut, User } from "lucide-react";
 
 interface LandingNavProps {
@@ -19,7 +20,11 @@ export function LandingNav({ signInLabel, getStartedLabel, dashboardLabel }: Lan
   return (
     <div className="fixed top-0 right-0 left-0 z-50 flex justify-center px-4 pt-4">
       <nav className="navbar-beam relative flex h-12 w-full max-w-3xl items-center justify-between rounded-full px-4 sm:px-6">
-        <Link href={ROUTES.HOME} className="text-foreground text-sm font-bold tracking-tight">
+        <Link
+          href={ROUTES.HOME}
+          className="text-foreground flex items-center gap-2 text-sm font-bold tracking-tight"
+        >
+          <ResearchMark size={28} className="shrink-0" />
           {APP_NAME}
         </Link>
 

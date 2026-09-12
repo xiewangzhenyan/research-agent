@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ResearchMark } from "@/components/brand/research-mark";
 import { Github, Linkedin, Twitter, type LucideIcon } from "lucide-react";
 
 import { ROUTES } from "@/lib/constants";
@@ -58,11 +59,7 @@ export function MarketingFooter({
               href={ROUTES.HOME}
               className="font-display text-foreground inline-flex items-center gap-2.5 text-2xl font-bold tracking-tight"
             >
-              <span
-                aria-hidden
-                className="bg-brand inline-block h-3 w-3 animate-pulse rounded-full"
-                style={{ boxShadow: "0 0 20px var(--color-brand), 0 0 6px var(--color-brand)" }}
-              />
+              <ResearchMark size={32} className="shrink-0" />
               {brand}
             </Link>
 
@@ -139,4 +136,3 @@ export function MarketingFooter({
     </footer>
   );
 }
-

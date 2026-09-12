@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Database, FileText, Sparkles, Quote } from "lucide-react";
+import { Database, FileText, Quote } from "lucide-react";
+import { APP_BRAND } from "@/lib/constants";
+import { ResearchMark } from "@/components/brand/research-mark";
 export function CosmicOrbit({ chinese }: { chinese: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [running, setRunning] = useState(false);
@@ -36,8 +38,8 @@ export function CosmicOrbit({ chinese }: { chinese: boolean }) {
         <i />
       </div>
       <div className="orbit-core">
-        <Sparkles />
-        <span>LSPR AI</span>
+        <ResearchMark size={38} />
+        <span>{APP_BRAND}</span>
       </div>
       <div className="orbit-label orbit-label-a">
         <FileText />

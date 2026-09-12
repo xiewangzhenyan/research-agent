@@ -8,6 +8,21 @@ on:
     branches: [main, master]
 
 jobs:
+  git-sync:
+    name: Git synchronization checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test safe synchronization with local repositories
+        run: python3 -m unittest discover -s scripts/tests -v
+      - name: Check committed source for excluded files and credentials
+        run: python3 scripts/git_sync.py check
+
   lint:
     runs-on: ubuntu-latest
     steps:

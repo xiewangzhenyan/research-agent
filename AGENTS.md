@@ -4,8 +4,8 @@ This file provides guidance for AI coding agents (Codex, Copilot, Cursor, Zed, O
 
 ## Project Overview
 
-**agent** - An AI workspace with native knowledge retrieval, persistent tasks,
-source citations, and bounded multi-role collaboration.
+**Research Agent** — LSPRAI's research knowledge base and AI assistant, with native
+knowledge retrieval, persistent tasks, source citations, and bounded multi-role collaboration.
 
 **Stack:** FastAPI + Pydantic v2, PostgreSQL
 , JWT + API Key auth, Redis
@@ -60,6 +60,20 @@ backend/app/
 - Avoid recursive ownership changes on dependency trees in runtime images; use
   `COPY --chown` and keep source separate from dependencies.
 - See `docs/storage-maintenance.md` for the retention and audit procedure.
+
+## GitHub synchronization
+
+- Canonical public repository: `https://github.com/xiewangzhenyan/research-agent`.
+- The owner authorizes committing and pushing each completed, appropriately checked
+  development change. Review the diff and stage only intended source files.
+- Keep actual credentials, `.env` files, databases, uploads, model caches, deployment
+  evidence and internal research notes out of Git. Preserve required license notices.
+- Install the local hooks with `python3 scripts/git_sync.py install`. After committing,
+  verify that the push succeeded; a failed push does not undo the local commit.
+- Never force-push, silently discard remote changes or claim an unpushed change is synced.
+  Resolve failures and retry with `python3 scripts/git_sync.py push`.
+- Git sync does not deploy the application. Report code upload and live deployment separately.
+- See `docs/github-sync.md` for setup, pause controls and verification.
 
 ## More Info
 

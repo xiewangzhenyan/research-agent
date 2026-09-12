@@ -1,18 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import {
-  ArrowUpRight,
-  Database,
-  FileText,
-  Quote,
-  ShieldCheck,
-  Sparkles,
-  Search,
-} from "lucide-react";
+import { ArrowUpRight, Database, FileText, Quote, ShieldCheck, Search } from "lucide-react";
 import type { Locale } from "@/i18n";
 import { pageMetadata } from "@/lib/seo";
-import { APP_NAME } from "@/lib/constants";
+import { APP_BRAND, APP_DESCRIPTION, APP_NAME } from "@/lib/constants";
 import { CosmicOrbit } from "@/components/marketing/cosmic-orbit";
+import { ResearchMark } from "@/components/brand/research-mark";
 export async function generateMetadata({
   params,
 }: {
@@ -23,8 +16,8 @@ export async function generateMetadata({
     title: APP_NAME,
     description:
       locale === "zh"
-        ? "连接你的知识宇宙。私有知识库、智能对话与可追溯的原文引用。"
-        : "Connect your knowledge universe. Private documents, thoughtful conversations and traceable sources.",
+        ? APP_DESCRIPTION
+        : "LSPRAI research knowledge base and AI assistant. Connect research literature, foundational knowledge and answers with traceable sources.",
     path: "/",
     locale,
   });
@@ -78,16 +71,19 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
     <div className="cosmic-landing theme-dark">
       <nav
         aria-label={zh ? "主导航" : "Main navigation"}
-        className="cosmic-nav mx-auto flex max-w-7xl items-center justify-between px-6 py-6 sm:px-10"
+        className="cosmic-nav mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-6 sm:px-10"
       >
         <Link
           href={href("/")}
-          className="flex items-center gap-3 text-lg font-semibold tracking-tight"
+          className="flex items-center gap-2 text-sm font-semibold tracking-tight sm:gap-3 sm:text-lg"
         >
-          <span className="brand-orb">
-            <Sparkles className="h-5 w-5" />
+          <ResearchMark size={36} className="shrink-0" />
+          <span className="whitespace-nowrap">
+            {APP_NAME}
+            <small className="text-brand block text-[10px] font-medium tracking-[0.15em]">
+              {APP_BRAND}
+            </small>
           </span>
-          LSPR<span className="text-brand -ml-2 font-normal">AI</span>
         </Link>
         <div className="hidden items-center gap-8 text-sm text-slate-400 md:flex">
           <a href="#possibilities">{zh ? "探索能力" : "Explore"}</a>
@@ -96,7 +92,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
         </div>
         <Link
           href={href("/login")}
-          className="cosmic-nav-login rounded-full border px-5 py-2.5 text-sm"
+          className="cosmic-nav-login shrink-0 rounded-full border px-3 py-2.5 text-sm whitespace-nowrap sm:px-5"
         >
           {zh ? "进入工作区" : "Workspace"}
           <ArrowUpRight className="ml-2 inline h-3 w-3" />
@@ -106,8 +102,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
         <section className="cosmic-hero relative mx-auto grid max-w-7xl items-center gap-6 px-6 pt-12 pb-16 sm:px-10 lg:grid-cols-[1.05fr_1fr] lg:pt-20 lg:pb-24">
           <div className="relative z-10">
             <p className="text-brand mb-8 flex items-center gap-3 font-mono text-[11px] tracking-[0.24em]">
-              <span className="h-1.5 w-1.5 rounded-full bg-current" /> A SMALL SPACE. INFINITE
-              POSSIBILITIES.
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
+              {zh ? `${APP_BRAND} · 科研知识与智能协作` : `${APP_BRAND} · RESEARCH & KNOWLEDGE`}
             </p>
             <h1 className="cosmic-title">
               {zh ? (
@@ -210,7 +206,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: L
         </section>
       </main>
       <footer className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-5 px-6 py-10 text-xs text-slate-500 sm:px-10">
-        <span>© {new Date().getFullYear()} LSPR AI · A universe of your own.</span>
+        <span>
+          © {new Date().getFullYear()} {APP_NAME} · {APP_BRAND}
+        </span>
         <div className="flex gap-6">
           <Link href={href("/help")}>{zh ? "帮助" : "Help"}</Link>
           <Link href={href("/legal/privacy")}>{zh ? "隐私" : "Privacy"}</Link>

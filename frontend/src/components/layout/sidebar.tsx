@@ -12,13 +12,13 @@ import {
   MessageSquare,
   Settings,
   ShieldCheck,
-  Sparkles,
   ArrowUpRight,
   Plus,
 } from "lucide-react";
 import { useActiveRoute } from "@/lib/active-route";
 import { cn, isAppAdmin } from "@/lib/utils";
-import { APP_NAME, ROUTES } from "@/lib/constants";
+import { APP_BRAND, APP_NAME, ROUTES } from "@/lib/constants";
+import { ResearchMark } from "@/components/brand/research-mark";
 import { useSidebarStore, useAuthStore } from "@/stores";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui";
 
@@ -47,12 +47,12 @@ function SidebarContents({
   return (
     <>
       <Link href={ROUTES.DASHBOARD} onClick={onNavigate} className="console-brand">
-        <span className="console-brand-symbol">
-          <Sparkles size={19} />
-        </span>
+        <ResearchMark size={35} className="shrink-0" />
         <span>
           {APP_NAME}
-          <small>{zh ? "个人工作空间" : "Knowledge workspace"}</small>
+          <small>
+            {APP_BRAND} · {zh ? "科研工作空间" : "Research workspace"}
+          </small>
         </span>
       </Link>
       <div className="px-4 pt-2">

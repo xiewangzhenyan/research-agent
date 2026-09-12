@@ -1,14 +1,15 @@
 import { ImageResponse } from "next/og";
 
 import { SITE } from "@/lib/seo";
+import { APP_BRAND } from "@/lib/constants";
+import { ResearchMark } from "@/components/brand/research-mark";
 
 export const alt = `${SITE.name} — ${SITE.tagline}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const dynamic = "force-static";
 
-/** Default Open Graph image. Black background, oversized brand title with a lime
- *  highlight on a key word, plus eyebrow + tagline. Mirrors the hero treatment. */
+/** Share card using the same LSPRAI mark and mint palette as the workspace. */
 export default function OpengraphImage() {
   return new ImageResponse(
     <div
@@ -19,25 +20,18 @@ export default function OpengraphImage() {
         flexDirection: "column",
         justifyContent: "space-between",
         padding: "64px 80px",
-        backgroundColor: "#0E0E0C",
+        backgroundColor: "#0D2421",
         backgroundImage:
-          "radial-gradient(ellipse 80% 60% at 80% 0%, rgba(197,249,74,0.18), transparent 60%)",
+          "radial-gradient(ellipse 80% 60% at 80% 0%, rgba(163,240,206,0.18), transparent 60%)",
         color: "#F2F1EB",
         fontFamily: "sans-serif",
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div
-            style={{
-              width: 14,
-              height: 14,
-              borderRadius: 9999,
-              background: "#C5F94A",
-            }}
-          />
+          <ResearchMark size={48} />
           <span style={{ fontSize: 26, fontWeight: 700, letterSpacing: "-0.01em" }}>
-            {SITE.name}
+            {APP_BRAND}
           </span>
         </div>
         <span
@@ -56,7 +50,7 @@ export default function OpengraphImage() {
       <div style={{ display: "flex", flexDirection: "column" }}>
         <div
           style={{
-            fontSize: 110,
+            fontSize: 100,
             fontWeight: 800,
             lineHeight: 1.0,
             letterSpacing: "-0.035em",
@@ -64,18 +58,7 @@ export default function OpengraphImage() {
             flexWrap: "wrap",
           }}
         >
-          <span>AI&nbsp;that&nbsp;</span>
-          <span
-            style={{
-              background:
-                "linear-gradient(transparent 50%, #C5F94A 50%, #C5F94A 90%, transparent 90%)",
-              paddingLeft: 8,
-              paddingRight: 8,
-            }}
-          >
-            knows
-          </span>
-          <span>&nbsp;your work.</span>
+          <span style={{ color: "#A3F0CE" }}>{SITE.name}</span>
         </div>
       </div>
 
@@ -90,17 +73,16 @@ export default function OpengraphImage() {
             padding: "14px 28px",
             borderRadius: 9999,
             background: "#F2F1EB",
-            color: "#0E0E0C",
+            color: "#0D2421",
             display: "flex",
             alignItems: "center",
             gap: 10,
           }}
         >
-          Get started →
+          开始探索 →
         </div>
       </div>
     </div>,
     { ...size },
   );
 }
-
