@@ -147,6 +147,17 @@ async def test_session_forwards_and_persists_effective_configuration(strict):
         patch.object(
             agent_session, "persist_assistant_turn", AsyncMock(return_value="saved")
         ) as persist,
+        patch(
+            "app.services.memory.MemoryService.recall",
+            AsyncMock(
+                return_value={
+                    "status": "strict_knowledge" if strict else "disabled",
+                    "items": [],
+                    "omitted": 0,
+                    "estimated_tokens": 0,
+                }
+            ),
+        ),
         patch.object(agent_session, "get_agent", return_value=runtime) as factory,
         patch.object(agent_session, "send_event", AsyncMock()) as events,
         patch.object(
@@ -169,7 +180,12 @@ async def test_session_forwards_and_persists_effective_configuration(strict):
         assert config.temperature == 0.25
         if strict:
             assert grounded.call_args.kwargs["configuration"] == config
-        assert persist.call_args.kwargs["effective_config"] == config.model_dump()
+        assert {
+            k: v for k, v in persist.call_args.kwargs["effective_config"].items() if k != "memory"
+        } == config.model_dump()
+        assert persist.call_args.kwargs["effective_config"]["memory"]["status"] == (
+            "strict_knowledge" if strict else "disabled"
+        )
         assert any(call.args[1] == "effective_config" for call in events.call_args_list)
 
 

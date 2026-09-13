@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.memory import MemoryUsage
+
 
 class GenerationOptions(BaseModel):
     model_config = ConfigDict(strict=True, allow_inf_nan=False)
@@ -29,6 +31,12 @@ class EffectiveGenerationConfig(BaseModel):
             result["openai_reasoning_effort"] = self.thinking_effort
             result["openai_reasoning_summary"] = "auto"
         return result
+
+
+class EffectiveAnswerConfig(EffectiveGenerationConfig):
+    """Actual answer metadata, independent of provider generation parameters."""
+
+    memory: MemoryUsage | None = None
 
 
 class GenerationModelInfo(BaseModel):

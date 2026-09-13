@@ -47,9 +47,9 @@ in the new document, so cancelling an unsaved-input warning leaves the old scope
 intact. Streaming chat warns before switching; background tasks continue in their
 original project. Artifact downloads use authenticated scoped fetches.
 
-This release does not add project deletion, resource moves, cross-account team
-libraries or persistent memory. Project separation is the boundary on which future
-memory can be built; it is not itself a memory implementation.
+Project deletion, resource moves and cross-account team libraries are not implemented.
+Opt-in, user-confirmed [project memory](project-memory.md) uses the same account/project
+boundary. Knowledge base ownership remains account-wide and independent of memory.
 
 ## Verification
 

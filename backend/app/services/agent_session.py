@@ -286,10 +286,26 @@ class AgentSession:
         await send_event(self.websocket, "user_prompt", {"content": user_message})
 
         try:
+            from app.services.memory import MemoryService
+            from app.services.memory_recall import MEMORY_RULES, memory_context, usage_record
+
+            async with get_db_context() as db:
+                recalled = await MemoryService(db, self.user.id, project_id=self.project_id).recall(
+                    user_message, strict_knowledge=bool(base_ids and strict)
+                )
+            effective_config = {**configuration.model_dump(), "memory": usage_record(recalled)}
             assistant = get_agent(configuration=configuration)
-            await send_event(self.websocket, "effective_config", configuration.model_dump())
+            if recalled["items"]:
+                assistant.system_prompt += MEMORY_RULES
+            await send_event(self.websocket, "effective_config", effective_config)
             model_history = build_message_history(self.conversation_history)
             user_input = await self._build_multimodal_input(user_message, file_ids)
+            remembered = memory_context(recalled)
+            if remembered:
+                if isinstance(user_input, str):
+                    user_input += remembered
+                else:
+                    user_input[0] += remembered
 
             collected_tool_calls: list[dict[str, Any]] = []
             if base_ids:
@@ -371,7 +387,7 @@ class AgentSession:
                     getattr(assistant, "model_name", None),
                     collected_tool_calls,
                     thinking="".join(collected_thinking) or None,
-                    effective_config=configuration.model_dump(),
+                    effective_config=effective_config,
                     user_id=self.user.id,
                     project_id=self.project_id,
                 )

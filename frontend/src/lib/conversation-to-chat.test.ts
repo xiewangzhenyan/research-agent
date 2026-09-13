@@ -7,6 +7,12 @@ it("restores the saved answer policy without applying today's defaults", () => {
     temperature: 0.25,
     thinking_effort: null,
     policy_version: "previous-policy",
+    memory: {
+      status: "used" as const,
+      items: [{ id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", revision: 2 }],
+      omitted: 0,
+      estimated_tokens: 50,
+    },
   };
   const message = conversationMessageToChatMessage({
     id: "answer",

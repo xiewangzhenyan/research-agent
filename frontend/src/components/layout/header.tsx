@@ -33,29 +33,33 @@ export function Header() {
   const zh = useLocale() === "zh";
   const t = useTranslations("nav");
   const tc = useTranslations("common");
-  const section = pathname.startsWith("/tools")
+  const section = pathname.startsWith("/memory")
     ? zh
-      ? "工具中心"
-      : "Tools"
-    : pathname.startsWith("/tasks")
+      ? "项目记忆"
+      : "Project memory"
+    : pathname.startsWith("/tools")
       ? zh
-        ? "后台任务"
-        : "Tasks"
-      : pathname.startsWith("/models")
+        ? "工具中心"
+        : "Tools"
+      : pathname.startsWith("/tasks")
         ? zh
-          ? "模型与能力"
-          : "Models and capabilities"
-        : pathname.startsWith("/knowledge")
-          ? t("knowledge")
-          : pathname.startsWith("/chat")
-            ? t("chat")
-            : pathname.startsWith("/settings")
-              ? t("settings")
-              : pathname.startsWith("/admin")
-                ? t("admin")
-                : pathname.startsWith("/profile")
-                  ? t("profile")
-                  : t("dashboard");
+          ? "后台任务"
+          : "Tasks"
+        : pathname.startsWith("/models")
+          ? zh
+            ? "模型与能力"
+            : "Models and capabilities"
+          : pathname.startsWith("/knowledge")
+            ? t("knowledge")
+            : pathname.startsWith("/chat")
+              ? t("chat")
+              : pathname.startsWith("/settings")
+                ? t("settings")
+                : pathname.startsWith("/admin")
+                  ? t("admin")
+                  : pathname.startsWith("/profile")
+                    ? t("profile")
+                    : t("dashboard");
 
   const openSearch = () => window.dispatchEvent(new CustomEvent("command-palette:open"));
 

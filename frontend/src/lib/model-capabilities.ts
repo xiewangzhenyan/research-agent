@@ -1,4 +1,7 @@
+import type { MemoryUsage } from "@/lib/memory";
+
 export interface EffectiveConfig {
+  memory?: MemoryUsage;
   model: string;
   temperature: number | null;
   thinking_effort: "low" | "medium" | "high" | null;

@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useLocale } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronDown, FolderOpen, Plus, Settings2 } from "lucide-react";
+import { Brain, Check, ChevronDown, FolderOpen, Plus, Settings2 } from "lucide-react";
 import {
   Button,
   Dialog,
@@ -114,6 +115,12 @@ export function ProjectSwitcher() {
               {t("项目设置", "Project settings")}
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem asChild>
+            <Link href="/memory">
+              <Brain className="mr-2 h-4 w-4" />
+              {t("项目记忆", "Project memory")}
+            </Link>
+          </DropdownMenuItem>
           <p className="text-muted-foreground px-2 py-2 text-xs leading-relaxed">
             {t(
               "会话与任务按项目独立保存。知识库属于账号，可跨项目复用。",

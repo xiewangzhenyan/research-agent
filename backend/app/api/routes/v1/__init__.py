@@ -50,3 +50,7 @@ v1_router.include_router(agent_runs.router)
 from app.api.routes.v1 import projects
 
 v1_router.include_router(projects.router)
+
+from app.api.routes.v1 import memory
+
+v1_router.include_router(memory.router)

@@ -5,6 +5,9 @@ import { cn } from "@/lib/utils";
 import type { ChatMessage, ChatMessageFile } from "@/types";
 import { ToolCallCard } from "./tool-call-card";
 import { MarkdownContent } from "./markdown-content";
+import { RememberMessage } from "@/components/memory/memory-editor";
+import { MemoryUsageBadge } from "@/components/memory/memory-usage";
+import { useProject } from "@/components/projects/project-provider";
 import { CopyButton } from "./copy-button";
 import { RatingButtons } from "./rating-buttons";
 import { useChatStore, useFilePreviewStore } from "@/stores";
@@ -100,7 +103,9 @@ function SourcesButton({ sources, onClick }: { sources: SourceItem[]; onClick: (
         )}
       </span>
       <span className="text-foreground/60 text-[11px] font-medium">
-        {zh ? `${sources.length} 条原文依据` : `${sources.length} source${sources.length !== 1 ? "s" : ""}`}
+        {zh
+          ? `${sources.length} 条原文依据`
+          : `${sources.length} source${sources.length !== 1 ? "s" : ""}`}
       </span>
     </button>
   );
@@ -114,6 +119,7 @@ interface MessageItemProps {
 
 export function MessageItem({ message, groupPosition, onRegenerate }: MessageItemProps) {
   const zh = useLocale() === "zh";
+  const workspace = useProject();
   const isUser = message.role === "user";
   const updateMessage = useChatStore((state) => state.updateMessage);
   const openPreview = useFilePreviewStore((s) => s.open);
@@ -348,6 +354,10 @@ export function MessageItem({ message, groupPosition, onRegenerate }: MessageIte
           </details>
         )}
 
+        {!isUser && !message.isStreaming && workspace && (
+          <MemoryUsageBadge usage={message.effectiveConfig?.memory} />
+        )}
+
         {hasSources && !isUser && (
           <div className="mt-1">
             <SourcesButton sources={sources} onClick={() => openSources(sources, null)} />
@@ -371,6 +381,7 @@ export function MessageItem({ message, groupPosition, onRegenerate }: MessageIte
                 isUser ? "bg-secondary hover:bg-secondary/80" : "bg-muted hover:bg-muted/80",
               )}
             />
+            {workspace && authUser && <RememberMessage message={message} />}
             {!isUser && onRegenerate && (
               <button
                 type="button"

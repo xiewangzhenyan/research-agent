@@ -4,6 +4,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import {
+  Brain,
   Cpu,
   Wrench,
   ListTodo,
@@ -85,6 +86,15 @@ function SidebarContents({
         >
           <ListTodo size={18} />
           {zh ? "后台任务" : "Tasks"}
+        </Link>
+        <Link
+          href="/memory"
+          onClick={onNavigate}
+          aria-current={active("/memory") ? "page" : undefined}
+          className={linkStyle("/memory")}
+        >
+          <Brain size={18} />
+          {zh ? "项目记忆" : "Project memory"}
         </Link>
         <p className="console-nav-caption pt-6 pb-2">{zh ? "管理" : "MANAGE"}</p>
         <Link

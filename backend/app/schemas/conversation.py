@@ -10,7 +10,7 @@ from uuid import UUID
 from pydantic import ConfigDict, Field
 
 from app.schemas.base import BaseSchema, TimestampSchema
-from app.schemas.model_config import EffectiveGenerationConfig
+from app.schemas.model_config import EffectiveAnswerConfig
 
 
 class ToolCallBase(BaseSchema):
@@ -75,7 +75,7 @@ class MessageCreate(MessageBase):
 
     model_name: str | None = Field(default=None, max_length=100, description="AI model used")
     tokens_used: int | None = Field(default=None, ge=0, description="Token count")
-    effective_config: EffectiveGenerationConfig | None = None
+    effective_config: EffectiveAnswerConfig | None = None
 
 
 class UserMessageCreate(BaseSchema):
@@ -102,7 +102,7 @@ class MessageRead(MessageBase, TimestampSchema):
     conversation_id: UUID
     model_name: str | None = None
     tokens_used: int | None = None
-    effective_config: EffectiveGenerationConfig | None = None
+    effective_config: EffectiveAnswerConfig | None = None
     tool_calls: list[ToolCallRead] = Field(default_factory=list)
     files: list[MessageFileRead] = Field(default_factory=list)
     user_rating: int | None = Field(
