@@ -140,7 +140,9 @@ def test_confirmation_receipt_bound_to_owner_base_file_and_version():
 
 
 @pytest.mark.parametrize(
-    "name,data", [("a.exe", b"text"), ("a.txt", b""), ("a.txt", b"a" * (10 * 1024 * 1024 + 1))]
+    "name,data",
+    [("a.exe", b"text"), ("a.txt", b""), ("a.txt", b"a" * (10 * 1024 * 1024 + 1))],
+    ids=["unsupported-type", "empty-file", "over-size-limit"],
 )
 def test_preview_file_limits(name, data):
     with pytest.raises(BadRequestError):

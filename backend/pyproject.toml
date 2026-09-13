@@ -184,6 +184,9 @@ addopts = "--strict-markers"
 faulthandler_timeout = 60
 
 [tool.coverage.run]
+# Python 3.12 sys.settrace is extremely slow on jieba's large dictionary literals.
+# PEP 669 measures the same application lines without that collection bottleneck.
+core = "sysmon"
 source = ["app"]
 omit = [
     "app/main.py",

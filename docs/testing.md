@@ -22,6 +22,11 @@ uv run --directory backend pytest tests/ --cov=app --cov-report=term:skip-covere
 测试配置可用 `OPENAI_API_KEY=ci-placeholder-not-a-real-key` 与
 `OPENAI_BASE_URL=http://127.0.0.1:9/v1`，避免误发真实模型请求。
 
+覆盖率使用 Python 3.12+ 的 `sys.monitoring`（`core = "sysmon"`）。本项目在
+Python 3.12 下使用传统 trace 采集时，加载 jieba 的大型词典会导致测试收集长时间
+占用 CPU；切换采集方式后，全量单元测试约 23 秒完成，源码覆盖率仍约 61.7%。
+这是采集方式调整，测试范围和覆盖率门槛保持不变。
+
 ```bash
 cd frontend
 bun install --frozen-lockfile
@@ -51,7 +56,7 @@ CI 使用含 pgvector 的 PostgreSQL 16 临时服务，而非不包含该扩展�
   另需挂载离线 BGE 缓存；共享 CI 不下载或冒充该模型，
   这个检查会明确显示为跳过，部署时另行验证真实本地编码和线上召回。
 
-每个 CI 测试阶段有总运行时间限制，后端超过 60 秒无进展会输出线程栈。
+每个 CI 测试阶段有总运行时间限制，单个后端测试超过 60 秒会输出线程栈。
 测试日志、JUnit、覆盖率和浏览器失败 trace/screenshot 保留为 Actions artifacts。
 Docker 构建需等待静态检查、后端单元、数据库及前端检查全部通过。
 
