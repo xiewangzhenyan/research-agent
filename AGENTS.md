@@ -64,14 +64,22 @@ backend/app/
 ## GitHub synchronization
 
 - Canonical public repository: `https://github.com/xiewangzhenyan/research-agent`.
-- The owner authorizes committing and pushing each completed, appropriately checked
-  development change. Review the diff and stage only intended source files.
+- The owner's updated preference (2026-09-13) is batched delivery. Accumulate local
+  changes and run relevant tests; do not push to GitHub, rebuild Docker images or
+  deploy after every individual improvement. Local checkpoint commits are optional.
+- Batch upload and deployment at a coherent feature/release milestone or when the
+  owner asks to publish. State what is included, review the combined diff and run
+  the relevant regression checks. Do not treat every small task as a release milestone.
 - Keep actual credentials, `.env` files, databases, uploads, model caches, deployment
   evidence and internal research notes out of Git. Preserve required license notices.
-- Install the local hooks with `python3 scripts/git_sync.py install`. After committing,
-  verify that the push succeeded; a failed push does not undo the local commit.
+- Keep `git config --local researchAgent.autoPush false`. The existing installer
+  enables auto-push, so restore this setting immediately after any hook reinstall.
+  Keep the pre-push audit hook enabled. Do not re-enable auto-push without an explicit
+  change to the owner's preference.
 - Never force-push, silently discard remote changes or claim an unpushed change is synced.
-  Resolve failures and retry with `python3 scripts/git_sync.py push`.
+  At a batch release, push explicitly with `git push origin main` and verify the remote
+  result; a failed push does not undo local commits. The auto-push helper intentionally
+  does nothing while auto-push is disabled.
 - Git sync does not deploy the application. Report code upload and live deployment separately.
 - See `docs/github-sync.md` for setup, pause controls and verification.
 

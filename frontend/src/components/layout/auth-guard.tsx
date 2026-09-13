@@ -3,9 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores";
-import { apiClient } from "@/lib/api-client";
+import { runAuthCheck } from "@/hooks/use-auth";
 import { ROUTES } from "@/lib/constants";
-import type { User } from "@/types";
 import { Spinner } from "@/components/ui";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -17,14 +16,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (isAuthenticated) return;
 
     const verify = async () => {
-      try {
-        const user = await apiClient.get<User>("/auth/me");
-        setUser(user);
-      } catch {
-        router.replace(ROUTES.LOGIN);
-      } finally {
-        setChecking(false);
-      }
+      await runAuthCheck(setUser);
+      if (!useAuthStore.getState().isAuthenticated) router.replace(ROUTES.LOGIN);
+      setChecking(false);
     };
 
     verify();
@@ -39,5 +33,5 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return isAuthenticated ? <>{children}</> : null;
 }

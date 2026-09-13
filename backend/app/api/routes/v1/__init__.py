@@ -54,3 +54,7 @@ v1_router.include_router(projects.router)
 from app.api.routes.v1 import memory
 
 v1_router.include_router(memory.router)
+
+from app.api.routes.v1 import chat_turns
+
+v1_router.include_router(chat_turns.router)

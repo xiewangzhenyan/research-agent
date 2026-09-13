@@ -50,6 +50,9 @@ class AgentRunResume(BaseModel):
 class AgentRunResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
+    conversation_id: UUID | None = None
+    user_message_id: UUID | None = None
+    assistant_message_id: UUID | None = None
     project_id: UUID | None = None
     request: dict
     effective_config: dict

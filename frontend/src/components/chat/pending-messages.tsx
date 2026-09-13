@@ -8,23 +8,18 @@ import { cn } from "@/lib/utils";
 interface PendingMessagesProps {
   messages: QueuedMessage[];
   onCancel: (id: string) => void;
+  onRetry?: (id: string) => void;
 }
 
-/**
- * Stack of "pending" entries shown above <ChatInput>.
- *
- * The hook queues a message when the agent is busy or the socket is offline,
- * surfaces it here so the user can see (and cancel) what's waiting, then the
- * drainer auto-sends each entry as soon as the agent goes idle.
- */
-export function PendingMessages({ messages, onCancel }: PendingMessagesProps) {
+/** Unacknowledged submissions only; retries reuse the original idempotency key. */
+export function PendingMessages({ messages, onCancel, onRetry }: PendingMessagesProps) {
   if (messages.length === 0) return null;
 
   return (
     <div className="border-border bg-card mb-2 rounded-2xl border px-3 py-2">
       <div className="text-foreground/55 mb-1.5 flex items-center gap-1.5 font-mono text-[10px] tracking-wider uppercase">
         <Clock className="h-3 w-3" />
-        Queued · sends after current reply
+        等待服务器确认
       </div>
       <ul className="space-y-1.5">
         {messages.map((m, i) => (
@@ -40,22 +35,32 @@ export function PendingMessages({ messages, onCancel }: PendingMessagesProps) {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-foreground line-clamp-2 break-words">{m.content}</p>
+              {m.error && (
+                <p role="alert" className="text-destructive mt-1 text-xs">
+                  {m.error}{" "}
+                  <button type="button" onClick={() => onRetry?.(m.id)} className="underline">
+                    重试发送
+                  </button>
+                </p>
+              )}
               {m.files && m.files.length > 0 && (
                 <p className="text-foreground/55 mt-0.5 inline-flex items-center gap-1 font-mono text-[10px] tracking-wider uppercase">
                   <Paperclip className="h-3 w-3" />
-                  {m.files.length} file{m.files.length === 1 ? "" : "s"}
+                  {m.files.length} 个附件
                 </p>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => onCancel(m.id)}
-              className="text-foreground/45 hover:bg-foreground/10 hover:text-destructive inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors"
-              title="Remove from queue"
-              aria-label="Remove from queue"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            {m.error && (
+              <button
+                type="button"
+                onClick={() => onCancel(m.id)}
+                className="text-foreground/45 hover:bg-foreground/10 hover:text-destructive inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors"
+                title="关闭提示；已接收的消息仍会出现在历史记录中"
+                aria-label="关闭未确认消息提示"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </li>
         ))}
       </ul>

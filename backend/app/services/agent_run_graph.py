@@ -27,7 +27,7 @@ from app.schemas.model_config import EffectiveGenerationConfig
 from app.services import sandbox_client
 from app.services.knowledge import KnowledgeService
 from app.services.knowledge_answer import grounded_answer
-from app.services.retrieval_snapshot import execution_record, restore
+from app.services.retrieval_snapshot import capture, execution_record, restore
 from app.services.run_artifact import RunArtifactService
 from app.services.sandbox_files import load_inputs
 from app.services.tool_policy import resolve_tools
@@ -45,6 +45,11 @@ class RunState(TypedDict, total=False):
     replies: dict | None
     rounds: int
     usage: dict
+    chat: dict
+    routing: dict
+    collaboration: dict
+    tool_calls: list[dict]
+    thinking: str
 
 
 def build_run_graph(
@@ -59,6 +64,7 @@ def build_run_graph(
     sandbox_request=None,
     attempt=None,
     project_id: UUID | None = None,
+    chat_request=None,
 ):
     allowed = tuple(CHAT_TOOL_NAMES if allowed_tools is None else allowed_tools)
     config = EffectiveGenerationConfig.model_validate(configuration)
@@ -72,7 +78,18 @@ def build_run_graph(
             async with get_worker_db_context() as db:
                 sources = await KnowledgeService(db, user_id).search(
                     [UUID(v) for v in state["base_ids"]],
-                    state["prompt"],
+                    state.get("chat", {}).get("query", state["prompt"]),
+                    **(
+                        {
+                            "document_ids": [
+                                UUID(v) for v in chat_request["knowledge_document_ids"]
+                            ]
+                            if chat_request.get("knowledge_document_ids") is not None
+                            else None
+                        }
+                        if chat_request
+                        else {}
+                    ),
                     config=retrieval_config,
                     diagnostics=diagnostics,
                 )
@@ -104,9 +121,13 @@ def build_run_graph(
                 "round": rounds + 1,
             },
         )
-        if state["base_ids"]:
+        if state["base_ids"] and (not chat_request or chat_request["knowledge_strict"]):
             output, citations, meta = await grounded_answer(
-                state["prompt"], state["sources"], config.model, configuration=config
+                state["prompt"],
+                state["sources"],
+                config.model,
+                configuration=config,
+                **({"resolved_query": state["chat"]["query"]} if chat_request else {}),
             )
             await emit(
                 "step_completed", {"step": "generate", "message": "答案与原文引用校验完成", **meta}
@@ -121,6 +142,8 @@ def build_run_graph(
 
         async def stream_events(ctx, events):
             async for event in events:
+                if progress is not None:
+                    await progress.handle(event)
                 kind = getattr(event, "event_kind", "")
                 if kind == "function_tool_call":
                     await emit(
@@ -150,7 +173,17 @@ def build_run_graph(
                 {"tool": name, "message": f"已核验工具权限：{TOOL_SPECS[name].label}"},
             )
 
-        agent = get_agent(configuration=config).agent
+        assistant = get_agent(configuration=config)
+        if chat_request and state["chat"].get("memory_context"):
+            from app.services.memory_recall import MEMORY_RULES
+
+            assistant.system_prompt += MEMORY_RULES
+        agent = assistant.agent
+        progress = None
+        if chat_request:
+            from app.services.chat_execution import ChatProgress
+
+            progress = ChatProgress(emit)
         if PYTHON_TOOL in allowed:
 
             @agent.tool(name=PYTHON_TOOL)
@@ -199,6 +232,15 @@ def build_run_graph(
                 return result
 
         prompt = state["prompt"]
+        initial_history = None
+        if chat_request:
+            from app.services.agent import build_message_history
+            from app.services.chat_execution import chat_input
+
+            prompt = await chat_input(
+                chat_request, state["chat"], user_id, project_id, state.get("sources", [])
+            )
+            initial_history = build_message_history(state["chat"]["history"])
         if PYTHON_TOOL in allowed:
             execution_request = sandbox_request or {}
             manifest = [
@@ -220,7 +262,7 @@ def build_run_graph(
             ),
             message_history=ModelMessagesTypeAdapter.validate_json(state["messages"])
             if state.get("messages")
-            else None,
+            else initial_history,
             deferred_tool_results=DeferredToolResults(calls=state["replies"])
             if state.get("replies")
             else None,
@@ -237,6 +279,15 @@ def build_run_graph(
             "rounds": rounds + 1,
             "replies": None,
         }
+        if progress is not None:
+            await progress.flush()
+            calls = {call["tool_call_id"]: dict(call) for call in state.get("tool_calls", [])}
+            for call_id, reply in (state.get("replies") or {}).items():
+                if call_id in calls:
+                    calls[call_id]["result"] = reply
+            calls.update(progress.calls)
+            update["tool_calls"] = list(calls.values())
+            update["thinking"] = state.get("thinking", "") + progress.thinking
         if isinstance(result.output, DeferredToolRequests):
             calls = []
             for call in result.output.calls:
@@ -253,7 +304,12 @@ def build_run_graph(
         if len(result.output) > 100000:
             raise ValueError("任务输出过长")
         await emit("step_completed", {"step": "generate", "message": "任务结果已生成"})
-        return {**update, "output": result.output, "citations": [], "pending": None}
+        return {
+            **update,
+            "output": result.output,
+            "citations": state.get("sources", []) if chat_request else [],
+            "pending": None,
+        }
 
     def await_input(state):
         response = interrupt(state["pending"])
@@ -271,7 +327,55 @@ def build_run_graph(
     graph.add_node("retrieve", retrieve)
     graph.add_node("generate", generate)
     graph.add_node("await_input", await_input)
-    graph.add_edge(START, "retrieve")
+    if chat_request:
+
+        async def prepare(state):
+            from app.services.chat_execution import prepare_context
+
+            context = await prepare_context(chat_request, user_id, project_id, config)
+            await emit("chat_config", context["effective_config"])
+            return {"chat": context}
+
+        async def route(state):
+            from app.services.chat_execution import choose_route
+
+            routing = await choose_route(chat_request, state["chat"], config)
+            await emit("routing_selected", routing)
+            return {"routing": routing}
+
+        async def collaborate(state):
+            from app.services.knowledge_collaboration import build_collaboration_graph
+
+            child = build_collaboration_graph(
+                None,
+                user_id=user_id,
+                configuration=configuration,
+                emit=emit,
+                retrieval_snapshot=capture(restore(retrieval_snapshot), collaboration=True),
+            )
+            result = await child.ainvoke(
+                {"prompt": state["chat"]["query"], "base_ids": state["base_ids"]}
+            )
+            return {
+                key: result[key]
+                for key in ("output", "citations", "collaboration", "usage", "retrieval_runs")
+                if key in result
+            }
+
+        graph.add_node("prepare_chat", prepare)
+        graph.add_node("route_chat", route)
+        graph.add_node("collaborate", collaborate)
+        graph.add_edge(START, "prepare_chat")
+        graph.add_edge("prepare_chat", "route_chat")
+        graph.add_conditional_edges(
+            "route_chat",
+            lambda s: (
+                "collaborate" if s["routing"]["route"] == "knowledge_collaboration" else "retrieve"
+            ),
+        )
+        graph.add_edge("collaborate", END)
+    else:
+        graph.add_edge(START, "retrieve")
     graph.add_edge("retrieve", "generate")
     graph.add_conditional_edges(
         "generate", lambda state: "await_input" if state.get("pending") else END

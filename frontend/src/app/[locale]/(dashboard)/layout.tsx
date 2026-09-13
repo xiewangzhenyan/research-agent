@@ -1,4 +1,4 @@
-import { ProjectProvider } from "@/components/projects/project-provider";
+import { ProjectProvider, ProjectContent } from "@/components/projects/project-provider";
 import { Header, Sidebar } from "@/components/layout";
 import { AuthGuard } from "@/components/layout/auth-guard";
 import { CommandPalette } from "@/components/layout/command-palette";
@@ -15,7 +15,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Header />
           <Sidebar />
           <main id="main" tabIndex={-1} className="console-main">
-            <PageTransition>{children}</PageTransition>
+            <ProjectContent>
+              <PageTransition>{children}</PageTransition>
+            </ProjectContent>
           </main>
           <MobileTabBar />
           <CommandPalette />

@@ -16,7 +16,8 @@ defaults; existing conversation scopes retain their unavailable-selection warnin
   projects. Up to 50 named projects per account.
 - `X-Project-ID: <uuid>` selects a named workspace for conversation and task APIs.
   Omission means **only the default project**, never all projects.
-- WebSocket clients connect to `/api/v1/ws/agent?project_id=<uuid>`. The scope is
+- Normal chat uses `/api/v1/chat/turns` and scoped conversation state endpoints; see [durable chat](durable-chat.md).
+- Legacy WebSocket clients connect to `/api/v1/ws/agent?project_id=<uuid>`. The scope is
   validated before accepting the connection and fixed for that connection.
   Authentication remains in the existing token subprotocol, not in the URL.
 - Conversation lists, counts, messages, mutations and owner share actions respect

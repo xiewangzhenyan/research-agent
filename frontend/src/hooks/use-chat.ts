@@ -1,607 +1,412 @@
 "use client";
-import type { EffectiveConfig } from "@/lib/model-capabilities";
-import { toast } from "sonner";
-import { useKnowledgeStore } from "@/stores/knowledge-store";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { nanoid } from "nanoid";
-import { useWebSocket } from "./use-websocket";
-import { useChatStore, useAuthStore } from "@/stores";
-import type {
-  AskUserAnswer,
-  AskUserQuestion,
-  ChatMessageFile,
-  Decision,
-  PendingApproval,
-  ToolCall,
-  WSEvent,
-} from "@/types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { apiClient, ApiError } from "@/lib/api-client";
+import {
+  activeRun,
+  lastChatKey,
+  type ChatRun,
+  type ChatSnapshot,
+  type ChatRatingUpdate,
+} from "@/lib/chat-turns";
+import {
+  buildAssistantParts,
+  conversationMessageToChatMessage,
+  type RawMessage,
+} from "@/lib/conversation-to-chat";
 import { currentProject } from "@/lib/project-scope";
-import { WS_URL } from "@/lib/constants";
+import { qk } from "@/lib/query-keys";
 import { setUrlParam } from "@/lib/utils";
-import { useConversationStore } from "@/stores";
-/** A message the user typed while the agent was busy / socket offline.
- *  Held outside the chat history until the drainer ships it. */
+import { useAuthStore, useChatStore, useConversationStore } from "@/stores";
+import { useKnowledgeStore } from "@/stores/knowledge-store";
+import type { AskUserAnswer, ChatMessageFile } from "@/types";
+
 export interface QueuedMessage {
   id: string;
   content: string;
-  fileIds?: string[];
   files?: ChatMessageFile[];
-  knowledgeSnapshot?: string;
+  error?: string;
 }
-
+interface Submission extends QueuedMessage {
+  payload: Record<string, unknown>;
+}
+const EMPTY_RUNS: ChatRun[] = [];
 interface UseChatOptions {
   conversationId?: string | null;
-  onConversationCreated?: (conversationId: string) => void;
+  onConversationCreated?: (id: string) => void;
 }
 
-export function useChat(options: UseChatOptions = {}) {
-  const { conversationId, onConversationCreated } = options;
-  const { setCurrentConversationId, currentConversationId: currentConversationIdFromStore } =
-    useConversationStore();
-  const {
-    messages,
-    addMessage,
-    updateMessage,
-    appendTextDelta,
-    appendThinkingDelta,
-    addToolCallPart,
-    updateToolCallPart,
-    clearMessages,
-  } = useChatStore();
-
-  const [isProcessing, setIsProcessing] = useState(false);
-  // Held in a ref instead of state because the WS handler reads it
-  // synchronously: events arriving in the same tick (e.g. model_request_start
-  // + text_delta in one server flush) need to see the just-created message id
-  // without waiting for React's batched re-render. The handler never causes a
-  // re-render based on this id, so state isn't needed.
-  const currentMessageIdRef = useRef<string | null>(null);
-  const setCurrentMessageId = useCallback((id: string | null) => {
-    currentMessageIdRef.current = id;
-  }, []);
-  const currentGroupIdRef = useRef<string | null>(null);
-  // Outbound queue: messages typed while agent is busy / socket offline. Held
-  // here (not in the chat history) so the UI can surface them as cancellable
-  // "pending" entries above the input. The ref is the source of truth for the
-  // drainer effect; the parallel state triggers re-renders for the UI.
-  const messageQueueRef = useRef<QueuedMessage[]>([]);
-  const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
-  const modelRef = useRef<string | null>(null);
-  const effectiveConfigRef = useRef<EffectiveConfig | undefined>(undefined);
-  const temperatureRef = useRef<number | null>(null);
-  const thinkingEffortRef = useRef<"low" | "medium" | "high" | null>(null);
-  const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
-  const [pendingQuestions, setPendingQuestions] = useState<AskUserQuestion[] | null>(null);
-
-  const handleWebSocketMessage = useCallback(
-    (event: MessageEvent) => {
-      const wsEvent: WSEvent = JSON.parse(event.data);
-
-      const createNewMessage = (content: string): string => {
-        if (currentMessageIdRef.current) {
-          updateMessage(currentMessageIdRef.current, (msg) => ({
-            ...msg,
-            isStreaming: false,
-          }));
-        }
-
-        const newMsgId = nanoid();
-        // Use current conversationId from store to avoid closure issues
-        const effectiveConversationId =
-          currentConversationIdFromStore || conversationId || undefined;
-        addMessage({
-          id: newMsgId,
-          role: "assistant",
-          content,
-          timestamp: new Date(),
-          isStreaming: true,
-          toolCalls: [],
-          effectiveConfig: effectiveConfigRef.current,
-          parts: content === "" ? [] : undefined,
-          groupId: currentGroupIdRef.current || undefined,
-          conversationId: effectiveConversationId,
-          isTemporaryId: true,
-        });
-        setCurrentMessageId(newMsgId);
-        return newMsgId;
-      };
-
-      switch (wsEvent.type) {
-        case "effective_config": {
-          effectiveConfigRef.current = wsEvent.data as EffectiveConfig;
-          break;
-        }
-
-        case "conversation_created": {
-          // Handle new conversation created by backend
-          const { conversation_id } = wsEvent.data as { conversation_id: string };
-          setCurrentConversationId(conversation_id);
-          // Reflect the new ID in the URL so the page is refreshable + shareable.
-          setUrlParam("id", conversation_id);
-          setUrlParam("knowledge", null);
-          setUrlParam("document", null);
-          // Update all messages that don't have a conversationId yet
-          const { updateMessagesWhere } = useChatStore.getState();
-          updateMessagesWhere(
-            (msg) => !msg.conversationId,
-            (msg) => ({ ...msg, conversationId: conversation_id }),
-          );
-          onConversationCreated?.(conversation_id);
-          break;
-        }
-
-        case "message_saved": {
-          // Assistant message was saved to database, update local ID to real database ID
-          const { message_id } = wsEvent.data as { message_id: string };
-          if (currentMessageIdRef.current) {
-            // Update the current streaming message's ID to the real database ID
-            updateMessage(currentMessageIdRef.current, (msg) => ({
-              ...msg,
-              id: message_id,
-              isTemporaryId: false,
-            }));
-          } else {
-            // Fallback: find the last assistant message with a temp ID
-            // This handles cases where currentMessageId was already cleared
-            const messages = useChatStore.getState().messages;
-            const lastTemp = [...messages]
-              .reverse()
-              .find((msg) => msg.role === "assistant" && !!msg.isTemporaryId);
-            if (lastTemp) {
-              updateMessage(lastTemp.id, (msg) => ({
-                ...msg,
-                id: message_id,
-                isTemporaryId: false,
-              }));
-            }
-          }
-          break;
-        }
-
-        case "model_request_start": {
-          // PydanticAI/LangChain - create message immediately
-          createNewMessage("");
-          break;
-        }
-
-        case "text_delta": {
-          // Append to the ordered parts timeline (extends the trailing
-          // text part or starts a new one after a thinking/tool part).
-          if (currentMessageIdRef.current) {
-            const content = (wsEvent.data as { index: number; content: string }).content;
-            appendTextDelta(currentMessageIdRef.current, content);
-          }
-          break;
-        }
-
-        case "thinking_delta": {
-          // Reasoning trace from extended-thinking models — its own
-          // ordered part so it renders before the tools/text that follow.
-          if (!currentMessageIdRef.current) {
-            createNewMessage("");
-          }
-          if (currentMessageIdRef.current) {
-            const content = (wsEvent.data as { index: number; content: string }).content;
-            appendThinkingDelta(currentMessageIdRef.current, content);
-          }
-          break;
-        }
-
-        case "llm_started":
-        case "llm_completed": {
-          // LLM lifecycle events - optionally show status
-          break;
-        }
-
-        case "tool_call": {
-          // Add tool call to current message
-          if (currentMessageIdRef.current) {
-            const { tool_name, args, tool_call_id } = wsEvent.data as {
-              tool_name: string;
-              args: Record<string, unknown>;
-              tool_call_id: string;
-            };
-            const toolCall: ToolCall = {
-              id: tool_call_id,
-              name: tool_name,
-              args,
-              status: "running",
-            };
-            addToolCallPart(currentMessageIdRef.current, toolCall);
-          }
-          break;
-        }
-
-        case "tool_result": {
-          // Update tool call with result
-          if (currentMessageIdRef.current) {
-            const { tool_call_id, content } = wsEvent.data as {
-              tool_call_id: string;
-              content: string;
-            };
-            updateToolCallPart(currentMessageIdRef.current, tool_call_id, {
-              result: content,
-              status: "completed",
-            });
-          }
-          break;
-        }
-
-        case "final_result": {
-          // Finalize message
-          if (currentMessageIdRef.current) {
-            const { output } = wsEvent.data as { output: string };
-            // If the model returned text only via final_result (no streamed
-            // text_delta), append it as the trailing text part.
-            const fr = useChatStore
-              .getState()
-              .messages.find((m) => m.id === currentMessageIdRef.current);
-            if (output && fr && !fr.content) {
-              appendTextDelta(currentMessageIdRef.current, output);
-            }
-            updateMessage(currentMessageIdRef.current, (msg) => ({
-              ...msg,
-              isStreaming: false,
-            }));
-          }
-          setIsProcessing(false);
-          // Don't clear currentMessageId yet - we need it for message_saved event
-          currentGroupIdRef.current = null;
-          break;
-        }
-
-        case "error": {
-          toast.error((wsEvent.data as { message: string }).message || "请求失败");
-          // Handle error
-          if (currentMessageIdRef.current) {
-            const id = currentMessageIdRef.current;
-            const { message } = wsEvent.data as { message: string };
-            const errText = `\n\n❌ Error: ${message || "Unknown error"}`;
-            const cur = useChatStore.getState().messages.find((m) => m.id === id);
-            if (cur?.parts) {
-              appendTextDelta(id, errText);
-            } else {
-              updateMessage(id, (msg) => ({ ...msg, content: msg.content + errText }));
-            }
-            updateMessage(id, (msg) => ({ ...msg, isStreaming: false }));
-          }
-          setIsProcessing(false);
-          break;
-        }
-
-        case "tool_approval_required": {
-          // Human-in-the-Loop: AI wants to execute tools that need approval
-          const { action_requests, review_configs } = wsEvent.data as {
-            action_requests: Array<{
-              id: string;
-              tool_name: string;
-              args: Record<string, unknown>;
-            }>;
-            review_configs: Array<{
-              tool_name: string;
-              allow_edit?: boolean;
-              timeout?: number;
-            }>;
-          };
-          setPendingApproval({
-            actionRequests: action_requests,
-            reviewConfigs: review_configs,
-          });
-          // Show pending tools in the current message
-          if (currentMessageIdRef.current) {
-            const id = currentMessageIdRef.current;
-            const toolNames = action_requests.map((ar) => ar.tool_name).join(", ");
-            const waitText = `\n\n⏸️ Waiting for approval: ${toolNames}`;
-            const cur = useChatStore.getState().messages.find((m) => m.id === id);
-            if (cur?.parts) {
-              appendTextDelta(id, waitText);
-            } else {
-              updateMessage(id, (msg) => ({ ...msg, content: msg.content + waitText }));
-            }
-          }
-          break;
-        }
-
-        case "ask_user": {
-          const { questions } = wsEvent.data as {
-            questions: { question: string; options: string[]; allow_custom: boolean }[];
-          };
-          setPendingQuestions(
-            (questions ?? []).map((q) => ({
-              question: q.question,
-              options: q.options ?? [],
-              allowCustom: q.allow_custom,
-            })),
-          );
-          break;
-        }
-
-        case "complete": {
-          setIsProcessing(false);
-          // Clear currentMessageId after complete (message_saved should have handled ID mapping)
-          setCurrentMessageId(null);
-          // The turn just debited credits server-side — nudge any mounted
-          // billing view to refetch so the user doesn't see stale numbers.
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new Event("billing:refresh"));
-          }
-          break;
-        }
-      }
-    },
-    [
-      // currentMessageId is read via currentMessageIdRef inside the handler,
-      // so we deliberately omit it here — that's the whole point of the ref.
-      addMessage,
-      updateMessage,
-      appendTextDelta,
-      appendThinkingDelta,
-      addToolCallPart,
-      updateToolCallPart,
-      setCurrentConversationId,
-      setCurrentMessageId,
-      onConversationCreated,
-      currentConversationIdFromStore,
-      conversationId,
-    ],
-  );
-
-  // Access token lives in memory only (populated by login/refresh responses).
-  // It is sent to the WS via Sec-WebSocket-Protocol rather than a URL query
-  // string so it does not end up in access logs or Referer headers.
-  const accessToken = useAuthStore((state) => state.accessToken);
-
+export function useChat({ conversationId = null, onConversationCreated }: UseChatOptions = {}) {
+  const client = useQueryClient();
+  const userId = useAuthStore((s) => s.user?.id);
   const projectId = currentProject()?.id;
-  const wsUrl = `${WS_URL}/api/v1/ws/agent${projectId ? `?project_id=${projectId}` : ""}`;
-  const wsProtocols = useMemo(
-    () => (accessToken ? [`access_token.${accessToken}`, "chat"] : undefined),
-    [accessToken],
-  );
-
-  // Guards against firing a token refresh on every backoff attempt — one
-  // in-flight /me at a time is enough to recover a stale access token.
-  const refreshingRef = useRef(false);
-
-  const { isConnected, connect, disconnect, sendMessage } = useWebSocket({
-    url: wsUrl,
-    protocols: wsProtocols,
-    onMessage: handleWebSocketMessage,
-    // A dropped socket is often a stale access token. Refresh it so the
-    // auto-reconnect (and the token-gated connect effect) uses a fresh one.
-    // The hook only calls this on genuine drops (not deliberate disconnects),
-    // and the ref keeps concurrent reconnect attempts from stampeding /me.
-    onClose: () => {
-      if (refreshingRef.current) return;
-      refreshingRef.current = true;
-      void (async () => {
-        try {
-          const res = await fetch("/api/auth/me");
-          if (res.ok) {
-            const data = (await res.json()) as { access_token?: string };
-            if (data.access_token) useAuthStore.getState().setAccessToken(data.access_token);
-          }
-        } catch {
-          // ignore — backoff reconnect will retry
-        } finally {
-          refreshingRef.current = false;
-        }
-      })();
-    },
+  const scope = `${userId}:${projectId}:${conversationId}`;
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const [online, setOnline] = useState(true);
+  const [olderRuns, setOlderRuns] = useState<ChatRun[]>([]);
+  const [older, setOlder] = useState<RawMessage[]>([]);
+  const [before, setBefore] = useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [pending, setPending] = useState<Submission[]>([]);
+  const [answerSubmitting, setAnswerSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const sending = useRef(false);
+  const python = useRef(false);
+  const model = useRef<string | null>(null);
+  const temperature = useRef<number | null>(null);
+  const effort = useRef<"low" | "medium" | "high" | null>(null);
+  const historyKey = ["chat-history", userId, projectId, conversationId];
+  const runsKey = ["chat-runs", userId, projectId, conversationId];
+  const url = `/chat/conversations/${conversationId}/state`;
+  const history = useQuery({
+    queryKey: historyKey,
+    queryFn: ({ signal }) => apiClient.get<ChatSnapshot>(url, { signal }),
+    enabled: !!userId && !!conversationId,
+    staleTime: 0,
+    retry: (count, error) =>
+      !(error instanceof ApiError && [401, 403, 404].includes(error.status)) && count < 2,
+    refetchOnWindowFocus: true,
   });
+  const execution = useQuery({
+    queryKey: runsKey,
+    queryFn: ({ signal }) =>
+      apiClient.get<ChatSnapshot>(`${url}?include_messages=false`, { signal }),
+    enabled: !!userId && !!conversationId && !!history.data,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => (query.state.data?.runs.some(activeRun) ? 800 : 15000),
+    refetchIntervalInBackground: false,
+  });
+  const runs =
+    (execution.dataUpdatedAt >= history.dataUpdatedAt
+      ? execution.data?.runs
+      : history.data?.runs) ??
+    history.data?.runs ??
+    EMPTY_RUNS;
+  const active = runs.filter(activeRun);
+  const waiting = active.find((r) => r.status === "waiting_input" && r.pending_input);
+  const runVersion = runs.map((r) => `${r.id}:${r.status}:${r.attempt}`).join("|");
+  const previousVersion = useRef<string | null>(null);
 
-  // Own the socket lifecycle here: only open once the in-memory access token is
-  // available (the WS authenticates via Sec-WebSocket-Protocol). Connecting
-  // before the token loads used to open a token-less socket that the server
-  // rejects, triggering a reconnect storm + console errors on every page load.
-  // When the token refreshes, `connect` changes identity → reconnect with it.
   useEffect(() => {
-    if (!accessToken) return;
-    connect();
-    return () => disconnect();
-  }, [accessToken, connect, disconnect]);
+    setOlder([]);
+    setOlderRuns([]);
+    setBefore(null);
+    setPending([]);
+    previousVersion.current = null;
+    useChatStore.getState().clearMessages();
+    if (userId && conversationId) {
+      try {
+        localStorage.setItem(lastChatKey(userId, projectId), conversationId);
+      } catch {
+        /* optional */
+      }
+    }
+  }, [scope, userId, projectId, conversationId]);
 
-  const doSend = useCallback(
-    (content: string, fileIds?: string[], files?: ChatMessageFile[]) => {
-      const knowledge = useKnowledgeStore.getState();
-      if (
-        !knowledge.ready ||
-        knowledge.busy ||
-        knowledge.scopeId !== (conversationId || null) ||
-        knowledge.error
-      ) {
-        toast.error(knowledge.error || "请等待知识范围同步完成后发送。");
-        return;
-      }
-      if (knowledge.documentIds !== null && !knowledge.documentsReady) {
-        toast.error("请等待选定文献加载完成后发送。");
-        return;
-      }
-      if (knowledge.ids.length && content.length > 1500) {
-        toast.error("知识库问题最多 1500 字，请精简后发送。");
-        return;
-      }
-      if (knowledge.ids.length && knowledge.strict && fileIds?.length) {
-        toast.error("请先将附件上传到知识库，或关闭严格资料模式。");
-        return;
-      }
-      const userMessageId = nanoid();
-      addMessage({
-        id: userMessageId,
-        role: "user",
-        content,
-        timestamp: new Date(),
-        conversationId: conversationId || undefined,
-        fileIds,
-        files,
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (history.data && older.length === 0) setBefore(history.data.before ?? null);
+  }, [history.data, older.length]);
+
+  useEffect(() => {
+    if (previousVersion.current !== null && previousVersion.current !== runVersion) {
+      void client.invalidateQueries({
+        queryKey: ["chat-history", userId, projectId, conversationId],
       });
-      setIsProcessing(true);
-      const payload: Record<string, unknown> = {
+      void client.invalidateQueries({ queryKey: qk.conversations.list() });
+    }
+    previousVersion.current = runVersion;
+  }, [runVersion, client, userId, projectId, conversationId]);
+
+  const display = useMemo(() => {
+    const byId = new Map(
+      [...older, ...(history.data?.messages ?? [])]
+        .filter((m) => m.conversation_id === conversationId)
+        .map((m) => [m.id, m]),
+    );
+    return [...byId.values()]
+      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+      .map((raw) => {
+        const message = conversationMessageToChatMessage(raw);
+        const run =
+          runs.find((r) => r.assistant_message_id === raw.id) ??
+          olderRuns.find((r) => r.assistant_message_id === raw.id);
+        if (!run) return message;
+        const content = run.result?.content ?? message.content;
+        const thinking = run.result?.thinking ?? message.thinking;
+        return {
+          ...message,
+          content,
+          thinking,
+          effectiveConfig: run.effective_config,
+          isStreaming: run.status === "running",
+          parts: buildAssistantParts(message.toolCalls ?? [], content, raw.id, thinking),
+          execution: {
+            id: run.id,
+            status: run.status,
+            error: run.error,
+            collaborative: run.request.routing?.route === "knowledge_collaboration",
+            reason: run.request.routing?.reason,
+          },
+        };
+      });
+  }, [older, olderRuns, history.data, runs, conversationId]);
+
+  useEffect(() => {
+    useChatStore.setState({ messages: display });
+  }, [display]);
+  useEffect(() => {
+    useConversationStore.getState().setLoading(!!conversationId && history.isPending);
+    // A browser tab is only a viewer. Never use this flag to cancel server work.
+    useChatStore.getState().setStreaming(active.length > 0);
+    return () => useChatStore.getState().setStreaming(false);
+  }, [conversationId, history.isPending, active.length]);
+
+  const updateRating: ChatRatingUpdate = (id, rating, counts) => {
+    const update = (m: RawMessage) =>
+      m.id === id ? { ...m, user_rating: rating, rating_count: counts } : m;
+    setOlder((previous) => previous.map(update));
+    client.setQueryData<ChatSnapshot>(historyKey, (data) =>
+      data ? { ...data, messages: data.messages?.map(update) } : data,
+    );
+  };
+
+  const refresh = async () => {
+    await Promise.all([history.refetch(), execution.refetch()]);
+  };
+  const loadOlder = async () => {
+    if (!before || loadingOlder) return;
+    const requestedScope = scope;
+    const selection = useConversationStore.getState().selectionVersion;
+    setLoadingOlder(true);
+    try {
+      const data = await apiClient.get<ChatSnapshot>(`${url}?before=${before}`);
+      if (
+        scopeRef.current !== requestedScope ||
+        selection !== useConversationStore.getState().selectionVersion
+      )
+        return;
+      setOlder((previous) => [
+        ...(data.messages ?? []),
+        ...previous,
+        ...(history.data?.messages ?? []),
+      ]);
+      setOlderRuns((previous) => [...previous, ...data.runs]);
+      setBefore(data.before ?? null);
+    } catch {
+      toast.error("更早的消息加载失败，请重试。");
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
+
+  const submit = async (entry: Submission) => {
+    if (sending.current) return;
+    sending.current = true;
+    setSubmitting(true);
+    const requestedScope = scope;
+    const selection = useConversationStore.getState().selectionVersion;
+    try {
+      const size = new TextEncoder().encode(JSON.stringify(entry.payload)).length;
+      const run = await apiClient.post<ChatRun>("/chat/turns", entry.payload, {
+        keepalive: size < 60000,
+      });
+      if (
+        scopeRef.current !== requestedScope ||
+        selection !== useConversationStore.getState().selectionVersion ||
+        useAuthStore.getState().user?.id !== userId
+      )
+        return;
+      setPending((items) => items.filter((item) => item.id !== entry.id));
+      setUrlParam("new", null);
+      if (!conversationId) {
+        useConversationStore.getState().setCurrentConversationId(run.conversation_id);
+        setUrlParam("id", run.conversation_id);
+        setUrlParam("knowledge", null);
+        setUrlParam("document", null);
+        onConversationCreated?.(run.conversation_id);
+      }
+      await Promise.all([
+        client.invalidateQueries({
+          queryKey: ["chat-history", userId, projectId, run.conversation_id],
+        }),
+        client.invalidateQueries({
+          queryKey: ["chat-runs", userId, projectId, run.conversation_id],
+        }),
+        client.invalidateQueries({ queryKey: qk.conversations.list() }),
+      ]);
+    } catch (error) {
+      if (
+        scopeRef.current === requestedScope &&
+        selection === useConversationStore.getState().selectionVersion
+      )
+        setPending((items) =>
+          items.map((item) =>
+            item.id === entry.id
+              ? {
+                  ...item,
+                  error:
+                    error instanceof ApiError && error.status < 500
+                      ? typeof error.message === "string"
+                        ? error.message
+                        : "请求未通过校验，请调整后重新发送。"
+                      : "发送尚未确认，请点击重试。",
+                }
+              : item,
+          ),
+        );
+    } finally {
+      sending.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  const sendMessage = (content: string, fileIds?: string[], files?: ChatMessageFile[]) => {
+    if (sending.current || !userId) return false;
+    const knowledge = useKnowledgeStore.getState();
+    if (
+      !knowledge.ready ||
+      knowledge.busy ||
+      knowledge.scopeId !== conversationId ||
+      knowledge.error ||
+      (knowledge.documentIds !== null && !knowledge.documentsReady)
+    ) {
+      toast.error(knowledge.error || "请等待知识范围同步完成后发送。");
+      return false;
+    }
+    if (knowledge.ids.length && content.length > 1500) {
+      toast.error("知识库问题最多 1500 字。");
+      return false;
+    }
+    if (knowledge.ids.length && knowledge.strict && fileIds?.length) {
+      toast.error("请先导入附件，或关闭严格资料模式。");
+      return false;
+    }
+    const id = crypto.randomUUID();
+    const entry: Submission = {
+      id,
+      content,
+      files,
+      payload: {
+        idempotency_key: id,
+        conversation_id: conversationId,
         message: content,
+        file_ids: fileIds ?? [],
         knowledge_base_ids: knowledge.ids,
         knowledge_document_ids: knowledge.documentIds,
         knowledge_strict: knowledge.strict,
-        conversation_id: conversationId || null,
-      };
-      if (fileIds?.length) payload.file_ids = fileIds;
-      if (modelRef.current) payload.model = modelRef.current;
-      if (temperatureRef.current !== null) payload.temperature = temperatureRef.current;
-      if (thinkingEffortRef.current !== null) payload.thinking_effort = thinkingEffortRef.current;
-      effectiveConfigRef.current = undefined;
-      sendMessage(payload);
-    },
-    [addMessage, sendMessage, conversationId],
-  );
+        python_enabled: python.current,
+        generation: {
+          model: model.current,
+          temperature: temperature.current,
+          thinking_effort: effort.current,
+        },
+      },
+    };
+    setPending((items) => [...items, entry]);
+    void submit(entry);
+    return true;
+  };
+  const retryQueued = (id: string) => {
+    const entry = pending.find((item) => item.id === id);
+    if (entry) void submit(entry);
+  };
+  const cancelQueued = (id: string) =>
+    setPending((items) => items.filter((item) => item.id !== id));
+  const clearQueued = useCallback(() => setPending([]), []);
 
-  const sendChatMessage = useCallback(
-    (content: string, fileIds?: string[], files?: ChatMessageFile[]) => {
-      // Queue when the agent is busy OR the socket is offline. The queue is
-      // surfaced above the input as pending entries the user can cancel; the
-      // drainer effect below pops the head as soon as the agent is idle.
-      if (isProcessing || !isConnected) {
-        const id = nanoid();
-        messageQueueRef.current.push({
-          id,
-          content,
-          fileIds,
-          files,
-          knowledgeSnapshot: JSON.stringify([
-            useKnowledgeStore.getState().ids,
-            useKnowledgeStore.getState().documentIds,
-            useKnowledgeStore.getState().strict,
-            conversationId,
-          ]),
-        });
-        setQueuedMessages([...messageQueueRef.current]);
-        return;
-      }
-      doSend(content, fileIds, files);
-    },
-    [isProcessing, isConnected, doSend, conversationId],
-  );
-
-  const cancelQueued = useCallback((id: string) => {
-    messageQueueRef.current = messageQueueRef.current.filter((q) => q.id !== id);
-    setQueuedMessages([...messageQueueRef.current]);
-  }, []);
-
-  const clearQueued = useCallback(() => {
-    messageQueueRef.current = [];
-    setQueuedMessages([]);
-  }, []);
-
-  const sendResumeDecisions = useCallback(
-    (decisions: Decision[]) => {
-      setPendingApproval(null);
-
-      // Update message to show decisions were made
-      if (currentMessageIdRef.current) {
-        const approvedCount = decisions.filter((d) => d.type === "approve").length;
-        const editedCount = decisions.filter((d) => d.type === "edit").length;
-        const rejectedCount = decisions.filter((d) => d.type === "reject").length;
-
-        const summaryParts: string[] = [];
-        if (approvedCount > 0) summaryParts.push(`${approvedCount} approved`);
-        if (editedCount > 0) summaryParts.push(`${editedCount} edited`);
-        if (rejectedCount > 0) summaryParts.push(`${rejectedCount} rejected`);
-
-        updateMessage(currentMessageIdRef.current, (msg) => ({
-          ...msg,
-          content: msg.content.replace(
-            /\n\n⏸️ Waiting for approval:.*$/,
-            `\n\n✅ Decisions: ${summaryParts.join(", ")}`,
-          ),
-        }));
-      }
-
-      // Send resume message to WebSocket
-      sendMessage({
-        type: "resume",
-        decisions: decisions.map((d) => {
-          if (d.type === "edit" && d.editedAction) {
-            return {
-              type: "edit",
-              edited_action: d.editedAction,
-            };
-          }
-          return { type: d.type };
+  const stopGeneration = async (id?: string) => {
+    const target = active.find((r) => r.status !== "cancelling" && (!id || r.id === id));
+    if (!target) return;
+    try {
+      await apiClient.post(`/tasks/${target.id}/cancel`, {});
+      await refresh();
+    } catch {
+      toast.error("停止请求未确认，请重试。");
+    }
+  };
+  const sendAskUserResponses = async (answers: AskUserAnswer[]) => {
+    const pendingInput = waiting?.pending_input;
+    if (!waiting || !pendingInput || answerSubmitting) return;
+    setAnswerSubmitting(true);
+    let index = 0;
+    const mapped = Object.fromEntries(
+      pendingInput.calls.map((call) => [
+        call.call_id,
+        call.questions.map(() => {
+          const answer = answers[index++];
+          return answer?.skipped ? "用户跳过此问题，请按已有信息继续。" : (answer?.answer ?? "");
         }),
+      ]),
+    );
+    try {
+      await apiClient.post(`/tasks/${waiting.id}/resume`, {
+        question_id: pendingInput.question_id,
+        answers: mapped,
       });
-    },
-    [updateMessage, sendMessage],
-  );
-
-  const sendAskUserResponses = useCallback(
-    (answers: AskUserAnswer[]) => {
-      if (!isConnected) return;
-      setPendingQuestions(null);
-      sendMessage({ type: "ask_user_response", answers });
-    },
-    [isConnected, sendMessage],
-  );
-
-  const stopGeneration = useCallback(() => {
-    sendMessage({ type: "stop" });
-    if (currentMessageIdRef.current) {
-      updateMessage(currentMessageIdRef.current, (msg) => ({ ...msg, isStreaming: false }));
+      await refresh();
+    } catch {
+      toast.error("补充信息未保存，请检查并重试。");
+    } finally {
+      setAnswerSubmitting(false);
     }
-    setCurrentMessageId(null);
-    currentGroupIdRef.current = null;
-    setIsProcessing(false);
-    setPendingApproval(null);
-    setPendingQuestions(null);
-  }, [sendMessage, updateMessage, setCurrentMessageId]);
-
-  // Drain message queue when processing finishes AND we're back online.
-  // Re-runs on either flip so a reconnect after offline → drains; a busy turn
-  // ending → drains the next one.
-  useEffect(() => {
-    if (isConnected && !isProcessing && messageQueueRef.current.length > 0) {
-      const next = messageQueueRef.current.shift();
-      setQueuedMessages([...messageQueueRef.current]);
-      if (next) {
-        // Small debounce so the UI shows the queue clearing visibly before
-        // the next user bubble lands; also avoids racing the WS state flip.
-        setTimeout(() => {
-          const knowledge = useKnowledgeStore.getState();
-          if (
-            next.knowledgeSnapshot !==
-            JSON.stringify([knowledge.ids, knowledge.documentIds, knowledge.strict, conversationId])
-          ) {
-            toast.error("会话或知识范围已变化，请重新发送排队中的问题。");
-            return;
-          }
-          doSend(next.content, next.fileIds, next.files);
-        }, 100);
-      }
-    }
-  }, [isProcessing, isConnected, doSend, conversationId]);
-
+  };
   return {
-    messages,
-    isConnected,
-    isProcessing,
-    connect,
-    disconnect,
-    sendMessage: sendChatMessage,
+    messages: display,
+    updateRating,
+    isConnected: online,
+    isProcessing: active.length > 0 || submitting,
+    isSubmitting: submitting,
+    sendMessage,
     stopGeneration,
-    clearMessages,
-    queuedMessages,
+    clearMessages: useChatStore.getState().clearMessages,
+    queuedMessages: pending,
+    retryQueued,
     cancelQueued,
     clearQueued,
-    setModel: (model: string | null) => {
-      modelRef.current = model;
+    setPythonEnabled: (value: boolean) => {
+      python.current = value;
     },
-    setTemperature: (temperature: number | null) => {
-      temperatureRef.current = temperature;
+    setModel: (value: string | null) => {
+      model.current = value;
     },
-    setThinkingEffort: (effort: "low" | "medium" | "high" | null) => {
-      thinkingEffortRef.current = effort;
+    setTemperature: (value: number | null) => {
+      temperature.current = value;
     },
-    // Human-in-the-Loop support
-    pendingApproval,
-    sendResumeDecisions,
-    pendingQuestions,
+    setThinkingEffort: (value: "low" | "medium" | "high" | null) => {
+      effort.current = value;
+    },
+    pendingApproval: null,
+    sendResumeDecisions: () => {},
+    answerSubmitting,
+    pendingQuestionId: waiting ? `${waiting.id}:${waiting.pending_input?.question_id}` : undefined,
+    pendingQuestions:
+      waiting?.pending_input?.calls.flatMap((call) =>
+        call.questions.map((q) => ({
+          question: q.question,
+          options: q.options ?? [],
+          allowCustom: q.allow_custom ?? true,
+        })),
+      ) ?? null,
     sendAskUserResponses,
+    hasOlder: !!before,
+    loadOlder,
+    loadingOlder,
+    connectionError: history.isError || execution.isError,
+    refresh,
   };
 }

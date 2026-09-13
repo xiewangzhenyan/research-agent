@@ -50,7 +50,7 @@ export async function mockWorkspace(page: Page, authenticated = true) {
     }
     if (path === "/api/projects") return route.fulfill({ json: [] });
     if (path === "/api/tasks") return route.fulfill({ json: [] });
-    if (path === "/api/tools")
+    if (["/api/tools", "/api/tasks/tools"].includes(path))
       return route.fulfill({
         json: { items: [], sandbox: { status: "unavailable", file_execution: false } },
       });

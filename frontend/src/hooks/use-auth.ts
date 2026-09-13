@@ -47,7 +47,7 @@ function stopTokenRefresh(): void {
   }
 }
 
-function runAuthCheck(setUser: (u: User | null) => void): Promise<void> {
+export function runAuthCheck(setUser: (u: User | null) => void): Promise<void> {
   if (authChecked) return Promise.resolve();
   if (authCheckPromise) return authCheckPromise;
   authCheckPromise = (async () => {

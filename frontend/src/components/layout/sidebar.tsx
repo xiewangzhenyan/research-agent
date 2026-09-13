@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useProject } from "@/components/projects/project-provider";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import {
   Brain,
   Cpu,
   Wrench,
-  ListTodo,
   Database,
   LayoutDashboard,
   MessageSquare,
@@ -41,6 +41,7 @@ function SidebarContents({
   history?: boolean;
 }) {
   const active = useActiveRoute();
+  const workspace = useProject();
   const user = useAuthStore((s) => s.user);
   const t = useTranslations("nav");
   const zh = useLocale() === "zh";
@@ -57,7 +58,7 @@ function SidebarContents({
         </span>
       </Link>
       <div className="px-4 pt-2">
-        <Link href="/chat" onClick={onNavigate} className="workspace-new-chat">
+        <Link href="/chat?new=1" onClick={onNavigate} className="workspace-new-chat">
           <Plus size={18} />
           {zh ? "开始对话" : "Start a conversation"}
         </Link>
@@ -78,15 +79,6 @@ function SidebarContents({
             {t(item.nameKey)}
           </Link>
         ))}
-        <Link
-          href="/tasks"
-          onClick={onNavigate}
-          aria-current={active("/tasks") ? "page" : undefined}
-          className={linkStyle("/tasks")}
-        >
-          <ListTodo size={18} />
-          {zh ? "后台任务" : "Tasks"}
-        </Link>
         <Link
           href="/memory"
           onClick={onNavigate}
@@ -116,7 +108,7 @@ function SidebarContents({
           {zh ? "模型与能力" : "Models and capabilities"}
         </Link>
       </nav>
-      {history && active("/chat") && <ConversationSidebar embedded />}
+      {workspace?.ready && history && active("/chat") && <ConversationSidebar embedded />}
       <div className="mt-auto space-y-1 p-3">
         {isAppAdmin(user) && (
           <Link

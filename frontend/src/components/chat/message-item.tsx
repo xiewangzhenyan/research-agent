@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale } from "next-intl";
-import { cn } from "@/lib/utils";
+import { cn, setUrlParam } from "@/lib/utils";
 import type { ChatMessage, ChatMessageFile } from "@/types";
 import { ToolCallCard } from "./tool-call-card";
 import { MarkdownContent } from "./markdown-content";
@@ -114,10 +114,18 @@ function SourcesButton({ sources, onClick }: { sources: SourceItem[]; onClick: (
 interface MessageItemProps {
   message: ChatMessage;
   groupPosition?: "first" | "middle" | "last" | "single";
+  onRatingChange?: import("@/lib/chat-turns").ChatRatingUpdate;
+  onCancel?: () => void;
   onRegenerate?: () => void;
 }
 
-export function MessageItem({ message, groupPosition, onRegenerate }: MessageItemProps) {
+export function MessageItem({
+  message,
+  groupPosition,
+  onRegenerate,
+  onCancel,
+  onRatingChange,
+}: MessageItemProps) {
   const zh = useLocale() === "zh";
   const workspace = useProject();
   const isUser = message.role === "user";
@@ -237,6 +245,47 @@ export function MessageItem({ message, groupPosition, onRegenerate }: MessageIte
 
           return (
             <>
+              {!isUser && message.execution && message.execution.status !== "completed" && (
+                <div
+                  role="status"
+                  className={`mb-2 rounded-xl border px-3 py-2 text-xs leading-6 ${message.execution.status === "failed" ? "text-destructive" : "text-muted-foreground"}`}
+                >
+                  {
+                    (
+                      {
+                        queued: "消息已保存，正在排队",
+                        running: "正在处理，离开页面后会继续",
+                        waiting_input: "等待补充信息，回答后继续",
+                        cancelling: "正在停止",
+                        cancelled: "已停止，已生成内容保留",
+                        failed: "处理失败，已生成内容保留",
+                      } as Record<string, string>
+                    )[message.execution.status]
+                  }
+                  {message.execution.error && <p>{message.execution.error}</p>}
+                  {onCancel &&
+                    ["queued", "running", "waiting_input"].includes(message.execution.status) && (
+                      <button type="button" onClick={onCancel} className="ml-3 underline">
+                        停止此条
+                      </button>
+                    )}
+                </div>
+              )}
+              {!isUser && message.execution && (
+                <button
+                  type="button"
+                  aria-haspopup="dialog"
+                  onClick={() => setUrlParam("run", message.execution!.id)}
+                  className="text-muted-foreground mb-2 inline-block min-h-9 text-xs underline"
+                >
+                  {zh ? "执行详情与文件" : "Execution details and files"}
+                </button>
+              )}
+              {!isUser && message.execution?.collaborative && (
+                <p className="text-brand mb-2 text-xs" title={message.execution.reason}>
+                  已自动启用资料协作 · 规划、研究、撰写与审校
+                </p>
+              )}
               {showPlaceholder && (
                 <div
                   className="bg-muted flex items-center gap-2 rounded-2xl rounded-tl-sm px-4 py-2.5"
@@ -248,7 +297,9 @@ export function MessageItem({ message, groupPosition, onRegenerate }: MessageIte
                     <span className="bg-muted-foreground/40 h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:150ms]" />
                     <span className="bg-muted-foreground/40 h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:300ms]" />
                   </div>
-                  <span className="text-muted-foreground text-xs">Thinking...</span>
+                  <span className="text-muted-foreground text-xs">
+                    {zh ? "正在思考…" : "Thinking…"}
+                  </span>
                 </div>
               )}
 
@@ -401,6 +452,7 @@ export function MessageItem({ message, groupPosition, onRegenerate }: MessageIte
                 ratingCount={message.rating_count ?? undefined}
                 isAssistant={!isUser}
                 onRatingChange={(updatedData) => {
+                  onRatingChange?.(message.id, updatedData.rating, updatedData.rating_count);
                   updateMessage(message.id, (msg) => ({
                     ...msg,
                     user_rating: updatedData.rating,

@@ -2379,16 +2379,6 @@ body:has(.console-shell, .auth-shell) :is(button, input, textarea, select) {
 .console-document-row:hover {
   background: color-mix(in srgb, var(--color-muted) 45%, transparent);
 }
-.task-history-panel {
-  background: var(--workspace-sidebar);
-  border-radius: 10px;
-}
-.task-compose-panel {
-  max-width: 880px;
-}
-.tasks-workspace fieldset {
-  border-radius: 8px;
-}
 .models-workspace article,
 .tools-workspace article {
   border-radius: 10px;
@@ -2475,10 +2465,6 @@ body:has(.console-shell, .auth-shell) :is(button, input, textarea, select) {
   }
   .chat-is-empty > div {
     padding-bottom: 0;
-  }
-  .task-history-panel {
-    max-height: 240px;
-    overflow-y: auto;
   }
 }
 @media (prefers-reduced-motion: reduce) {

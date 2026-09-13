@@ -24,3 +24,12 @@ async def create_project(data: ProjectWrite, db: DBSession, user: CurrentUser):
 @router.put("/{project_id}", response_model=ProjectResponse)
 async def update_project(project_id: UUID, data: ProjectWrite, db: DBSession, user: CurrentUser):
     return await ProjectService(db, user.id).save(data, project_id)
+
+
+@router.get("/{project_id}", response_model=ProjectResponse)
+async def get_project(project_id: UUID, db: DBSession, user: CurrentUser):
+    service = ProjectService(db, user.id)
+    project = await service.get(project_id)
+    return ProjectResponse.model_validate(project).model_copy(
+        update={"knowledge_base_ids": [UUID(v) for v in await service.defaults(project_id)]}
+    )

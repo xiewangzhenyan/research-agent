@@ -9,7 +9,7 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path?
     path.length === 0
       ? ["GET", "POST"].includes(request.method)
       : path.length === 1 &&
-        request.method === "PUT" &&
+        ["GET", "PUT"].includes(request.method) &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path[0] ?? "");
   if (!valid) return NextResponse.json({ detail: "无效项目路径" }, { status: 400 });
   try {

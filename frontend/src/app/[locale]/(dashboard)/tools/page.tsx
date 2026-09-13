@@ -161,8 +161,8 @@ export default function ToolsPage() {
             <p className="text-muted-foreground mt-4 text-xs leading-6">
               {query.data.sandbox.file_execution
                 ? t(
-                    "文件执行已就绪：支持 NumPy、pandas 和 Matplotlib；最多 5 个只读输入（合计 5 MiB），生成文件单个 2 MiB、合计 4 MiB，可在任务中下载。",
-                    "File execution is ready: NumPy, pandas and Matplotlib; up to 5 read-only inputs (5 MiB total), generated files up to 2 MiB each / 4 MiB total, downloadable from the task.",
+                    "文件执行已就绪：支持 NumPy、pandas 和 Matplotlib；最多 5 个只读输入（合计 5 MiB），生成文件单个 2 MiB、合计 4 MiB，可在回答的执行详情中下载。",
+                    "File execution is ready: NumPy, pandas and Matplotlib; up to 5 read-only inputs (5 MiB total), generated files up to 2 MiB each / 4 MiB total, downloadable from the answer details.",
                   )
                 : query.data.sandbox.status === "ready"
                   ? t(
@@ -180,8 +180,8 @@ export default function ToolsPage() {
               {t("工具策略版本：", "Policy: ")}
               {query.data.version}
             </span>
-            <Link href="/tasks" className="text-brand inline-flex min-h-10 items-center gap-1">
-              {t("创建任务并选择工具", "Create a task and choose tools")}
+            <Link href="/chat?new=1" className="text-brand inline-flex min-h-10 items-center gap-1">
+              {t("在对话中使用工具", "Use tools in chat")}
               <ArrowUpRight size={14} />
             </Link>
           </div>

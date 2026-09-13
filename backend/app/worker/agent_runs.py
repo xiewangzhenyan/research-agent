@@ -19,6 +19,7 @@ from psycopg.rows import dict_row
 from app.agents.tool_catalog import PYTHON_TOOL
 from app.core.config import settings
 from app.core.exceptions import AuthorizationError, ExternalServiceError
+from app.db.models.conversation import Message
 from app.db.models.user import User
 from app.db.session import get_worker_db_context
 from app.repositories.agent_run import AgentRunRepository
@@ -81,6 +82,8 @@ async def execute(run_id, conn):
             return
         if run.status == "cancelling":
             return  # Next claim confirms the sandbox stop outside this transaction.
+        if await repo.has_predecessor(run):
+            return
         if (
             run.attempt >= 12 or run.created_at < datetime.now(UTC) - timedelta(days=7)
         ) and PYTHON_TOOL in (run.request.get("tools") or []):
@@ -124,6 +127,27 @@ async def execute(run_id, conn):
             current = await repo.get(run_id, lock=True)
             if not current or current.attempt != attempt or current.status != "running":
                 raise LostRun()
+            if current.conversation_id:
+                message = await db.get(Message, current.assistant_message_id)
+                if not message:
+                    raise LostRun()
+                if kind == "chat_progress":
+                    message.content, message.thinking = (
+                        data["content"],
+                        data.get("thinking") or None,
+                    )
+                    current.result = {**data, "partial": True}
+                    await db.flush()
+                    return
+                if kind == "chat_config":
+                    current.effective_config = data
+                    message.effective_config = data
+                if kind == "routing_selected":
+                    current.request = {**current.request, "routing": data}
+                if kind == "completed":
+                    from app.services.chat_turn import save_chat_result
+
+                    await save_chat_result(db, current, updates["result"])
             for key, value in updates.items():
                 setattr(current, key, value)
             await repo.event(current, kind, data)
@@ -137,8 +161,23 @@ async def execute(run_id, conn):
             from app.services.project import ProjectService
 
             await ProjectService(db, user_id).validate(project_id)
+            if request.get("kind") == "chat":
+                from app.services.conversation import ConversationService
+
+                conversation_service = ConversationService(db, project_id=project_id)
+                await conversation_service.get_conversation(
+                    UUID(request["conversation_id"]), user_id=user_id, access="owner"
+                )
+                if request.get("file_ids"):
+                    await conversation_service.list_attached_files(
+                        request["file_ids"], user_id=user_id
+                    )
             await KnowledgeService(db, user_id).validate_scope(
-                [UUID(v) for v in request["knowledge_base_ids"]], None, require_ready=True
+                [UUID(v) for v in request["knowledge_base_ids"]],
+                [UUID(v) for v in request["knowledge_document_ids"]]
+                if request.get("knowledge_document_ids") is not None
+                else None,
+                require_ready=True,
             )
         if request.get("mode") == "knowledge_collaboration":
             if request.get("workflow_version") != WORKFLOW_VERSION or request.get("tools"):
@@ -162,6 +201,7 @@ async def execute(run_id, conn):
                 project_id=project_id,
                 allowed_tools=request.get("tools"),
                 retrieval_snapshot=request.get("retrieval_snapshot"),
+                chat_request=request if request.get("kind") == "chat" else None,
             )
         graph_config = {"configurable": {"thread_id": f"run:{run_id}"}, "recursion_limit": 20}
         snapshot = await graph.aget_state(graph_config)
@@ -200,6 +240,16 @@ async def execute(run_id, conn):
                     "citations": snapshot.values.get("citations", []),
                     "usage": snapshot.values.get("usage", {}),
                     "retrieval_runs": snapshot.values.get("retrieval_runs", []),
+                    **(
+                        {
+                            "thinking": snapshot.values.get("thinking", ""),
+                            "tool_calls": snapshot.values.get("tool_calls", []),
+                            "effective_config": snapshot.values["chat"]["effective_config"],
+                            "routing": snapshot.values.get("routing", {}),
+                        }
+                        if request.get("kind") == "chat"
+                        else {}
+                    ),
                     **(
                         {"collaboration": snapshot.values["collaboration"]}
                         if snapshot.values.get("collaboration")

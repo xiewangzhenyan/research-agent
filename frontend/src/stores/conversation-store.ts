@@ -8,6 +8,7 @@ interface ConversationState {
   // (qk.conversations.list). This store holds the current selection, the
   // loaded messages for that selection, and the fetch/select status.
   currentConversationId: string | null;
+  selectionVersion: number;
   currentMessages: ConversationMessage[];
   isLoading: boolean;
   error: string | null;
@@ -22,6 +23,7 @@ interface ConversationState {
 
 const initialState = {
   currentConversationId: null,
+  selectionVersion: 0,
   currentMessages: [],
   isLoading: false,
   error: null,
@@ -30,7 +32,8 @@ const initialState = {
 export const useConversationStore = create<ConversationState>((set) => ({
   ...initialState,
 
-  setCurrentConversationId: (id) => set({ currentConversationId: id }),
+  setCurrentConversationId: (id) =>
+    set((state) => ({ currentConversationId: id, selectionVersion: state.selectionVersion + 1 })),
 
   setCurrentMessages: (messages) => set({ currentMessages: messages }),
 

@@ -3,8 +3,9 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.db.models.agent_run import AgentRun, AgentRunEvent
 from app.db.models.user import User
@@ -52,12 +53,48 @@ class AgentRunRepository:
         )
 
     async def candidates(self):
+        earlier = aliased(AgentRun)
+        # Keep turns in one conversation ordered, including across workers and
+        # while a previous turn is waiting for human input. Other chats can run.
+        blocked = exists().where(
+            earlier.conversation_id == AgentRun.conversation_id,
+            earlier.status.in_(ACTIVE),
+            or_(
+                earlier.created_at < AgentRun.created_at,
+                and_(earlier.created_at == AgentRun.created_at, earlier.id < AgentRun.id),
+            ),
+        )
         return list(
             await self.db.scalars(
                 select(AgentRun.id)
                 .where(AgentRun.status.in_(("queued", "running", "cancelling")))
+                .where(
+                    or_(
+                        AgentRun.conversation_id.is_(None),
+                        ~blocked,
+                        AgentRun.status == "cancelling",
+                    )
+                )
                 .order_by(AgentRun.started_at.asc().nullsfirst(), AgentRun.created_at)
                 .limit(100)
+            )
+        )
+
+    async def has_predecessor(self, run):
+        if run.conversation_id is None:
+            return False
+        return bool(
+            await self.db.scalar(
+                select(
+                    exists().where(
+                        AgentRun.conversation_id == run.conversation_id,
+                        AgentRun.status.in_(ACTIVE),
+                        or_(
+                            AgentRun.created_at < run.created_at,
+                            and_(AgentRun.created_at == run.created_at, AgentRun.id < run.id),
+                        ),
+                    )
+                )
             )
         )
 

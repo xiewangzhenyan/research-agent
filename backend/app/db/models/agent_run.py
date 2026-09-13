@@ -35,6 +35,15 @@ class AgentRun(Base, TimestampMixin):
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    conversation_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    user_message_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="CASCADE"), nullable=True, unique=True
+    )
+    assistant_message_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="CASCADE"), nullable=True, unique=True
+    )
     project_id: Mapped[UUID | None] = mapped_column(nullable=True)
     user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     idempotency_key: Mapped[UUID] = mapped_column()

@@ -54,7 +54,7 @@ CI 使用含 pgvector 的 PostgreSQL 16 临时服务，而非不包含该扩展�
   普通单元测试收集阶段不会再探测数据库或自动开启破坏性的迁移测试。
 - 先运行迁移测试，再执行 `python -m app.worker.agent_runs --setup` 初始化 checkpoint。
 - `RUN_TASK_DB_TESTS=1` 启用真实 PostgreSQL 的账号/项目隔离、候选记忆、版本冲突、
-  后台任务恢复、多角色协作、检索与文件产物检查。
+  会话持续执行与历史恢复、多角色协作、检索与文件产物检查。
 - `RUN_LOCAL_MEMORY_MODEL=1` 验证记忆编码，`RUN_LOCAL_MODEL_TESTS=1` 验证原生知识编码，
   另需挂载离线 BGE 缓存；共享 CI 不下载或冒充该模型，
   这个检查会明确显示为跳过，部署时另行验证真实本地编码和线上召回。

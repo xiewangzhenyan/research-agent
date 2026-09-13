@@ -176,7 +176,7 @@ function MemoryWorkspace() {
           </p>
           <p className="text-muted-foreground mt-2 text-xs">
             {t(
-              "严格知识库问答与后台任务暂不调用项目记忆。知识库仍属于账号，可跨项目复用。",
+              "普通对话可调用项目记忆；严格知识库问答与旧版独立任务不调用。知识库仍属于账号，可跨项目复用。",
               "Strict knowledge answers and background tasks do not use project memory. Knowledge bases remain reusable account resources.",
             )}
           </p>

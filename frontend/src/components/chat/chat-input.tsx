@@ -18,7 +18,7 @@ import {
 import { SlashCommandPalette } from "./slash-command-palette";
 
 interface ChatInputProps {
-  onSend: (message: string, fileIds?: string[], files?: FileUploadResponse[]) => void;
+  onSend: (message: string, fileIds?: string[], files?: FileUploadResponse[]) => boolean | void;
   disabled?: boolean;
   isProcessing?: boolean;
   /** When set, a stop control replaces the send button while processing. */
@@ -86,7 +86,7 @@ export function ChatInput({
       // through the normal flow so it lands as a regular user turn.
       const fileIds = attachedFiles.length > 0 ? attachedFiles.map((f) => f.id) : undefined;
       const files = attachedFiles.length > 0 ? attachedFiles : undefined;
-      onSend(cmd.action.replaceWith, fileIds, files);
+      if (onSend(cmd.action.replaceWith, fileIds, files) === false) return;
       setMessage("");
       setAttachedFiles([]);
     },
@@ -105,7 +105,14 @@ export function ChatInput({
 
     const fileIds = attachedFiles.length > 0 ? attachedFiles.map((f) => f.id) : undefined;
     const files = attachedFiles.length > 0 ? attachedFiles : undefined;
-    onSend(trimmed || (isZh ? "请分析附件。" : "Analyze the attached file(s)"), fileIds, files);
+    if (
+      onSend(
+        trimmed || (isZh ? "请分析附件。" : "Analyze the attached file(s)"),
+        fileIds,
+        files,
+      ) === false
+    )
+      return;
     setMessage("");
     setAttachedFiles([]);
   };
@@ -407,7 +414,7 @@ export function ChatInput({
             className="hidden"
           />
 
-          {isProcessing && onStop ? (
+          {isProcessing && onStop && !message.trim() && attachedFiles.length === 0 ? (
             <Button
               type="button"
               size="icon"

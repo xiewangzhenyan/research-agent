@@ -91,6 +91,16 @@ export function ProjectSwitcher() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
           <DropdownMenuLabel>{t("我的项目", "My projects")}</DropdownMenuLabel>
+          {workspace.loading && (
+            <p className="text-muted-foreground px-2 py-1 text-xs">
+              {t("正在同步项目列表…", "Syncing projects…")}
+            </p>
+          )}
+          {workspace.error && (
+            <DropdownMenuItem onClick={workspace.retry}>
+              {t("项目列表加载失败，点击重试", "Retry loading projects")}
+            </DropdownMenuItem>
+          )}
           <div className="max-h-60 overflow-y-auto">
             {[{ id: null, name: t("默认项目", "Default project") }, ...projects].map((p) => (
               <DropdownMenuItem

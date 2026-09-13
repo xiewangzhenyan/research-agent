@@ -5,11 +5,18 @@ import { MessageItem } from "./message-item";
 
 interface MessageListProps {
   messages: ChatMessage[];
+  onRatingChange?: import("@/lib/chat-turns").ChatRatingUpdate;
+  onCancelRun?: (id: string) => void;
   onRegenerate?: (messageId: string) => void;
 }
 
-export function MessageList({ messages, onRegenerate }: MessageListProps) {
-    const getGroupPosition = (
+export function MessageList({
+  messages,
+  onRegenerate,
+  onCancelRun,
+  onRatingChange,
+}: MessageListProps) {
+  const getGroupPosition = (
     message: ChatMessage,
   ): "first" | "middle" | "last" | "single" | undefined => {
     if (!message.groupId) return undefined;
@@ -38,6 +45,10 @@ export function MessageList({ messages, onRegenerate }: MessageListProps) {
         <MessageItem
           key={message.id}
           message={message}
+          onRatingChange={onRatingChange}
+          onCancel={
+            message.execution && onCancelRun ? () => onCancelRun(message.execution!.id) : undefined
+          }
           groupPosition={getGroupPosition(message)}
           onRegenerate={
             onRegenerate && index === lastAssistantIndex && !message.isStreaming

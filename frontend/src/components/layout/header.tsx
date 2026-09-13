@@ -41,25 +41,21 @@ export function Header() {
       ? zh
         ? "工具中心"
         : "Tools"
-      : pathname.startsWith("/tasks")
+      : pathname.startsWith("/models")
         ? zh
-          ? "后台任务"
-          : "Tasks"
-        : pathname.startsWith("/models")
-          ? zh
-            ? "模型与能力"
-            : "Models and capabilities"
-          : pathname.startsWith("/knowledge")
-            ? t("knowledge")
-            : pathname.startsWith("/chat")
-              ? t("chat")
-              : pathname.startsWith("/settings")
-                ? t("settings")
-                : pathname.startsWith("/admin")
-                  ? t("admin")
-                  : pathname.startsWith("/profile")
-                    ? t("profile")
-                    : t("dashboard");
+          ? "模型与能力"
+          : "Models and capabilities"
+        : pathname.startsWith("/knowledge")
+          ? t("knowledge")
+          : pathname.startsWith("/chat")
+            ? t("chat")
+            : pathname.startsWith("/settings")
+              ? t("settings")
+              : pathname.startsWith("/admin")
+                ? t("admin")
+                : pathname.startsWith("/profile")
+                  ? t("profile")
+                  : t("dashboard");
 
   const openSearch = () => window.dispatchEvent(new CustomEvent("command-palette:open"));
 

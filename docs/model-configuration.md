@@ -1,6 +1,6 @@
 # 模型配置加载
 
-聊天、后台任务、记忆提取和模型管理共用 `useGenerationConfig`，按账号缓存生成模型
+聊天、记忆提取和模型管理共用 `useGenerationConfig`，按账号缓存生成模型
 列表、默认值及可调参数。模型选择不再等待沙箱或重排服务的健康检查。
 
 - `/api/v1/agent/generation-config` 需要登录，仅返回脱敏的部署策略。读取过程不加载

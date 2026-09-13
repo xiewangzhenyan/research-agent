@@ -1,7 +1,10 @@
 "use client";
+import dynamic from "next/dynamic";
+import { ChatToolOptions } from "./chat-tool-options";
 import { KnowledgeSelector } from "./knowledge-selector";
 
 import { useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useChat } from "@/hooks";
 import { ChatControls } from "./chat-controls";
@@ -14,93 +17,59 @@ import { PendingMessages } from "./pending-messages";
 import { ToolApprovalDialog } from "./tool-approval-dialog";
 import { QuestionPrompt } from "@/components/ui";
 import type { PendingApproval, AskUserQuestion, AskUserAnswer, Decision } from "@/types";
-import { conversationMessageToChatMessage } from "@/lib/conversation-to-chat";
-import { useConversationStore, useChatStore } from "@/stores";
+import { useConversationStore } from "@/stores";
 import { useConversations } from "@/hooks";
 import { useSlashCommands } from "@/hooks";
+
+const ExecutionPanel = dynamic(() => import("./execution-panel").then((m) => m.ExecutionPanel), {
+  ssr: false,
+});
 
 const SCROLL_NEAR_BOTTOM_THRESHOLD_PX = 150;
 
 export function ChatContainer() {
-  const {
-    currentConversationId,
-    currentMessages,
-    isLoading: isConversationLoading,
-  } = useConversationStore();
-  const { addMessage: addChatMessage } = useChatStore();
-  const { fetchConversations } = useConversations();
-  const prevConversationIdRef = useRef<string | null | undefined>(undefined);
+  const { currentConversationId, isLoading: isConversationLoading } = useConversationStore();
+  const { fetchConversations, startNewChat } = useConversations();
 
-  const handleConversationCreated = useCallback(() => {
-    fetchConversations();
-  }, [fetchConversations]);
+  const search = useSearchParams();
+  useEffect(() => {
+    void fetchConversations();
+  }, [fetchConversations, search]);
 
   const {
     messages,
+    updateRating,
     isConnected,
     isProcessing,
     sendMessage,
     stopGeneration,
-    clearMessages,
     queuedMessages,
     cancelQueued,
-    clearQueued,
+    retryQueued,
+    isSubmitting,
+    hasOlder,
+    loadOlder,
+    loadingOlder,
+    connectionError,
+    refresh,
+    setPythonEnabled,
     setModel,
     setTemperature,
     setThinkingEffort,
     pendingApproval,
     sendResumeDecisions,
     pendingQuestions,
+    pendingQuestionId,
+    answerSubmitting,
     sendAskUserResponses,
   } = useChat({
     conversationId: currentConversationId,
-    onConversationCreated: handleConversationCreated,
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   // true = user deliberately scrolled up; suppress auto-scroll until they return to bottom
   const userScrolledUpRef = useRef(false);
-
-  // Clear messages when conversation changes, but NOT when going from null to a new ID
-  // (that happens when a new chat is saved - we want to keep the messages)
-  useEffect(() => {
-    const prevId = prevConversationIdRef.current;
-    const currId = currentConversationId;
-
-    // Skip initial mount
-    if (prevId === undefined) {
-      prevConversationIdRef.current = currId;
-      return;
-    }
-
-    // Clear messages when:
-    // 1. Going from a conversation to null (new chat)
-    // 2. Switching between two different conversations
-    // Do NOT clear when going from null to a conversation (new chat being saved)
-    const shouldClear =
-      currId === null || // Going to new chat
-      (prevId !== null && prevId !== currId); // Switching between conversations
-
-    if (shouldClear) {
-      clearMessages();
-      // Drop any pending queue when switching threads — those messages were
-      // typed in the previous conversation's context, sending them into a
-      // different conversation would surprise the user.
-      clearQueued();
-    }
-
-    prevConversationIdRef.current = currId;
-  }, [currentConversationId, clearMessages, clearQueued]);
-
-  useEffect(() => {
-    if (currentMessages.length > 0) {
-      clearMessages();
-      currentMessages.forEach((msg) => {
-        addChatMessage(conversationMessageToChatMessage(msg));
-      });
-    }
-  }, [currentMessages, addChatMessage, clearMessages]);
 
   // Track whether the user has manually scrolled up so we don't hijack their position
   useEffect(() => {
@@ -139,7 +108,7 @@ export function ChatContainer() {
   // Slash command handlers — passed down to ChatInput so the / palette can
   // run them locally without going through the agent.
   const slashContext = {
-    clearChat: clearMessages,
+    clearChat: startNewChat,
     regenerateLast: () => {
       for (let i = messages.length - 1; i >= 0; i--) {
         const m = messages[i];
@@ -155,30 +124,45 @@ export function ChatContainer() {
   };
 
   return (
-    <ChatUI
-      messages={messages}
-      isConnected={isConnected}
-      isProcessing={isProcessing}
-      isLoadingConversation={
-        currentConversationId !== null && isConversationLoading && messages.length === 0
-      }
-      sendMessage={sendMessage}
-      onModelChange={setModel}
-      onTemperatureChange={setTemperature}
-      onThinkingEffortChange={setThinkingEffort}
-      onRegenerate={handleRegenerate}
-      slashContext={slashContext}
-      slashCommands={slashCommands}
-      queuedMessages={queuedMessages}
-      onCancelQueued={cancelQueued}
-      messagesEndRef={messagesEndRef}
-      scrollContainerRef={scrollContainerRef}
-      pendingApproval={pendingApproval}
-      onResumeDecisions={sendResumeDecisions}
-      pendingQuestions={pendingQuestions}
-      onAnswerQuestions={sendAskUserResponses}
-      onStop={stopGeneration}
-    />
+    <>
+      <ChatUI
+        onRatingChange={updateRating}
+        messages={messages}
+        isConnected={isConnected}
+        isProcessing={isProcessing}
+        isSubmitting={isSubmitting}
+        hasOlder={hasOlder}
+        onLoadOlder={loadOlder}
+        loadingOlder={loadingOlder}
+        connectionError={connectionError}
+        onRefresh={refresh}
+        isLoadingConversation={
+          currentConversationId !== null && isConversationLoading && messages.length === 0
+        }
+        sendMessage={sendMessage}
+        onPythonChange={setPythonEnabled}
+        onModelChange={setModel}
+        onTemperatureChange={setTemperature}
+        onThinkingEffortChange={setThinkingEffort}
+        onRegenerate={handleRegenerate}
+        slashContext={slashContext}
+        slashCommands={slashCommands}
+        queuedMessages={queuedMessages}
+        onCancelQueued={cancelQueued}
+        onRetryQueued={retryQueued}
+        messagesEndRef={messagesEndRef}
+        scrollContainerRef={scrollContainerRef}
+        pendingApproval={pendingApproval}
+        onResumeDecisions={sendResumeDecisions}
+        pendingQuestionId={pendingQuestionId}
+        answerSubmitting={answerSubmitting}
+        pendingQuestions={pendingQuestions}
+        onAnswerQuestions={sendAskUserResponses}
+        onCancelRun={stopGeneration}
+        onStop={() => stopGeneration()}
+      />
+      {search.get("run") && <ExecutionPanel />}
+    </>
   );
 }
 
@@ -186,6 +170,12 @@ interface ChatUIProps {
   messages: import("@/types").ChatMessage[];
   isConnected: boolean;
   isProcessing: boolean;
+  isSubmitting?: boolean;
+  hasOlder?: boolean;
+  onLoadOlder?: () => void;
+  loadingOlder?: boolean;
+  connectionError?: boolean;
+  onRefresh?: () => void;
   /** True while a saved conversation is being loaded — show a skeleton, not empty state. */
   isLoadingConversation?: boolean;
   sendMessage: (
@@ -193,6 +183,7 @@ interface ChatUIProps {
     fileIds?: string[],
     files?: import("@/types").ChatMessageFile[],
   ) => void;
+  onPythonChange?: (value: boolean) => void;
   onModelChange?: (model: string | null) => void;
   onTemperatureChange?: (temperature: number | null) => void;
   onThinkingEffortChange?: (effort: "low" | "medium" | "high" | null) => void;
@@ -201,13 +192,18 @@ interface ChatUIProps {
   slashCommands?: import("./slash-commands").SlashCommand[];
   queuedMessages?: import("@/hooks/use-chat").QueuedMessage[];
   onCancelQueued?: (id: string) => void;
+  onRetryQueued?: (id: string) => void;
   messagesEndRef: React.RefObject<HTMLDivElement | null>;
   scrollContainerRef: React.RefObject<HTMLDivElement | null>;
   pendingApproval?: PendingApproval | null;
   onResumeDecisions?: (decisions: Decision[]) => void;
+  pendingQuestionId?: string;
+  answerSubmitting?: boolean;
   pendingQuestions?: AskUserQuestion[] | null;
   onAnswerQuestions?: (answers: AskUserAnswer[]) => void;
   onStop?: () => void;
+  onRatingChange?: import("@/lib/chat-turns").ChatRatingUpdate;
+  onCancelRun?: (id: string) => void;
 }
 
 function ChatUI({
@@ -215,7 +211,14 @@ function ChatUI({
   isConnected,
   isProcessing,
   isLoadingConversation,
+  isSubmitting,
+  hasOlder,
+  onLoadOlder,
+  loadingOlder,
+  connectionError,
+  onRefresh,
   sendMessage,
+  onPythonChange,
   onModelChange,
   onTemperatureChange,
   onThinkingEffortChange,
@@ -224,13 +227,18 @@ function ChatUI({
   slashCommands,
   queuedMessages,
   onCancelQueued,
+  onRetryQueued,
   messagesEndRef,
   scrollContainerRef,
   pendingApproval,
   onResumeDecisions,
   pendingQuestions,
+  pendingQuestionId,
+  answerSubmitting,
   onAnswerQuestions,
   onStop,
+  onCancelRun,
+  onRatingChange,
 }: ChatUIProps) {
   const tc = useTranslations("common");
   return (
@@ -242,6 +250,24 @@ function ChatUI({
           ref={scrollContainerRef}
           className="chat-message-scroll flex-1 scrollbar-thin overflow-y-auto px-2 py-4 sm:px-4 sm:py-6"
         >
+          {hasOlder && (
+            <button
+              type="button"
+              disabled={loadingOlder}
+              onClick={onLoadOlder}
+              className="text-muted-foreground mx-auto mb-4 block min-h-10 text-sm underline"
+            >
+              {loadingOlder ? "正在读取…" : "加载更早的消息"}
+            </button>
+          )}
+          {connectionError && (
+            <div role="alert" className="mb-4 rounded-xl border p-3 text-sm">
+              暂时无法同步对话，已接收的请求仍由服务器处理。
+              <button type="button" onClick={onRefresh} className="text-brand ml-2 underline">
+                重新连接
+              </button>
+            </div>
+          )}
           {isLoadingConversation ? (
             <ConversationSkeleton />
           ) : messages.length === 0 ? (
@@ -249,7 +275,12 @@ function ChatUI({
               <ChatEmptyState onPick={(prompt) => sendMessage(prompt)} />
             </div>
           ) : (
-            <MessageList messages={messages} onRegenerate={onRegenerate} />
+            <MessageList
+              messages={messages}
+              onRegenerate={onRegenerate}
+              onCancelRun={onCancelRun}
+              onRatingChange={onRatingChange}
+            />
           )}
           <div ref={messagesEndRef} />
         </div>{" "}
@@ -266,23 +297,30 @@ function ChatUI({
         {pendingQuestions && pendingQuestions.length > 0 && onAnswerQuestions && (
           <div className="px-2 pb-2 sm:px-4 sm:pb-2">
             <QuestionPrompt
+              key={pendingQuestionId}
               questions={pendingQuestions}
-              disabled={!isConnected}
+              disabled={!isConnected || answerSubmitting}
               onComplete={onAnswerQuestions}
             />
           </div>
         )}
         <div className="chat-composer-wrap px-2 pb-2 sm:px-4 sm:pb-4">
           {queuedMessages && queuedMessages.length > 0 && onCancelQueued && (
-            <PendingMessages messages={queuedMessages} onCancel={onCancelQueued} />
+            <PendingMessages
+              messages={queuedMessages}
+              onCancel={onCancelQueued}
+              onRetry={onRetryQueued}
+            />
           )}
           <div className="bg-card border-border focus-within:border-foreground/30 rounded-2xl border transition-colors">
             <KnowledgeSelector />
+            {onPythonChange && <ChatToolOptions onChange={onPythonChange} />}
             <div className="px-3 pt-3 sm:px-4 sm:pt-4">
               <ChatInput
                 onSend={sendMessage}
                 disabled={
                   !isConnected ||
+                  !!isSubmitting ||
                   !!pendingApproval ||
                   !!(pendingQuestions && pendingQuestions.length)
                 }

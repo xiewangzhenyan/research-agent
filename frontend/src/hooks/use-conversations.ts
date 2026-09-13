@@ -2,6 +2,7 @@
 
 import { useLocale } from "next-intl";
 import { useKnowledgeStore } from "@/stores/knowledge-store";
+import { lastChatKey } from "@/lib/chat-turns";
 import { currentProject } from "@/lib/project-scope";
 import { useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -10,7 +11,7 @@ import { apiClient } from "@/lib/api-client";
 import { qk } from "@/lib/query-keys";
 import { getErrorMessage, setUrlParam } from "@/lib/utils";
 import { useConversationStore, useChatStore, useAuthStore } from "@/stores";
-import type { Conversation, ConversationMessage, ConversationListResponse } from "@/types";
+import type { Conversation, ConversationListResponse } from "@/types";
 
 interface CreateConversationResponse {
   id: string;
@@ -19,11 +20,6 @@ interface CreateConversationResponse {
   updated_at: string;
   is_archived: boolean;
   is_demo?: boolean;
-}
-
-interface MessagesResponse {
-  items: ConversationMessage[];
-  total: number;
 }
 
 const PAGE_SIZE = 30;
@@ -43,11 +39,6 @@ export function useConversations() {
   } = useConversationStore();
   const { clearMessages } = useChatStore();
   const hasMoreRef = useRef(true);
-  // Tracks the in-flight message fetch so a rapid conversation switch can abort
-  // the previous request — otherwise a slower earlier fetch could resolve last
-  // and overwrite the messages of the conversation the user actually selected.
-  const messagesAbortRef = useRef<AbortController | null>(null);
-
   // React Query owns the list: cached across navigations, deduped, no refetch
   // storms (this replaces the old manual fetch + session-singleton guard).
   // Both active and archived are fetched in one call so the sidebar tabs can
@@ -75,27 +66,33 @@ export function useConversations() {
     [queryClient],
   );
 
+  // Selection is immediate; the chat hook loads history independently of the list.
   const fetchConversations = useCallback(async () => {
-    // The list query auto-fetches and dedupes; force a fresh pull here to keep
-    // the previous explicit-refresh semantics (e.g. after a new conversation is
-    // created over WS).
-    await queryClient.invalidateQueries({ queryKey: qk.conversations.list() });
-    // URL ?id= param always takes priority: select that conversation and load
-    // its messages if it isn't already the current one.
-    const urlId = new URLSearchParams(window.location.search).get("id");
-    if (urlId && useConversationStore.getState().currentConversationId !== urlId) {
-      setCurrentConversationId(urlId);
-      clearMessages();
-      setCurrentMessages([]);
+    const params = new URLSearchParams(window.location.search);
+    const userId = useAuthStore.getState().user?.id;
+    let id = params.get("id");
+    if (
+      !id &&
+      !params.has("new") &&
+      !params.has("knowledge") &&
+      !params.has("document") &&
+      !params.has("run") &&
+      userId
+    ) {
       try {
-        const msgs = await apiClient.get<MessagesResponse>(`/conversations/${urlId}/messages`);
-        setCurrentMessages(msgs.items);
+        id = localStorage.getItem(lastChatKey(userId, currentProject()?.id));
       } catch {
-        // Not accessible (deleted, no permission) — clear the stale id
-        setCurrentConversationId(null);
+        /* optional */
       }
     }
-  }, [queryClient, setCurrentConversationId, setCurrentMessages, clearMessages]);
+    if (params.has("new")) id = null;
+    if (id !== useConversationStore.getState().currentConversationId) {
+      setCurrentConversationId(id);
+      clearMessages();
+      setCurrentMessages([]);
+      setUrlParam("id", id);
+    }
+  }, [setCurrentConversationId, setCurrentMessages, clearMessages]);
 
   const loadingMoreRef = useRef(false);
 
@@ -152,44 +149,15 @@ export function useConversations() {
 
   const selectConversation = useCallback(
     async (id: string) => {
-      // Abort any previous in-flight message fetch so an earlier, slower request
-      // can't resolve after this one and show the wrong messages.
-      messagesAbortRef.current?.abort();
-      const requestUserId = useAuthStore.getState().user?.id;
-      const controller = new AbortController();
-      messagesAbortRef.current = controller;
-
       setCurrentConversationId(id);
       clearMessages();
-      setUrlParam("id", id);
-      setLoading(true);
+      setCurrentMessages([]);
       setError(null);
-      try {
-        const response = await apiClient.get<MessagesResponse>(`/conversations/${id}/messages`, {
-          signal: controller.signal,
-        });
-        // Guard against a superseded request resolving after a newer select.
-        if (controller.signal.aborted || requestUserId !== useAuthStore.getState().user?.id) return;
-        setCurrentMessages(response.items);
-      } catch (err) {
-        // Ignore aborted/superseded requests — they're expected on rapid switch.
-        if (
-          controller.signal.aborted ||
-          (err instanceof DOMException && err.name === "AbortError")
-        ) {
-          return;
-        }
-        const message = getErrorMessage(err, "Failed to fetch messages");
-        setError(message);
-      } finally {
-        // Only the most recent request owns the loading flag.
-        if (messagesAbortRef.current === controller) {
-          setLoading(false);
-          messagesAbortRef.current = null;
-        }
-      }
+      setUrlParam("id", id);
+      setUrlParam("new", null);
+      setUrlParam("run", null);
     },
-    [setCurrentConversationId, clearMessages, setCurrentMessages, setLoading, setError],
+    [setCurrentConversationId, clearMessages, setCurrentMessages, setError],
   );
 
   const archiveConversation = useCallback(
@@ -237,7 +205,8 @@ export function useConversations() {
         // the conversation we just removed.
         if (useConversationStore.getState().currentConversationId === id) {
           setCurrentConversationId(null);
-          messagesAbortRef.current?.abort();
+          setUrlParam("new", "1");
+          setUrlParam("run", null);
           clearMessages();
           setCurrentMessages([]);
           setUrlParam("id", null);
@@ -293,9 +262,16 @@ export function useConversations() {
     clearMessages();
     setCurrentMessages([]);
     setCurrentConversationId(null);
-    // Strip the stale ?id= immediately so a refresh mid-flight lands on a
-    // fresh /chat instead of the old conversation. The new id will be set
-    // by the WS conversation_created event on first message.
+    const userId = useAuthStore.getState().user?.id;
+    if (userId) {
+      try {
+        localStorage.removeItem(lastChatKey(userId, currentProject()?.id));
+      } catch {
+        /* optional */
+      }
+    }
+    setUrlParam("new", "1");
+    setUrlParam("run", null);
     setUrlParam("id", null);
     setUrlParam("knowledge", null);
     setUrlParam("document", null);

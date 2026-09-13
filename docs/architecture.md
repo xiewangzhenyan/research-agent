@@ -191,3 +191,7 @@ and `parsed_content` (extracted text). Only the file owner can access their file
 ### Size Limits
 
 Maximum upload size is controlled by `MAX_UPLOAD_SIZE_MB` (default 50MB).
+
+## Durable chat update
+
+The web chat now submits server-owned durable turns. See [durable chat](durable-chat.md) for execution, restoration, routing, scope, startup loading and release requirements. The legacy WebSocket endpoint remains for compatibility; it is no longer the normal web chat transport.

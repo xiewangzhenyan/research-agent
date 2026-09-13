@@ -20,7 +20,7 @@ const names: Record<string, [string, string]> = {
   web_search: ["联网搜索", "Web search"],
   multi_agent: ["多智能体协作", "Multi-agent collaboration"],
   knowledge_collaboration: ["多角色资料协作", "Knowledge collaboration"],
-  durable_tasks: ["后台任务持久恢复", "Durable task recovery"],
+  durable_tasks: ["对话持续执行与恢复", "Durable task recovery"],
 };
 
 function LocalModel({

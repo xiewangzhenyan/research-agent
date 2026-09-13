@@ -41,6 +41,13 @@ export interface ChatMessage {
    *  collapsible above the final response. */
   thinking?: string;
   effectiveConfig?: EffectiveConfig;
+  execution?: {
+    id: string;
+    status: string;
+    error?: string | null;
+    collaborative?: boolean;
+    reason?: string;
+  };
   /** Ordered timeline of the assistant turn: reasoning, text and tool
    *  calls in the exact order they occurred. Rendered in sequence so a
    *  multi-step turn (think → tools → text → think → tools → text) shows
