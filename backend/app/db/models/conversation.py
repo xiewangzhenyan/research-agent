@@ -4,7 +4,16 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,15 +29,26 @@ class Conversation(Base, TimestampMixin):
     Attributes:
         id: Unique conversation identifier
         user_id: Optional user who owns this conversation (if auth enabled)
-        project_id: Optional project this conversation belongs to (if pydantic_deep)
+        project_id: Workspace scope; NULL is the default project
         title: Auto-generated or user-defined title
         is_archived: Whether the conversation is archived
         messages: List of messages in this conversation
     """
 
     __tablename__ = "conversations"
+    __table_args__ = (
+        Index("conversations_project_user_idx", "user_id", "project_id"),
+        ForeignKeyConstraint(
+            ["project_id", "user_id"],
+            ["projects.id", "projects.user_id"],
+            name="conversations_project_owner_fk",
+            deferrable=True,
+            initially="DEFERRED",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    project_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),

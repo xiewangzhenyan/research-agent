@@ -19,13 +19,14 @@ def metadata(item):
 
 
 class RunArtifactService:
-    def __init__(self, db, user_id):
+    def __init__(self, db, user_id, *, project_id=None):
         self.db, self.user_id = db, user_id
+        self.project_id = project_id
         self.runs, self.repo = AgentRunRepository(db), RunArtifactRepository(db)
 
     async def owned_run(self, run_id, lock=False):
         run = await self.runs.get(run_id, self.user_id, lock=lock)
-        if run is None:
+        if run is None or run.project_id != self.project_id:
             raise NotFoundError(message="任务不存在或无权访问")
         return run
 

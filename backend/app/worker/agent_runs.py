@@ -98,7 +98,7 @@ async def execute(run_id, conn):
             return
         run.attempt += 1
         run.status, run.started_at = "running", datetime.now(UTC)
-        attempt, user_id = run.attempt, run.user_id
+        attempt, user_id, project_id = run.attempt, run.user_id, run.project_id
         request, configuration, resume_input = run.request, run.effective_config, run.resume_input
         await repo.event(
             run,
@@ -134,6 +134,9 @@ async def execute(run_id, conn):
             owner = await db.get(User, user_id)
             if not owner or not owner.is_active:
                 raise AuthorizationError(message="账号已停用")
+            from app.services.project import ProjectService
+
+            await ProjectService(db, user_id).validate(project_id)
             await KnowledgeService(db, user_id).validate_scope(
                 [UUID(v) for v in request["knowledge_base_ids"]], None, require_ready=True
             )
@@ -156,6 +159,7 @@ async def execute(run_id, conn):
                 run_id=run_id,
                 sandbox_request=request,
                 attempt=attempt,
+                project_id=project_id,
                 allowed_tools=request.get("tools"),
                 retrieval_snapshot=request.get("retrieval_snapshot"),
             )

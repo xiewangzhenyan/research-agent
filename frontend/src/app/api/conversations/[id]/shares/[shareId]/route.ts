@@ -1,3 +1,4 @@
+import { forwardProjectHeaders } from "@/lib/server-api";
 import { NextRequest, NextResponse } from "next/server";
 import { backendFetch, BackendApiError } from "@/lib/server-api";
 
@@ -16,7 +17,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     await backendFetch(`/api/v1/conversations/${id}/shares/${shareId}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}`, ...forwardProjectHeaders(request) },
     });
 
     return new NextResponse(null, { status: 204 });

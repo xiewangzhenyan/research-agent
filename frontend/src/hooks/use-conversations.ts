@@ -2,6 +2,7 @@
 
 import { useLocale } from "next-intl";
 import { useKnowledgeStore } from "@/stores/knowledge-store";
+import { currentProject } from "@/lib/project-scope";
 import { useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -299,7 +300,7 @@ export function useConversations() {
     setUrlParam("knowledge", null);
     setUrlParam("document", null);
     useKnowledgeStore.setState({
-      ids: [],
+      ids: [...(currentProject()?.knowledge_base_ids ?? [])],
       documentIds: null,
       strict: true,
       scopeId: null,

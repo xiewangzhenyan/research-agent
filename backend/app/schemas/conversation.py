@@ -152,6 +152,7 @@ class ConversationUpdate(BaseSchema):
 class ConversationRead(ConversationBase, TimestampSchema):
     """Schema for reading a conversation (API response)."""
 
+    project_id: UUID | None = None
     id: UUID
     user_id: UUID | None = None
     active_knowledge_base_ids: list[UUID] = Field(default_factory=list)

@@ -38,12 +38,14 @@ async def get_conversations_by_user(
     db: AsyncSession,
     user_id: UUID | None = None,
     *,
+    project_id: UUID | None = None,
     skip: int = 0,
     limit: int = 50,
     include_archived: bool = False,
 ) -> list[Conversation]:
     """Get conversations for a user with pagination."""
     query = select(Conversation)
+    query = query.where(Conversation.project_id == project_id)
     if user_id:
         query = query.where(Conversation.user_id == user_id)
     if not include_archived:
@@ -230,10 +232,12 @@ async def count_conversations(
     db: AsyncSession,
     user_id: UUID | None = None,
     *,
+    project_id: UUID | None = None,
     include_archived: bool = False,
 ) -> int:
     """Count conversations for a user."""
     query = select(func.count(Conversation.id))
+    query = query.where(Conversation.project_id == project_id)
     if user_id:
         query = query.where(Conversation.user_id == user_id)
     if not include_archived:
@@ -247,10 +251,14 @@ async def create_conversation(
     *,
     user_id: UUID | None = None,
     title: str | None = None,
+    project_id: UUID | None = None,
+    knowledge_base_ids: list[str] | None = None,
 ) -> Conversation:
     """Create a new conversation."""
     conversation = Conversation(
         user_id=user_id,
+        project_id=project_id,
+        active_knowledge_base_ids=knowledge_base_ids or [],
         title=title,
     )
     db.add(conversation)
@@ -344,10 +352,12 @@ async def create_message(
         model_name=model_name,
         tokens_used=tokens_used,
         effective_config=effective_config,
+        tool_calls=[],
+        files=[],
     )
     db.add(message)
     await db.flush()
-    await db.refresh(message)
+    await db.refresh(message, ["created_at", "updated_at"])
 
     await db.execute(
         sql_update(Conversation)

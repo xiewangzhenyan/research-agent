@@ -1,4 +1,5 @@
 "use client";
+import { useUnsavedInput } from "@/hooks/use-unsaved-input";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Button, Badge, Spinner } from "@/components/ui";
@@ -42,6 +43,7 @@ export function ChatInput({
   const [attachedFiles, setAttachedFiles] = useState<FileUploadResponse[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  useUnsavedInput(!!message.trim() || attachedFiles.length > 0 || isUploading);
   // Slash-command palette state. Open while message starts with "/" and the
   // caller wired a context — without one, commands have nothing to do.
   const [paletteIndex, setPaletteIndex] = useState(0);
@@ -148,7 +150,11 @@ export function ChatInput({
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      toast.info(isZh ? "语音输入目前仅支持 Chrome 浏览器。" : "Voice input is currently supported in Chrome only.");
+      toast.info(
+        isZh
+          ? "语音输入目前仅支持 Chrome 浏览器。"
+          : "Voice input is currently supported in Chrome only.",
+      );
       return;
     }
 
@@ -192,25 +198,30 @@ export function ChatInput({
   }, [isListening, isZh, message]);
 
   // File upload to backend — shared by the file picker and drag-and-drop.
-  const uploadFiles = useCallback(async (files: File[]) => {
-    if (files.length === 0) return;
-    for (const file of files) {
-      if (file.size > MAX_UPLOAD_SIZE_MB * 1024 * 1024) {
-        toast.error(`${file.name}: ${isZh ? `文件过大，最大支持 ${MAX_UPLOAD_SIZE_MB}MB。` : `File too large. Maximum ${MAX_UPLOAD_SIZE_MB}MB.`}`);
-        continue;
-      }
+  const uploadFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
+      for (const file of files) {
+        if (file.size > MAX_UPLOAD_SIZE_MB * 1024 * 1024) {
+          toast.error(
+            `${file.name}: ${isZh ? `文件过大，最大支持 ${MAX_UPLOAD_SIZE_MB}MB。` : `File too large. Maximum ${MAX_UPLOAD_SIZE_MB}MB.`}`,
+          );
+          continue;
+        }
 
-      setIsUploading(true);
-      try {
-        const result = await uploadFile(file);
-        setAttachedFiles((prev) => [...prev, result]);
-      } catch (err) {
-        toast.error(`${file.name}: ${getErrorMessage(err, isZh ? "上传失败" : "Upload failed")}`);
-      } finally {
-        setIsUploading(false);
+        setIsUploading(true);
+        try {
+          const result = await uploadFile(file);
+          setAttachedFiles((prev) => [...prev, result]);
+        } catch (err) {
+          toast.error(`${file.name}: ${getErrorMessage(err, isZh ? "上传失败" : "Upload failed")}`);
+        } finally {
+          setIsUploading(false);
+        }
       }
-    }
-  }, [isZh]);
+    },
+    [isZh],
+  );
 
   const handleFileSelect = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,8 +356,24 @@ export function ChatInput({
             onClick={toggleMic}
             disabled={disabled}
             className="h-9 w-9"
-            title={isListening ? (isZh ? "停止录音" : "Stop recording") : (isZh ? "语音输入" : "Voice input")}
-            aria-label={isListening ? (isZh ? "停止录音" : "Stop recording") : (isZh ? "语音输入" : "Voice input")}
+            title={
+              isListening
+                ? isZh
+                  ? "停止录音"
+                  : "Stop recording"
+                : isZh
+                  ? "语音输入"
+                  : "Voice input"
+            }
+            aria-label={
+              isListening
+                ? isZh
+                  ? "停止录音"
+                  : "Stop recording"
+                : isZh
+                  ? "语音输入"
+                  : "Voice input"
+            }
           >
             {isListening ? (
               <MicOff className="h-4 w-4 animate-pulse text-red-500" />

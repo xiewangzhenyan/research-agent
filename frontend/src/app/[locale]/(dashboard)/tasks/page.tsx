@@ -1,4 +1,6 @@
 "use client";
+import { useUnsavedInput } from "@/hooks/use-unsaved-input";
+import { currentProject, projectFetch } from "@/lib/project-scope";
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -93,7 +95,7 @@ const labels: Record<string, [string, string]> = {
   failed: ["执行失败", "Failed"],
 };
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, { cache: "no-store", ...init });
+  const response = await projectFetch(path, { cache: "no-store", ...init });
   const data = await response.json();
   if (!response.ok)
     throw new Error(
@@ -106,7 +108,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export default function TasksPage() {
   const userId = useAuthStore((s) => s.user?.id);
-  return <TasksWorkspace key={userId || "anonymous"} />;
+  return <TasksWorkspace key={`${userId}:${currentProject()?.id ?? "default"}`} />;
 }
 
 function TasksWorkspace() {
@@ -120,6 +122,7 @@ function TasksWorkspace() {
   const [inputFiles, setInputFiles] = useState<InputFile[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [prompt, setPrompt] = useState("");
+  useUnsavedInput(!!prompt.trim() || uploadingFiles || inputFiles.length > 0);
   const [mode, setMode] = useState<"standard" | "knowledge_collaboration">("standard");
   const [model, setModel] = useState("");
   const [tools, setTools] = useState<string[]>(["current_datetime", "ask_user"]);
@@ -130,7 +133,9 @@ function TasksWorkspace() {
     staleTime: 15000,
   });
   const [retrieval, setRetrieval] = useState<RetrievalConfig | null>(null);
-  const [bases, setBases] = useState<string[]>([]);
+  const [bases, setBases] = useState<string[]>(() => [
+    ...(currentProject()?.knowledge_base_ids ?? []),
+  ]);
   const [answers, setAnswers] = useState<Record<string, string[]>>({});
   const [error, setError] = useState("");
   const [pollError, setPollError] = useState("");
@@ -149,7 +154,7 @@ function TasksWorkspace() {
     enabled: !!user,
   });
   const list = useQuery({
-    queryKey: ["tasks", user?.id, offset],
+    queryKey: ["tasks", user?.id, currentProject()?.id, offset],
     queryFn: () => api<Task[]>(`/api/tasks?offset=${offset}`),
     enabled: !!user,
     refetchInterval: 5000,

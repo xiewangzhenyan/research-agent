@@ -28,10 +28,5 @@ it("refreshes files on task completion even if the last active poll was empty", 
   const { rerender } = render(view(false));
   await screen.findByText("暂无文件。计算成功并生成产物后将在此显示。");
   rerender(view(true));
-  await waitFor(() =>
-    expect(screen.getByRole("link", { name: "下载 结果.csv" })).toHaveAttribute(
-      "href",
-      "/api/tasks/run-a/artifacts/artifact-a",
-    ),
-  );
+  await waitFor(() => expect(screen.getByRole("button", { name: "下载 结果.csv" })).toBeVisible());
 });

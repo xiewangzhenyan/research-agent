@@ -11,7 +11,7 @@ from app.api.deps import (
     CurrentUser,
     MessageRatingSvc,
 )
-from app.db.models.user import UserRole
+from app.api.project_deps import ScopedConversationSvc
 from app.schemas.conversation import (
     ConversationAdminList,
     ConversationCreate,
@@ -94,7 +94,7 @@ async def get_shared_conversation(
 
 @router.get("", response_model=ConversationList)
 async def list_conversations(
-    conversation_service: ConversationSvc,
+    conversation_service: ScopedConversationSvc,
     current_user: CurrentUser,
     skip: int = Query(0, ge=0, description="Number of conversations to skip"),
     limit: int = Query(50, ge=1, le=100, description="Maximum conversations to return"),
@@ -112,7 +112,7 @@ async def list_conversations(
 
 @router.post("", response_model=ConversationRead, status_code=status.HTTP_201_CREATED)
 async def create_conversation(
-    conversation_service: ConversationSvc,
+    conversation_service: ScopedConversationSvc,
     current_user: CurrentUser,
     data: ConversationCreate | None = None,
 ) -> Any:
@@ -126,15 +126,14 @@ async def create_conversation(
 @router.get("/{conversation_id}", response_model=ConversationReadWithMessages)
 async def get_conversation(
     conversation_id: UUID,
-    conversation_service: ConversationSvc,
+    conversation_service: ScopedConversationSvc,
     current_user: CurrentUser,
 ) -> Any:
     """Get a conversation with all its messages."""
-    uid = None if current_user.has_role(UserRole.ADMIN) else current_user.id
     return await conversation_service.get_conversation(
         conversation_id,
         include_messages=True,
-        user_id=uid,
+        user_id=current_user.id,
     )
 
 
@@ -142,7 +141,7 @@ async def get_conversation(
 async def update_conversation(
     conversation_id: UUID,
     data: ConversationUpdate,
-    conversation_service: ConversationSvc,
+    conversation_service: ScopedConversationSvc,
     current_user: CurrentUser,
 ) -> Any:
     """Update a conversation's title or archived status."""
@@ -156,7 +155,7 @@ async def update_conversation(
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
 async def delete_conversation(
     conversation_id: UUID,
-    conversation_service: ConversationSvc,
+    conversation_service: ScopedConversationSvc,
     current_user: CurrentUser,
 ) -> None:
     """Delete a conversation and all its messages."""
@@ -172,7 +171,7 @@ async def delete_conversation(
 )
 async def archive_conversation(
     conversation_id: UUID,
-    conversation_service: ConversationSvc,
+    conversation_service: ScopedConversationSvc,
     current_user: CurrentUser,
 ) -> Any:
     """Archive a conversation.
@@ -188,19 +187,18 @@ async def archive_conversation(
 @router.get("/{conversation_id}/messages", response_model=MessageList)
 async def list_messages(
     conversation_id: UUID,
-    conversation_service: ConversationSvc,
+    conversation_service: ScopedConversationSvc,
     current_user: CurrentUser,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
 ) -> Any:
     """List messages in a conversation."""
-    uid = None if current_user.has_role(UserRole.ADMIN) else current_user.id
     items, total = await conversation_service.list_messages(
         conversation_id,
         skip=skip,
         limit=limit,
         include_tool_calls=True,
-        user_id=uid,
+        user_id=current_user.id,
     )
     return MessageList(items=items, total=total)  # ty: ignore[invalid-argument-type]
 
@@ -213,7 +211,7 @@ async def list_messages(
 async def add_message(
     conversation_id: UUID,
     data: UserMessageCreate,
-    conversation_service: ConversationSvc,
+    conversation_service: ScopedConversationSvc,
     current_user: CurrentUser,
 ) -> Any:
     """Add a message to a conversation."""
@@ -232,9 +230,13 @@ async def rate_message(
     data: MessageRatingCreate,
     rating_service: MessageRatingSvc,
     current_user: CurrentUser,
+    conversation_service: ScopedConversationSvc,
     response: Response,
 ) -> Any:
     """Rate an assistant message — 201 for new rating, 200 when updating."""
+    await conversation_service.get_conversation(
+        conversation_id, user_id=current_user.id, access="read"
+    )
     rating, is_new = await rating_service.rate_message(
         conversation_id=conversation_id,
         message_id=message_id,
@@ -256,8 +258,12 @@ async def remove_rating(
     message_id: UUID,
     rating_service: MessageRatingSvc,
     current_user: CurrentUser,
+    conversation_service: ScopedConversationSvc,
 ) -> None:
     """Remove your rating from a message."""
+    await conversation_service.get_conversation(
+        conversation_id, user_id=current_user.id, access="read"
+    )
     await rating_service.remove_rating(
         conversation_id=conversation_id,
         message_id=message_id,
@@ -275,8 +281,12 @@ async def share_conversation(
     data: ConversationShareCreate,
     share_service: ConversationShareSvc,
     current_user: CurrentUser,
+    conversation_service: ScopedConversationSvc,
 ) -> Any:
     """Share a conversation with another user or generate a public link."""
+    await conversation_service.get_conversation(
+        conversation_id, user_id=current_user.id, access="owner"
+    )
     result = await share_service.share_conversation(
         conversation_id,
         shared_by=current_user.id,
@@ -292,8 +302,12 @@ async def list_shares(
     conversation_id: UUID,
     share_service: ConversationShareSvc,
     current_user: CurrentUser,
+    conversation_service: ScopedConversationSvc,
 ) -> Any:
     """List all shares for a conversation (owner only)."""
+    await conversation_service.get_conversation(
+        conversation_id, user_id=current_user.id, access="owner"
+    )
     shares = await share_service.list_shares(conversation_id, current_user.id)
     return ConversationShareList(items=shares, total=len(shares))
 
@@ -308,6 +322,10 @@ async def revoke_share(
     share_id: UUID,
     share_service: ConversationShareSvc,
     current_user: CurrentUser,
+    conversation_service: ScopedConversationSvc,
 ) -> None:
     """Revoke a conversation share."""
+    await conversation_service.get_conversation(
+        conversation_id, user_id=current_user.id, access="read"
+    )
     await share_service.revoke_share(share_id, current_user.id, conversation_id=conversation_id)

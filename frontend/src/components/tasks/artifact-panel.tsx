@@ -1,4 +1,5 @@
 "use client";
+import { currentProject, projectFetch } from "@/lib/project-scope";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, FileText, Trash2 } from "lucide-react";
@@ -21,21 +22,41 @@ export function ArtifactPanel({
   const [busy, setBusy] = useState(false);
   const t = (cn: string, en: string) => (zh ? cn : en);
   const query = useQuery({
-    queryKey: ["task-artifacts", userId, runId, finished],
+    queryKey: ["task-artifacts", userId, currentProject()?.id, runId, finished],
     enabled: !!userId,
     refetchInterval: finished ? false : 3000,
     queryFn: async ({ signal }): Promise<Artifact[]> => {
-      const response = await fetch(`/api/tasks/${runId}/artifacts`, { signal, cache: "no-store" });
+      const response = await projectFetch(`/api/tasks/${runId}/artifacts`, {
+        signal,
+        cache: "no-store",
+      });
       if (!response.ok) throw new Error(t("产物加载失败", "Failed to load files"));
       return response.json();
     },
   });
+  async function download(file: Artifact) {
+    setError("");
+    try {
+      const response = await projectFetch(`/api/tasks/${runId}/artifacts/${file.id}`);
+      if (!response.ok) throw new Error(t("下载失败，请重试", "Download failed. Retry"));
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error");
+    }
+  }
   async function remove() {
     if (!removing) return;
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`/api/tasks/${runId}/artifacts/${removing.id}`, {
+      const response = await projectFetch(`/api/tasks/${runId}/artifacts/${removing.id}`, {
         method: "DELETE",
       });
       if (!response.ok) throw new Error(t("删除失败，请稍后重试", "Deletion failed; try again"));
@@ -76,14 +97,14 @@ export function ArtifactPanel({
                 <p className="truncate text-sm">{file.name}</p>
                 <p className="text-muted-foreground text-xs">{Math.ceil(file.size / 1024)} KiB</p>
               </div>
-              <a
-                href={`/api/tasks/${runId}/artifacts/${file.id}`}
-                download
+              <button
+                type="button"
+                onClick={() => download(file)}
                 className="text-brand hover:bg-muted rounded-md p-2"
                 aria-label={t("下载", "Download") + " " + file.name}
               >
                 <Download className="h-4 w-4" />
-              </a>
+              </button>
               {finished && (
                 <button
                   type="button"

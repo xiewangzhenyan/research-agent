@@ -227,7 +227,7 @@ function KnowledgeWorkspace({ userId }: { userId: string }) {
           <p>
             {current
               ? current.description || "管理资料、检查检索结果，让每一次回答有据可查。"
-              : "将文件和知识汇集在一起，构建你的专属知识空间。"}
+              : "账号下的全部知识库，可在不同项目中重复选用。"}
           </p>
         </div>
         <Button onClick={() => setCreateOpen(true)} className="mint-action">

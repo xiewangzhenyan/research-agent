@@ -5,6 +5,7 @@
  */
 
 import { useAuthStore } from "@/stores";
+import { projectHeaders } from "@/lib/project-scope";
 
 export class ApiError extends Error {
   constructor(
@@ -78,6 +79,7 @@ class ApiClient {
         headers: {
           "Content-Type": "application/json",
           ...fetchOptions.headers,
+          ...projectHeaders(),
         },
         body: body ? JSON.stringify(body) : undefined,
       });

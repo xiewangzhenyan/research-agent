@@ -17,17 +17,22 @@ from app.services.tool_policy import resolve_tools
 
 
 class AgentRunService:
-    def __init__(self, db, user_id):
+    def __init__(self, db, user_id, *, project_id=None):
         self.db, self.user_id = db, user_id
         self.repo = AgentRunRepository(db)
+        self.project_id = project_id
 
     async def get(self, run_id, *, lock=False):
         run = await self.repo.get(run_id, self.user_id, lock=lock)
-        if run is None:
+        if run is None or run.project_id != self.project_id:
             raise NotFoundError(message="任务不存在或无权访问")
         return run
 
     async def create(self, data):
+        from app.services.project import ProjectService
+
+        projects = ProjectService(self.db, self.user_id)
+        await projects.validate(self.project_id)
         request = data.model_dump(mode="json", exclude={"idempotency_key"})
         if data.retrieval_config is None:
             request.pop("retrieval_config", None)
@@ -41,9 +46,15 @@ class AgentRunService:
         user = await self.repo.account_lock(self.user_id)
         existing = await self.repo.by_key(self.user_id, data.idempotency_key)
         if existing:
-            if existing.request_hash != request_hash:
+            if existing.project_id != self.project_id or existing.request_hash != request_hash:
                 raise AlreadyExistsError(message="提交标识已用于其他任务，请重新提交")
             return existing
+        if "knowledge_base_ids" not in data.model_fields_set:
+            from uuid import UUID
+
+            defaults = [UUID(v) for v in await projects.defaults(self.project_id)]
+            data = data.model_copy(update={"knowledge_base_ids": defaults})
+            request["knowledge_base_ids"] = [str(v) for v in defaults]
         config = resolve_generation_config(data.generation.model_dump())
         if data.mode == "knowledge_collaboration":
             if not data.knowledge_base_ids:
@@ -89,6 +100,7 @@ class AgentRunService:
         run = await self.repo.add(
             AgentRun(
                 user_id=self.user_id,
+                project_id=self.project_id,
                 idempotency_key=data.idempotency_key,
                 request_hash=request_hash,
                 request=request,

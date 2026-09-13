@@ -105,6 +105,7 @@ async def persist_user_turn(
     requested_conversation_id: str | None,
     current_conversation_id: str | None,
     knowledge_settings: dict | None = None,
+    project_id: UUID | None = None,
 ) -> tuple[str | None, bool, str | None]:
     """Resolve the conversation, persist the user message, and link any uploaded files.
 
@@ -116,6 +117,7 @@ async def persist_user_turn(
     """
     async with get_db_context() as db:
         service = get_conversation_service(db)
+        service.project_id = project_id
         if file_ids:
             await service.list_attached_files(file_ids, user_id=user.id)
         # A null requested ID means an explicitly new conversation.
@@ -163,11 +165,13 @@ async def persist_assistant_turn(
     effective_config: dict | None = None,
     *,
     user_id: UUID,
+    project_id: UUID | None = None,
 ) -> str | None:
     """Persist the assistant message and any tool calls. Returns the saved message id."""
     try:
         async with get_db_context() as db:
             conv_service = get_conversation_service(db)
+            conv_service.project_id = project_id
             assistant_msg = await conv_service.add_message(
                 UUID(conversation_id),
                 MessageCreate(

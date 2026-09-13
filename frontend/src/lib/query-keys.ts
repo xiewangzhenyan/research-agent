@@ -5,6 +5,11 @@
  * invalidate precisely (e.g. `queryClient.invalidateQueries({ queryKey: qk.billing.credits() })`).
  * Keep keys hierarchical: broader prefixes invalidate everything beneath them.
  */
+import { currentProject } from "@/lib/project-scope";
+import { useAuthStore } from "@/stores/auth-store";
+const workspaceKey = () =>
+  [useAuthStore.getState().user?.id, currentProject()?.id ?? "default"] as const;
+
 export const qk = {
   auth: {
     me: () => ["auth", "me"] as const,
@@ -30,9 +35,9 @@ export const qk = {
   },
   conversations: {
     all: () => ["conversations"] as const,
-    list: () => ["conversations", "list"] as const,
-    count: () => ["conversations", "count"] as const,
-    messages: (id: string) => ["conversations", id, "messages"] as const,
+    list: () => ["conversations", "list", ...workspaceKey()] as const,
+    count: () => ["conversations", "count", ...workspaceKey()] as const,
+    messages: (id: string) => ["conversations", id, "messages", ...workspaceKey()] as const,
   },
   conversationShares: {
     all: () => ["conversation-shares"] as const,

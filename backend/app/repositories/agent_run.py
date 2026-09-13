@@ -40,11 +40,11 @@ class AgentRunRepository:
             .where(AgentRun.user_id == user_id, AgentRun.status.in_(ACTIVE))
         )
 
-    async def list(self, user_id, offset=0):
+    async def list(self, user_id, offset=0, *, project_id=None):
         return list(
             await self.db.scalars(
                 select(AgentRun)
-                .where(AgentRun.user_id == user_id)
+                .where(AgentRun.user_id == user_id, AgentRun.project_id == project_id)
                 .order_by(AgentRun.created_at.desc(), AgentRun.id)
                 .offset(offset)
                 .limit(50)

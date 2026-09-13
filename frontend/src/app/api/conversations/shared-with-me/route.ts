@@ -1,3 +1,4 @@
+import { forwardProjectHeaders } from "@/lib/server-api";
 import { NextRequest, NextResponse } from "next/server";
 import { backendFetch, BackendApiError } from "@/lib/server-api";
 
@@ -14,10 +15,10 @@ export async function GET(request: NextRequest) {
 
     const data = await backendFetch(
       `/api/v1/conversations/shared-with-me?skip=${skip}&limit=${limit}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
+      { headers: { Authorization: `Bearer ${accessToken}`, ...forwardProjectHeaders(request) } },
     );
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (error instanceof BackendApiError) {
       return NextResponse.json({ detail: error.message }, { status: error.status });

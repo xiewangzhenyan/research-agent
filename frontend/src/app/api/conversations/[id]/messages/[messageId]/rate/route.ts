@@ -1,3 +1,4 @@
+import { forwardProjectHeaders } from "@/lib/server-api";
 import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
@@ -23,6 +24,7 @@ export async function POST(
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
+          ...forwardProjectHeaders(request),
         },
         body: JSON.stringify(body),
       },
@@ -39,7 +41,7 @@ export async function POST(
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Rating error:", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
@@ -64,6 +66,7 @@ export async function DELETE(
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${accessToken}`,
+          ...forwardProjectHeaders(request),
         },
       },
     );
@@ -79,7 +82,7 @@ export async function DELETE(
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Rating removal error:", error);
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });

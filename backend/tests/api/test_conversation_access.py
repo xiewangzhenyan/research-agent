@@ -14,6 +14,7 @@ from app.api.deps import (
     get_conversation_share_service,
     get_current_user,
 )
+from app.api.project_deps import scoped_conversation_service
 from app.core.exceptions import NotFoundError
 from app.db.models.conversation import Conversation, Message
 from app.db.models.conversation_share import ConversationShare
@@ -152,6 +153,7 @@ async def access(monkeypatch):
     previous_overrides = app.dependency_overrides.copy()
     app.dependency_overrides[get_current_user] = lambda: state.user
     app.dependency_overrides[get_conversation_service] = lambda: state.service
+    app.dependency_overrides[scoped_conversation_service] = lambda: state.service
     app.dependency_overrides[get_conversation_share_service] = lambda: ConversationShareService(
         state.db
     )
@@ -185,11 +187,16 @@ async def test_authorized_share_can_read_without_becoming_owner(access, permissi
 
 
 @pytest.mark.parametrize("actor", ["owner", "admin"])
-async def test_owner_and_admin_can_read_messages(access, actor):
+async def test_workspace_read_requires_ownership_even_for_admin(access, actor):
     access.user = getattr(access, actor)
     response = await access.client.get(access.path + "/messages")
-    assert response.status_code == 200
-    assert response.json()["total"] == 1
+    assert response.status_code == (200 if actor == "owner" else 404)
+    if actor == "owner":
+        assert response.json()["total"] == 1
+    else:
+        detail = await access.client.get(f"/api/v1/admin/conversations/{access.conversation.id}")
+        assert detail.status_code == 200
+        assert access.message.content in detail.text
 
 
 @pytest.mark.parametrize("permission", [None, "view"])
@@ -419,3 +426,33 @@ async def test_service_call_requires_explicit_actor(access, method):
     with pytest.raises(TypeError):
         await getattr(access.service, method)(*args)
     access.create_message.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "method,suffix,payload",
+    [
+        ("GET", "", None),
+        ("GET", "/messages", None),
+        ("PATCH", "", {"title": "Wrong project"}),
+        ("DELETE", "", None),
+        ("POST", "/messages", {"content": "Wrong project"}),
+        ("GET", "/shares", None),
+    ],
+)
+async def test_same_account_wrong_project_is_hidden(access, method, suffix, payload):
+    access.conversation.project_id = uuid4()
+    response = await access.client.request(method, access.path + suffix, json=payload)
+    assert response.status_code == 404
+    assert access.message.content not in response.text
+    access.create_message.assert_not_awaited()
+    access.read_messages.assert_not_awaited()
+    access.update.assert_not_awaited()
+    access.delete.assert_not_awaited()
+
+
+async def test_same_account_matching_project_reads_saved_history(access):
+    access.conversation.project_id = uuid4()
+    access.service.project_id = access.conversation.project_id
+    response = await access.client.get(access.path + "/messages")
+    assert response.status_code == 200
+    assert access.message.content in response.text

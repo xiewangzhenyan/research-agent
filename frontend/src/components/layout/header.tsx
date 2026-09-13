@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ProjectSwitcher } from "@/components/projects/project-switcher";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDown, History, LogOut, Menu, Search, Settings, UserCircle } from "lucide-react";
 import { LanguageSwitcherIcon } from "@/components/language-switcher";
@@ -61,21 +62,16 @@ export function Header() {
   return (
     <header className="console-topbar">
       <div className="flex h-16 items-center justify-between gap-2 px-3 sm:px-6">
-        <div className="flex items-center gap-1 sm:gap-3">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-3">
           <Button variant="ghost" size="sm" className="h-9 w-9 p-0 lg:hidden" onClick={toggle}>
             <Menu className="h-5 w-5" />
             <span className="sr-only">{t("toggleMenu")}</span>
           </Button>
 
-          <div className="flex items-center gap-3 text-sm">
-            <span className="text-muted-foreground hidden sm:inline">
-              {zh ? "工作台" : "Workspace"}
-            </span>
-            <span className="text-muted-foreground hidden sm:inline" aria-hidden>
-              /
-            </span>
-            <span className="font-medium">{section}</span>
-          </div>
+          <ProjectSwitcher />
+          <span className="text-muted-foreground hidden truncate text-sm md:inline">
+            / {section}
+          </span>
         </div>
 
         <div className="flex items-center gap-1">

@@ -58,6 +58,7 @@ def build_run_graph(
     retrieval_snapshot=None,
     sandbox_request=None,
     attempt=None,
+    project_id: UUID | None = None,
 ):
     allowed = tuple(CHAT_TOOL_NAMES if allowed_tools is None else allowed_tools)
     config = EffectiveGenerationConfig.model_validate(configuration)
@@ -188,9 +189,9 @@ def build_run_graph(
                 files = result.pop("artifact_files", [])
                 if files:
                     async with get_worker_db_context() as db:
-                        result["artifacts"] = await RunArtifactService(db, user_id).save(
-                            run_id, attempt, result["execution_id"], files
-                        )
+                        result["artifacts"] = await RunArtifactService(
+                            db, user_id, project_id=project_id
+                        ).save(run_id, attempt, result["execution_id"], files)
                 await emit(
                     "python_result",
                     {"message": "隔离计算已返回", "code": code, "tool": PYTHON_TOOL, **result},

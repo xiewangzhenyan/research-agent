@@ -22,6 +22,7 @@ class MockConversation:
         self.id = id or uuid4()
         self.title = title
         self.user_id = user_id
+        self.project_id = None
         self.is_archived = is_archived
 
 

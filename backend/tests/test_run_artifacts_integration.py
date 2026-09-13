@@ -48,7 +48,7 @@ def test_artifact_atomic_idempotent_scoped_and_fenced():
                 with pytest.raises(NotFoundError):
                     await RunArtifactService(db, a).get(uuid4(), fid)
                 user = await db.get(User, a)
-                response = await download_artifact(run.id, fid, user, db)
+                response = await download_artifact(run.id, fid, user, project_id=None, db=db)
                 assert response.body == b"a,b\n1,2"
                 assert response.headers["content-disposition"].startswith("attachment;")
                 assert "sandbox" in response.headers["content-security-policy"]
@@ -119,13 +119,17 @@ def test_quota_prevents_partial_write():
     asyncio.run(check())
 
 
-def test_file_task_graph_persists_metadata_without_binary_events():
+@pytest.mark.parametrize("named_project", [False, True])
+def test_file_task_graph_persists_metadata_without_binary_events(named_project):
     from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
     from app.core.config import settings
     from app.repositories.agent_run import AgentRunRepository
+    from app.schemas.agent_run import AgentRunCreate
+    from app.schemas.project import ProjectWrite
+    from app.services.agent_run import AgentRunService
+    from app.services.project import ProjectService
     from app.worker.agent_runs import try_run
-    from tests.test_agent_runs_integration import get
 
     async def stream(messages, info):
         if any(
@@ -169,9 +173,20 @@ def test_file_task_graph_persists_metadata_without_binary_events():
                     return_value=FunctionModel(stream_function=stream),
                 ),
             ):
-                run = await create(a, tools=["run_python"])
+                project_id = None
+                async with get_worker_db_context() as db:
+                    if named_project:
+                        project_id = (
+                            await ProjectService(db, a).save(ProjectWrite(name="Compute"))
+                        ).id
+                    run = await AgentRunService(db, a, project_id=project_id).create(
+                        AgentRunCreate(
+                            idempotency_key=uuid4(), prompt="Create a file", tools=["run_python"]
+                        )
+                    )
                 await try_run(run.id)
-                saved = await get(a, run.id)
+                async with get_worker_db_context() as db:
+                    saved = await AgentRunService(db, a, project_id=project_id).get(run.id)
                 assert saved.status == "completed", saved.error
                 remote.assert_awaited_once_with(run.id, "print(1)", protocol=2, inputs=[])
                 async with get_worker_db_context() as db:
@@ -180,6 +195,9 @@ def test_file_task_graph_persists_metadata_without_binary_events():
                     assert "artifact_files" not in event.data
                     assert "content_base64" not in str(event.data)
                     assert event.data["artifacts"][0]["name"] == "结果.csv"
-                    assert len(await RunArtifactService(db, a).list(run.id)) == 1
+                    assert (
+                        len(await RunArtifactService(db, a, project_id=project_id).list(run.id))
+                        == 1
+                    )
 
     asyncio.run(check())

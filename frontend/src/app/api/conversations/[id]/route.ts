@@ -1,3 +1,4 @@
+import { forwardProjectHeaders } from "@/lib/server-api";
 import { NextRequest, NextResponse } from "next/server";
 import { backendFetch, BackendApiError } from "@/lib/server-api";
 
@@ -18,10 +19,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const data = await backendFetch(`/api/v1/conversations/${id}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        ...forwardProjectHeaders(request),
       },
     });
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (error instanceof BackendApiError) {
       return NextResponse.json(
@@ -48,12 +50,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        ...forwardProjectHeaders(request),
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
     });
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     if (error instanceof BackendApiError) {
       return NextResponse.json(
@@ -79,6 +82,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       method: "DELETE",
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        ...forwardProjectHeaders(request),
       },
     });
 

@@ -25,6 +25,7 @@ __all__ = [
     "AgentRunEvent",
     "KnowledgeSearchChunk",
     "RunArtifact",
+    "Project",
 ]
 
 from app.db.models.knowledge import (
@@ -39,3 +40,4 @@ from app.db.models.agent_run import AgentRun, AgentRunEvent
 from app.db.models.knowledge_search import KnowledgeSearchChunk
 
 from app.db.models.run_artifact import RunArtifact
+from app.db.models.project import Project

@@ -43,6 +43,23 @@ it("rejects non-task paths", async () => {
   expect(response.status).toBe(400);
   expect(fetcher).not.toHaveBeenCalled();
 });
+
+it("forwards project selection independently of authentication cookies", async () => {
+  const fetcher = vi.fn().mockResolvedValue(new Response("[]"));
+  vi.stubGlobal("fetch", fetcher);
+  const project = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  await GET(
+    new NextRequest("https://app.test/api/tasks", {
+      headers: { cookie: "access_token=session", "X-Project-ID": project },
+    }),
+    { params: Promise.resolve({}) },
+  );
+  expect(fetcher.mock.calls[0]![1].headers).toEqual({
+    Authorization: "Bearer session",
+    "Content-Type": "application/json",
+    "X-Project-ID": project,
+  });
+});
 it("preserves owner denial on cancellation", async () => {
   vi.stubGlobal(
     "fetch",
@@ -83,16 +100,14 @@ it("permits only GET discovery for the tools path", async () => {
 it("preserves authenticated artifact download headers", async () => {
   vi.stubGlobal(
     "fetch",
-    vi
-      .fn()
-      .mockResolvedValue(
-        new Response("a,b", {
-          headers: {
-            "Content-Type": "text/csv",
-            "Content-Disposition": "attachment; filename=data.csv",
-          },
-        }),
-      ),
+    vi.fn().mockResolvedValue(
+      new Response("a,b", {
+        headers: {
+          "Content-Type": "text/csv",
+          "Content-Disposition": "attachment; filename=data.csv",
+        },
+      }),
+    ),
   );
   const id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
   const response = await GET(

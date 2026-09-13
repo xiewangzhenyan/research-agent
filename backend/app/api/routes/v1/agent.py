@@ -2,17 +2,21 @@
 # Per-turn orchestration lives in app.services.agent_session.AgentSession.
 import logging
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.api.deps import CurrentUser, CurrentUserWS
 from app.core.config import settings
+from app.core.exceptions import NotFoundError
+from app.db.session import get_db_context
 from app.schemas.base import AgentModelsResponse
 from app.schemas.model_config import AgentCapabilitiesResponse
 from app.services.agent import AgentConnectionManager
 from app.services.agent_capabilities import get_capabilities
 from app.services.agent_session import AgentSession
 from app.services.model_config import allowed_models
+from app.services.project import ProjectService
 
 logger = logging.getLogger(__name__)
 
@@ -40,15 +44,23 @@ async def capabilities(user: CurrentUser) -> AgentCapabilitiesResponse:
 async def agent_websocket(
     websocket: WebSocket,
     user: CurrentUserWS,
+    project_id: UUID | None = None,
 ) -> None:
     if user is None:
         await websocket.close(code=4001, reason="Unauthorized")
         return
 
+    try:
+        async with get_db_context() as db:
+            await ProjectService(db, user.id).validate(project_id)
+    except NotFoundError:
+        await websocket.close(code=4003, reason="Project unavailable")
+        return
     await manager.connect(websocket)
     session = AgentSession(
         websocket,
         user,
+        project_id=project_id,
     )
 
     try:

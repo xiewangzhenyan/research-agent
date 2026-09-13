@@ -57,9 +57,11 @@ class AgentSession:
         self,
         websocket: WebSocket,
         user: User,
+        project_id: UUID | None = None,
     ) -> None:
         self.websocket = websocket
         self.user = user
+        self.project_id = project_id
         self.conversation_history: list[dict[str, str]] = []
         self.deps = Deps(user_id=str(user.id), user_name=getattr(user, "full_name", None))
         self.deps.ask_user = self._ask_user
@@ -171,7 +173,12 @@ class AgentSession:
         if not isinstance(strict, bool):
             raise BadRequestError(message="资料问答模式无效")
         async with get_db_context() as db:
+            from app.services.project import ProjectService
+
+            projects = ProjectService(db, self.user.id)
+            await projects.validate(self.project_id)
             service = get_conversation_service(db)
+            service.project_id = self.project_id
             if file_ids:
                 await service.list_attached_files(file_ids, user_id=self.user.id)
             self.conversation_history = []
@@ -198,7 +205,7 @@ class AgentSession:
                     {"role": m.role, "content": m.content[:10000]} for m in reversed(previous)
                 ]
             if base_ids_raw is None:
-                base_ids_raw = []
+                base_ids_raw = await projects.defaults(self.project_id)
             if not isinstance(base_ids_raw, list) or len(base_ids_raw) > 5:
                 raise BadRequestError(message="请选择最多 5 个知识库")
             base_ids = list(dict.fromkeys(UUID(str(value)) for value in base_ids_raw))
@@ -262,6 +269,7 @@ class AgentSession:
             file_ids,
             requested_conversation_id=data.get("conversation_id"),
             current_conversation_id=self.current_conversation_id,
+            project_id=self.project_id,
             knowledge_settings={
                 "active_knowledge_base_ids": base_ids,
                 "active_knowledge_document_ids": document_ids,
@@ -365,6 +373,7 @@ class AgentSession:
                     thinking="".join(collected_thinking) or None,
                     effective_config=configuration.model_dump(),
                     user_id=self.user.id,
+                    project_id=self.project_id,
                 )
                 if not assistant_msg_id:
                     await send_event(

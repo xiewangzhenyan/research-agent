@@ -4,6 +4,11 @@
  * IMPORTANT: This file should only be imported in server-side code (API routes, Server Components).
  */
 
+export function forwardProjectHeaders(request: Request): Record<string, string> {
+  const id = request.headers.get("X-Project-ID");
+  return id ? { "X-Project-ID": id } : {};
+}
+
 export const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8000";
 
 export class BackendApiError extends Error {

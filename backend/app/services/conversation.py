@@ -45,8 +45,9 @@ def _safe_parse_args(args: Any) -> dict:
 
 
 class ConversationService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: AsyncSession, *, project_id: UUID | None = None):
         self.db = db
+        self.project_id = project_id
 
     EXPORT_CHUNK_SIZE = 1000
     MESSAGE_EXPORT_LIMIT = 10000
@@ -166,6 +167,12 @@ class ConversationService:
                 message="Conversation not found",
                 details={"conversation_id": str(conversation_id)},
             )
+        if (
+            user_id is not None
+            and conversation.user_id == user_id
+            and conversation.project_id != self.project_id
+        ):
+            raise NotFoundError(message="当前项目中不存在此会话")
         if user_id is not None and conversation.user_id != user_id:
             # Unowned legacy records are private, not implicitly public. Sharing
             # grants read/edit access only; lifecycle changes remain owner-only.
@@ -205,11 +212,13 @@ class ConversationService:
             skip=skip,
             limit=limit,
             include_archived=include_archived,
+            project_id=self.project_id,
         )
         total = await conversation_repo.count_conversations(
             self.db,
             user_id=user_id,
             include_archived=include_archived,
+            project_id=self.project_id,
         )
         return items, total
 
@@ -286,11 +295,16 @@ class ConversationService:
         self,
         data: ConversationCreate,
     ) -> Conversation:
-        """Create a new conversation."""
+        """Create a new conversation with a snapshot of project defaults."""
+        from app.services.project import ProjectService
+
+        defaults = await ProjectService(self.db, data.user_id).defaults(self.project_id)
         return await conversation_repo.create_conversation(
             self.db,
             user_id=data.user_id,
             title=data.title,
+            project_id=self.project_id,
+            knowledge_base_ids=defaults,
         )
 
     async def update_conversation(

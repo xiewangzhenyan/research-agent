@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BACKEND_URL } from "@/lib/server-api";
+import { BACKEND_URL, forwardProjectHeaders } from "@/lib/server-api";
 
 async function proxy(request: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
   const token = request.cookies.get("access_token")?.value;
@@ -31,7 +31,11 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path?
       `${BACKEND_URL}/api/v1/runs${path.length ? "/" + path.join("/") : ""}?${query}`,
       {
         method: request.method,
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers: {
+          ...forwardProjectHeaders(request),
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
         cache: "no-store",
         body,
         signal: AbortSignal.timeout(15000),
