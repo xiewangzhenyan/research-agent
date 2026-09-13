@@ -43,8 +43,8 @@ def fixtures():
     ]
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("filename,data", fixtures())
+@pytest.mark.anyio
+@pytest.mark.parametrize("filename,data", fixtures(), ids=[f[0] for f in fixtures()])
 async def test_preview_reuses_actual_parser_and_splitter(filename, data):
     config = ChunkingConfig(chunk_size=300, chunk_overlap=0)
     result = await preview.run_preview(data, filename, config)
@@ -58,7 +58,7 @@ async def test_preview_reuses_actual_parser_and_splitter(filename, data):
     assert all("embedding" not in item for item in result["items"])
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_truncation_only_limits_display_and_errors_are_actionable():
     result = await preview.run_preview(
         b"a" * 30_000, "long.txt", ChunkingConfig(chunk_size=300, chunk_overlap=0)
@@ -69,7 +69,7 @@ async def test_truncation_only_limits_display_and_errors_are_actionable():
         await preview.run_preview(b"   ", "empty.txt", ChunkingConfig())
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_busy_lock_rejects_without_starting_another_process(monkeypatch):
     spawn = AsyncMock()
     monkeypatch.setattr(asyncio, "create_subprocess_exec", spawn)
@@ -80,7 +80,7 @@ async def test_busy_lock_rejects_without_starting_another_process(monkeypatch):
     spawn.assert_not_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 @pytest.mark.parametrize("cancel", [False, True])
 async def test_timeout_and_cancellation_reap_child_and_release_lock(monkeypatch, cancel):
     class Child:

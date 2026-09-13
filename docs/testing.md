@@ -1,124 +1,73 @@
-# Testing Guide
+# 测试与 CI
 
-## Running Tests
+GitHub Actions 对每次 push / PR 运行检查。发布前应核对本次提交的远端结果：
+本地相关测试通过，不等于 GitHub 全量检查已经通过。失败必须定位到具体步骤；
+取消意味着未完成，跳过可能是依赖的检查尚未通过。
+
+## 本地命令
+
+后端使用 Python 3.12、锁定依赖和 AnyIO。执行测试时不要加载生产 `.env`。
+可使用独立检出目录，或从 `/tmp` 运行并设置 `PYTHONPATH`：
 
 ```bash
-cd backend
-
-# Run all tests
-pytest
-
-# Run with coverage
-pytest --cov=app --cov-report=term-missing
-
-# Run specific test file
-pytest tests/api/test_health.py -v
-
-# Run specific test
-pytest tests/api/test_health.py::test_health_check -v
-
-# Run only unit tests
-pytest tests/unit/
-
-# Run only integration tests
-pytest tests/integration/
-
-# Run with verbose output
-pytest -v
-
-# Stop on first failure
-pytest -x
+uv sync --directory backend --dev --frozen --python 3.12
+uv run --directory backend ruff check app tests cli
+uv run --directory backend ruff format app tests cli --check
+uv run --directory backend ty check
+uv run --directory backend pytest tests/ --cov=app --cov-report=term:skip-covered
 ```
 
-## Test Structure
-
-```
-tests/
-├── conftest.py          # Shared fixtures
-├── api/                 # API endpoint tests
-│   ├── test_health.py
-│   └── test_auth.py
-├── unit/                # Unit tests (services, utils)
-│   └── test_services.py
-└── integration/         # Integration tests
-    └── test_db.py
-```
-
-## Key Fixtures (`conftest.py`)
-
-```python
-# Database session for tests
-@pytest.fixture
-async def db_session():
-    async with async_session() as session:
-        yield session
-        await session.rollback()
-
-# Test client
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-# Authenticated client
-@pytest.fixture
-async def auth_client(client, test_user):
-    token = create_access_token(test_user.id)
-    client.headers["Authorization"] = f"Bearer {token}"
-    return client
-```
-
-## Writing Tests
-
-### API Endpoint Test
-```python
-def test_health_check(client):
-    response = client.get("/api/v1/health")
-    assert response.status_code == 200
-    assert response.json()["status"] == "healthy"
-```
-
-### Service Test
-```python
-async def test_create_item(db_session):
-    service = ItemService(db_session)
-    item = await service.create(ItemCreate(name="Test"))
-    assert item.name == "Test"
-```
-
-### Test with Authentication
-```python
-def test_protected_endpoint(auth_client):
-    response = auth_client.get("/api/v1/users/me")
-    assert response.status_code == 200
-```
-
-## Frontend Tests
+异步测试用 `@pytest.mark.anyio`。启用 `--strict-markers` 后，拼错或未安装插件的
+标记会直接导致收集失败。测试使用 FunctionModel 或 mock，不使用生产模型密钥。
+测试配置可用 `OPENAI_API_KEY=ci-placeholder-not-a-real-key` 与
+`OPENAI_BASE_URL=http://127.0.0.1:9/v1`，避免误发真实模型请求。
 
 ```bash
 cd frontend
-
-# Run unit tests
-bun test
-
-# Run with watch mode
-bun test --watch
-
-# Run E2E tests
-bun test:e2e
-
-# Run E2E in headed mode (see browser)
-bun test:e2e --headed
+bun install --frozen-lockfile
+bun run lint
+bun run type-check
+bun run test:coverage
+bunx playwright install --with-deps chromium
+bun run test:e2e
 ```
 
-## Test Database
+Playwright 本地自动启动开发服务器，CI 先构建再自动启动生产模式服务器。
+使用 `PLAYWRIGHT_BASE_URL` 可指向独立的测试前端；没有默认测试账号密码。
+浏览器用 mock API 检查中文登录、错误提示、注册校验、聊天输入、记忆确认和
+移动端布局，在桌面及手机 Chromium 各运行一次。这些检查不代替真实后端集成测试。
 
-Tests don't hit a real database. The `client` fixture in `tests/conftest.py` overrides
-`get_db_session` with a mocked async session (`AsyncMock`) via FastAPI's
-`app.dependency_overrides`, so the suite runs fast and needs no Postgres container:
+## 数据库与迁移测试
 
-- `mock_db_session` — an `AsyncMock` standing in for `AsyncSession` (`execute`, `commit`, `rollback`, `close`)
-- Overrides are registered before each test and cleared afterwards
-- Assert against the mock's calls, or stub `execute(...)` return values for the path under test
+CI 使用含 pgvector 的 PostgreSQL 16 临时服务，而非不包含该扩展的普通镜像。
+数据库名必须以 `_review` 结尾。不要指向生产或共享开发数据库。
 
-For tests that need to exercise real SQL, instantiate your own async engine/session
-inside the test rather than relying on a shared fixture.
+- `RUN_MIGRATION_DB_TESTS=1` 才允许迁移升级/回退测试，子进程最多运行 60 秒。
+  普通单元测试收集阶段不会再探测数据库或自动开启破坏性的迁移测试。
+- 先运行迁移测试，再执行 `python -m app.worker.agent_runs --setup` 初始化 checkpoint。
+- `RUN_TASK_DB_TESTS=1` 启用真实 PostgreSQL 的账号/项目隔离、候选记忆、版本冲突、
+  后台任务恢复、多角色协作、检索与文件产物检查。
+- `RUN_LOCAL_MEMORY_MODEL=1` 验证记忆编码，`RUN_LOCAL_MODEL_TESTS=1` 验证原生知识编码，
+  另需挂载离线 BGE 缓存；共享 CI 不下载或冒充该模型，
+  这个检查会明确显示为跳过，部署时另行验证真实本地编码和线上召回。
+
+每个 CI 测试阶段有总运行时间限制，后端超过 60 秒无进展会输出线程栈。
+测试日志、JUnit、覆盖率和浏览器失败 trace/screenshot 保留为 Actions artifacts。
+Docker 构建需等待静态检查、后端单元、数据库及前端检查全部通过。
+
+## 覆盖率门槛
+
+原配置要求所有前后端代码 100% 覆盖，且前端将测试文件本身计入覆盖率。
+目前明确以真实源码为统计范围，门槛是防退步的最低基线，**不是覆盖充分的目标**：
+
+| 范围                         | 最低门槛                                  |
+| ---------------------------- | ----------------------------------------- |
+| 后端普通单元测试             | 60%（本轮实测约 61.7%，数据库工作流另测） |
+| 前端源码                     | 行/语句 13.5%、分支 60%、函数 28%         |
+| 认证 Cookie 与引用高亮纯函数 | 各项 100%                                 |
+| 项目选择与清理逻辑           | 行/语句 100%、分支 85%、函数 80%          |
+| 记忆与任务 API 代理          | 行/语句 95%、分支 70%、函数 100%          |
+
+前端行覆盖率仍偏低，需要随功能补充测试逐步提高；不应把基线通过宣传为
+全功能已验证。修改代码应增加能验证行为的测试，并逐步提高门槛。不要为了
+通过 CI 排除业务文件、吞掉测试错误或继续调低最低值。

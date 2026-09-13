@@ -236,6 +236,9 @@ def test_context_neighbors_keep_source_identity_and_account_boundary():
     asyncio.run(check())
 
 
+@pytest.mark.skipif(
+    os.getenv("RUN_LOCAL_MODEL_TESTS") != "1", reason="requires mounted offline BGE model"
+)
 def test_native_ingestion_dual_writes_real_local_vectors():
     from app.services.knowledge_search_index import model_fingerprint
     from app.worker.tasks.knowledge import process_document
