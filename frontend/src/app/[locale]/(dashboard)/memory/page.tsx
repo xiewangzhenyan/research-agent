@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Brain, Plus, Search, Pin, Pencil, Trash2, MessageSquare, RefreshCw } from "lucide-react";
 import { Button, Input, Switch } from "@/components/ui";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { MemoryManagement, MemoryHistory } from "@/components/memory/memory-management";
 import { MemoryEditor } from "@/components/memory/memory-editor";
 import { apiClient } from "@/lib/api-client";
 import { kindLabel, memoryError, memoryKey, type MemoryItem, type MemoryList } from "@/lib/memory";
@@ -40,7 +41,15 @@ function MemoryWorkspace() {
     queryFn: () => apiClient.get<MemoryList>("/memory"),
     enabled: !!userId,
     staleTime: 0,
+    refetchInterval: (query) =>
+      query.state.data?.enabled &&
+      (query.state.data.auto_extract ||
+        (query.state.data.semantic_recall &&
+          query.state.data.items.some((i) => i.state === "active" && i.index_status === "pending")))
+        ? 8000
+        : false,
   });
+  const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [editor, setEditor] = useState<MemoryItem | "new" | null>(null);
   const [removing, setRemoving] = useState<MemoryItem | null>(null);
@@ -51,12 +60,15 @@ function MemoryWorkspace() {
     items: MemoryItem[];
     omitted: number;
     status: string;
+    retrieval_mode?: string;
+    semantic_status?: string;
   } | null>(null);
   const [testing, setTesting] = useState(false);
   const visible =
     list.data?.items.filter(
       (item) =>
         (!used.size || used.has(item.id)) &&
+        (filter === "all" || item.state === filter) &&
         `${item.title}\n${item.content}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
     ) ?? [];
   async function toggle(enabled: boolean) {
@@ -86,6 +98,22 @@ function MemoryWorkspace() {
     } catch (e) {
       setError(memoryError(e, zh));
       setRemoving(null);
+    } finally {
+      await list.refetch();
+      setBusy(false);
+    }
+  }
+  async function archive(item: MemoryItem) {
+    setBusy(true);
+    setError("");
+    try {
+      await apiClient.post(
+        `/memory/${item.id}/${item.state === "archived" ? "restore" : "archive"}`,
+        { revision: item.revision },
+      );
+      setPreview(null);
+    } catch (e) {
+      setError(memoryError(e, zh));
     } finally {
       await list.refetch();
       setBusy(false);
@@ -160,6 +188,7 @@ function MemoryWorkspace() {
           onCheckedChange={toggle}
         />
       </section>
+      {list.data && <MemoryManagement data={list.data} refresh={list.refetch} />}
       {error && (
         <p role="alert" className="text-destructive rounded-xl border p-4 text-sm">
           {error}
@@ -177,6 +206,28 @@ function MemoryWorkspace() {
         <p aria-live="polite">{t("正在加载项目记忆…", "Loading project memory…")}</p>
       ) : (
         <>
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label={t("记忆状态", "Memory state")}
+          >
+            {[
+              ["all", t("全部", "All")],
+              ["active", t("使用中", "Active")],
+              ["expired", t("已过期", "Expired")],
+              ["archived", t("已归档", "Archived")],
+            ].map(([value, label]) => (
+              <Button
+                key={value}
+                size="sm"
+                variant={filter === value ? "secondary" : "ghost"}
+                aria-pressed={filter === value}
+                onClick={() => setFilter(value!)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-muted-foreground text-sm">
               {list.data.items.length}/{list.data.limit} {t("条已保存", "saved")}
@@ -241,6 +292,18 @@ function MemoryWorkspace() {
                       </span>
                     )}
                   </div>
+                  <p className="text-muted-foreground mb-2 text-xs">
+                    {item.state === "archived"
+                      ? t("已归档 · 不再召回", "Archived · excluded")
+                      : item.state === "expired"
+                        ? t("已过期 · 不再召回", "Expired · excluded")
+                        : item.index_status === "ready"
+                          ? t("语义索引就绪", "Semantic index ready")
+                          : item.index_status === "failed"
+                            ? t("索引未完成 · 可重建", "Index failed · rebuild available")
+                            : t("语义索引待处理", "Index pending")}
+                    {item.expires_on && ` · ${t("有效至", "Through")} ${item.expires_on} UTC`}
+                  </p>
                   <h2 className="font-medium break-words">{item.title}</h2>
                   <p className="text-muted-foreground mt-2 flex-1 text-sm leading-relaxed break-words whitespace-pre-wrap">
                     {item.content}
@@ -255,6 +318,10 @@ function MemoryWorkspace() {
                     <Button size="sm" variant="ghost" onClick={() => setEditor(item)}>
                       <Pencil className="mr-1 h-3.5 w-3.5" />
                       {t("编辑", "Edit")}
+                    </Button>
+                    <MemoryHistory item={item} />
+                    <Button size="sm" variant="ghost" disabled={busy} onClick={() => archive(item)}>
+                      {item.state === "archived" ? t("恢复", "Restore") : t("归档", "Archive")}
                     </Button>
                     <Button
                       size="sm"
@@ -276,8 +343,8 @@ function MemoryWorkspace() {
             </summary>
             <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
               {t(
-                "按关键词匹配，优先包含置顶条目，并限制载入数量和长度。测试不会生成回答，也不会修改记忆。",
-                "Keyword matching prioritizes pinned notes within a size limit. This test does not generate an answer or change notes.",
+                "结合语义与关键词匹配，优先包含有效的置顶条目；过期或归档条目不会载入。最多 6 条且保留完整内容。测试不会生成回答或修改记忆。",
+                "Combines semantic and keyword matching. Prioritizes active pinned notes; excludes expired or archived notes. Up to 6 complete notes. No answer is generated or notes changed.",
               )}
             </p>
             <form onSubmit={testRecall} className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -302,6 +369,14 @@ function MemoryWorkspace() {
             )}
             {preview && (
               <div className="mt-4 space-y-2 text-sm" aria-live="polite">
+                <p className="text-muted-foreground text-xs">
+                  {preview.retrieval_mode === "hybrid"
+                    ? t("本次使用语义与关键词混合召回", "Semantic and keyword recall")
+                    : t("本次使用关键词召回", "Keyword recall")}
+                  {preview.semantic_status &&
+                    !["ready", "off", "empty"].includes(preview.semantic_status) &&
+                    ` · ${preview.semantic_status === "model_changed" ? t("模型已变化，请重建索引", "Model changed; rebuild the index") : preview.semantic_status === "pending" ? t("语义索引尚未就绪", "Semantic index pending") : t("语义模型繁忙或不可用，已降级", "Semantic encoder busy or unavailable; using fallback")}`}
+                </p>
                 <p>
                   {preview.status === "disabled"
                     ? t(

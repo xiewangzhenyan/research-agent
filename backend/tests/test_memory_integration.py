@@ -28,7 +28,13 @@ def test_opt_in_scope_ownership_and_revision_conflicts():
             for project in (a, b, None):
                 h = header(project)
                 listed = (await client.get(BASE, headers=h)).json()
-                assert listed == {"enabled": False, "revision": 0, "items": [], "limit": 100}
+                assert {k: listed[k] for k in ("enabled", "revision", "items", "limit")} == {
+                    "enabled": False,
+                    "revision": 0,
+                    "items": [],
+                    "limit": 100,
+                }
+                assert listed["auto_extract"] is False and listed["proposals"] == []
                 created = await client.post(BASE, headers=h, json=NOTE)
                 assert created.status_code == 201, created.text
                 records.append(created.json())

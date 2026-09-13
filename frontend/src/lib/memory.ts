@@ -12,11 +12,57 @@ export type MemoryItem = {
   pinned: boolean;
   revision: number;
   source_message_id: string | null;
+  expires_on: string | null;
+  archived_at: string | null;
+  state: "active" | "expired" | "archived";
+  index_status: "pending" | "ready" | "failed";
   created_at: string;
   updated_at: string | null;
 };
-export type MemoryList = { enabled: boolean; revision: number; items: MemoryItem[]; limit: number };
+export type MemorySettings = {
+  enabled: boolean;
+  revision: number;
+  auto_extract: boolean;
+  semantic_recall: boolean;
+  extraction_model: string;
+};
+export type MemoryProposal = {
+  id: string;
+  revision: number;
+  action: "add" | "update";
+  reason: string;
+  quote: string;
+  source_message_id: string;
+  target_id: string | null;
+  target_revision: number | null;
+  target: MemoryItem | null;
+  expires_at: string;
+  payload: Pick<
+    MemoryItem,
+    "title" | "content" | "kind" | "pinned" | "source_message_id" | "expires_on"
+  >;
+};
+export type MemoryJob = {
+  id: string;
+  status: string;
+  attempts: number;
+  error: string | null;
+  result_count: number;
+  created_at: string;
+  model: string;
+  usage: { input_tokens: number; output_tokens: number } | null;
+};
+export type MemoryList = MemorySettings & {
+  items: MemoryItem[];
+  limit: number;
+  proposals: MemoryProposal[];
+  jobs: MemoryJob[];
+  daily_jobs: number;
+  daily_limit: number;
+};
 export type MemoryUsage = {
+  retrieval_mode?: "keyword" | "hybrid";
+  semantic_status?: string | null;
   status: "used" | "disabled" | "no_match" | "strict_knowledge";
   items: { id: string; revision: number }[];
   omitted: number;

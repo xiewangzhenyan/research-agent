@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
@@ -11,6 +11,7 @@ class MemoryCreate(BaseModel):
     content: str = Field(min_length=1, max_length=1200)
     kind: Literal["preference", "decision", "constraint", "note"] = "note"
     pinned: bool = False
+    expires_on: date | None = None
     source_message_id: UUID | None = None
 
     @field_validator("title", "content")
@@ -32,11 +33,17 @@ class MemoryResponse(MemoryCreate):
     revision: int
     created_at: datetime
     updated_at: datetime | None
+    archived_at: datetime | None = None
+    state: Literal["active", "expired", "archived"] = "active"
+    index_status: Literal["pending", "ready", "failed"] = "pending"
 
 
 class MemoryPreferenceWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     enabled: bool
+    auto_extract: bool | None = None
+    semantic_recall: bool | None = None
+    extraction_model: str | None = Field(default=None, max_length=100)
     revision: int = Field(ge=0)
 
 
@@ -51,7 +58,35 @@ class MemoryUsageItem(BaseModel):
 
 
 class MemoryUsage(BaseModel):
+    retrieval_mode: Literal["hybrid", "keyword"] = "keyword"
+    semantic_status: str | None = None
     status: Literal["used", "disabled", "no_match", "strict_knowledge"]
     items: list[MemoryUsageItem] = Field(max_length=6)
     omitted: int = Field(ge=0)
     estimated_tokens: int = Field(ge=0, le=1600)
+
+
+class MemoryRevisionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    revision: int = Field(ge=1)
+
+
+class MemoryProposalAccept(MemoryCreate):
+    revision: int = Field(ge=1)
+
+
+class ExtractedMemory(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: str = Field(min_length=1, max_length=80)
+    content: str = Field(min_length=1, max_length=1200)
+    kind: Literal["preference", "decision", "constraint", "note"]
+    action: Literal["add", "update"]
+    target: int | None = Field(default=None, ge=0, le=7)
+    reason: str = Field(min_length=1, max_length=500)
+    quote: str = Field(min_length=8, max_length=1500)
+    expires_on: date | None = None
+    expiry_quote: str | None = Field(default=None, max_length=300)
+
+
+class ExtractionResult(BaseModel):
+    memories: list[ExtractedMemory] = Field(default_factory=list, max_length=5)

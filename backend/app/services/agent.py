@@ -144,6 +144,25 @@ async def persist_user_turn(
         )
         if file_ids:
             await service.link_files_to_message(user_msg.id, file_ids, user_id=user.id)
+        from app.services.memory_extraction import enqueue
+
+        active = (
+            knowledge_settings
+            if knowledge_settings is not None
+            else {
+                "active_knowledge_base_ids": conv.active_knowledge_base_ids,
+                "knowledge_strict": conv.knowledge_strict,
+            }
+        )
+        await enqueue(
+            db,
+            user.id,
+            project_id,
+            user_msg,
+            strict_knowledge=bool(
+                active.get("active_knowledge_base_ids") and active.get("knowledge_strict", True)
+            ),
+        )
     return conversation_id, newly_created, None
 
 

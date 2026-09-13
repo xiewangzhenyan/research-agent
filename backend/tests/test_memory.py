@@ -78,3 +78,75 @@ async def test_strict_evidence_and_disabled_memory_do_not_read_notes():
 def test_invalid_or_forged_memory_is_rejected(change):
     with pytest.raises(ValidationError):
         MemoryCreate.model_validate({"title": "笔记", "content": "完整内容", **change})
+
+
+def test_extraction_requires_new_message_quotes_and_authorized_target_indices():
+    from app.schemas.memory import ExtractionResult
+    from app.services.memory_extraction import eligible, validated_candidates
+
+    source = "测量温度必须保持 25°C，整个项目都按此执行。"
+    base = {
+        "title": "温度",
+        "content": source,
+        "kind": "constraint",
+        "quote": source,
+        "reason": "明确约束",
+        "action": "add",
+    }
+    assert not eligible("请记住密码：never-store-this")
+    assert not eligible("谢谢")
+    assert not eligible("字" * 6001)
+    assert eligible(source)
+    for changes in (
+        {"quote": "这是助手推测的信息，不来自用户"},
+        {"action": "update", "target": 7},
+        {"target": 0},
+        {"expires_on": "2099-01-01"},
+    ):
+        output = ExtractionResult.model_validate({"memories": [{**base, **changes}]})
+        assert list(validated_candidates(output, source, [])) == []
+    assert (
+        len(
+            list(
+                validated_candidates(
+                    ExtractionResult.model_validate({"memories": [base]}), source, []
+                )
+            )
+        )
+        == 1
+    )
+
+
+@pytest.mark.anyio
+async def test_native_query_timeout_retains_busy_slot():
+    import asyncio
+    import threading
+    from unittest.mock import patch
+
+    from app.services import memory_semantic
+
+    gate = threading.Event()
+
+    def blocked(query):
+        gate.wait(4)
+        return [1.0], "fingerprint"
+
+    try:
+        with patch.object(memory_semantic, "encode_query", blocked):
+            first = asyncio.create_task(memory_semantic.query_vector("test"))
+            await asyncio.sleep(0.05)
+            first.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await first
+            with pytest.raises(TimeoutError):
+                await memory_semantic.query_vector("another query")
+    finally:
+        gate.set()
+        if memory_semantic._query_task:
+            await memory_semantic._query_task
+
+
+def test_semantic_fusion_recalls_synonyms_without_changing_whole_note_budget():
+    a, b = note("必须将热量限制在 25°C"), note("不相关的内容")
+    recall = select_memories("ambient temperature", [a, b], semantic_scores={str(a.id): 0.8})
+    assert [i["content"] for i in recall["items"]] == [a.content]

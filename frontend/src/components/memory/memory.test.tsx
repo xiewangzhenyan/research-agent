@@ -6,7 +6,7 @@ import { MemoryUsageBadge } from "./memory-usage";
 import { useAuthStore } from "@/stores";
 import { activateProject } from "@/lib/project-scope";
 import type { ChatMessage, User } from "@/types";
-import type { MemoryItem } from "@/lib/memory";
+import type { MemoryItem, MemoryProposal } from "@/lib/memory";
 import MemoryPage from "@/app/[locale]/(dashboard)/memory/page";
 
 vi.mock("next-intl", async (original) => ({
@@ -112,12 +112,58 @@ it("renders disabled consent by default and saves the settings revision", async 
       JSON.stringify({ enabled, revision: enabled ? 1 : 0, items: [], limit: 100 }),
     );
   });
-  vi.stubGlobal("fetch", fetcher);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init: RequestInit) => {
+      if (String(url).includes("capabilities"))
+        return new Response(JSON.stringify({ models: [], default: "test" }));
+      return fetcher(url, init);
+    }),
+  );
   mount(<MemoryPage />);
   await screen.findByText("从一条值得保留的信息开始");
-  expect(screen.getByRole("switch")).not.toBeChecked();
-  fireEvent.click(screen.getByRole("switch"));
-  await waitFor(() => expect(screen.getByRole("switch")).toBeChecked());
+  expect(screen.getByRole("switch", { name: "开启聊天记忆" })).not.toBeChecked();
+  fireEvent.click(screen.getByRole("switch", { name: "开启聊天记忆" }));
+  await waitFor(() => expect(screen.getByRole("switch", { name: "开启聊天记忆" })).toBeChecked());
   const mutation = fetcher.mock.calls.find((c) => c[1].method === "PUT")!;
   expect(JSON.parse(mutation[1].body as string)).toEqual({ enabled: true, revision: 0 });
+});
+
+it("reviews a proposal before submission and preserves source, revision and expiry", async () => {
+  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: "accepted" })));
+  vi.stubGlobal("fetch", fetcher);
+  const proposal = {
+    id,
+    revision: 2,
+    action: "update",
+    target: item,
+    target_revision: 3,
+    source_message_id: id,
+    target_id: item.id,
+    expires_at: "2099-01-09T00:00:00Z",
+    payload: {
+      ...item,
+      source_message_id: id,
+      content: "测量温度更新为 30°C",
+      expires_on: "2099-01-02",
+    },
+    quote: "本项目测量温度更新为 30°C",
+    reason: "用户改变了测量约束",
+  } as MemoryProposal;
+  mount(<MemoryEditor proposal={proposal} onClose={() => {}} />);
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(screen.getByText(item.content)).toBeInTheDocument();
+  expect(screen.getByText(proposal.quote)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("需要记住的内容"), {
+    target: { value: "已确认使用 30°C" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "确认保存" }));
+  await waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+  expect(fetcher.mock.calls[0]![0]).toBe(`/api/memory/proposals/${id}/accept`);
+  expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toMatchObject({
+    content: "已确认使用 30°C",
+    revision: 2,
+    source_message_id: id,
+    expires_on: "2099-01-02",
+  });
 });

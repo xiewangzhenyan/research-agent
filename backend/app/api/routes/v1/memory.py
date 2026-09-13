@@ -10,7 +10,9 @@ from app.schemas.memory import (
     MemoryCreate,
     MemoryPreferenceWrite,
     MemoryPreview,
+    MemoryProposalAccept,
     MemoryResponse,
+    MemoryRevisionWrite,
     MemoryUpdate,
 )
 from app.services.memory import MemoryService
@@ -64,3 +66,70 @@ async def delete(
 ):
     await MemoryService(db, user.id, project_id=project_id).delete(item_id, revision)
     return Response(status_code=204)
+
+
+@router.post("/reindex")
+async def reindex(db: DBSession, user: CurrentUser, project_id: CurrentProject):
+    return await MemoryService(db, user.id, project_id=project_id).reindex()
+
+
+@router.post("/{item_id}/archive", response_model=MemoryResponse)
+async def archive(
+    item_id: UUID,
+    data: MemoryRevisionWrite,
+    db: DBSession,
+    user: CurrentUser,
+    project_id: CurrentProject,
+):
+    return await MemoryService(db, user.id, project_id=project_id).archive(
+        item_id, data.revision, True
+    )
+
+
+@router.post("/{item_id}/restore", response_model=MemoryResponse)
+async def restore(
+    item_id: UUID,
+    data: MemoryRevisionWrite,
+    db: DBSession,
+    user: CurrentUser,
+    project_id: CurrentProject,
+):
+    return await MemoryService(db, user.id, project_id=project_id).archive(
+        item_id, data.revision, False
+    )
+
+
+@router.get("/{item_id}/history")
+async def history(item_id: UUID, db: DBSession, user: CurrentUser, project_id: CurrentProject):
+    return await MemoryService(db, user.id, project_id=project_id).history(item_id)
+
+
+@router.post("/proposals/{proposal_id}/accept")
+async def accept(
+    proposal_id: UUID,
+    data: MemoryProposalAccept,
+    db: DBSession,
+    user: CurrentUser,
+    project_id: CurrentProject,
+):
+    return await MemoryService(db, user.id, project_id=project_id).decide(
+        proposal_id, data.revision, data
+    )
+
+
+@router.post("/proposals/{proposal_id}/reject")
+async def reject(
+    proposal_id: UUID,
+    data: MemoryRevisionWrite,
+    db: DBSession,
+    user: CurrentUser,
+    project_id: CurrentProject,
+):
+    return await MemoryService(db, user.id, project_id=project_id).decide(
+        proposal_id, data.revision
+    )
+
+
+@router.post("/jobs/{job_id}/retry")
+async def retry(job_id: UUID, db: DBSession, user: CurrentUser, project_id: CurrentProject):
+    return await MemoryService(db, user.id, project_id=project_id).retry(job_id)

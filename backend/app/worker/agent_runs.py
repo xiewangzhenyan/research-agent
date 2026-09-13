@@ -359,7 +359,9 @@ async def main():
             await AsyncPostgresSaver(conn).setup()
         print("Task checkpoint schema ready")
         return
-    await asyncio.gather(loop(), loop(), maintain())
+    from app.worker.memory import loop as memory_loop
+
+    await asyncio.gather(loop(), loop(), maintain(), memory_loop())
 
 
 if __name__ == "__main__":

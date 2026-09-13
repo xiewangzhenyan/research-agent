@@ -11,12 +11,17 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path?
       ? ["GET", "POST"].includes(request.method)
       : path.length === 1
         ? (path[0] === "settings" && request.method === "PUT") ||
-          (path[0] === "preview" && request.method === "POST") ||
+          (["preview", "reindex"].includes(path[0] ?? "") && request.method === "POST") ||
           (uuid.test(path[0] ?? "") && ["PUT", "DELETE"].includes(request.method))
-        : path.length === 2 &&
-          uuid.test(path[0] ?? "") &&
-          path[1] === "source" &&
-          request.method === "GET";
+        : path.length === 2
+          ? uuid.test(path[0] ?? "") &&
+            ((["source", "history"].includes(path[1] ?? "") && request.method === "GET") ||
+              (["archive", "restore"].includes(path[1] ?? "") && request.method === "POST"))
+          : path.length === 3 &&
+            uuid.test(path[1] ?? "") &&
+            request.method === "POST" &&
+            ((path[0] === "proposals" && ["accept", "reject"].includes(path[2] ?? "")) ||
+              (path[0] === "jobs" && path[2] === "retry"));
   if (!valid) return NextResponse.json({ detail: "无效记忆路径" }, { status: 400 });
   try {
     const body = ["GET", "DELETE"].includes(request.method) ? undefined : await request.text();

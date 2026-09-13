@@ -28,6 +28,9 @@ __all__ = [
     "Project",
     "MemoryItem",
     "MemoryPreference",
+    "MemoryVersion",
+    "MemoryProposal",
+    "MemoryExtractionJob",
 ]
 
 from app.db.models.knowledge import (
@@ -44,4 +47,4 @@ from app.db.models.knowledge_search import KnowledgeSearchChunk
 from app.db.models.run_artifact import RunArtifact
 from app.db.models.project import Project
 
-from app.db.models.memory import MemoryItem, MemoryPreference
+from app.db.models.memory import MemoryItem, MemoryPreference, MemoryVersion, MemoryProposal, MemoryExtractionJob

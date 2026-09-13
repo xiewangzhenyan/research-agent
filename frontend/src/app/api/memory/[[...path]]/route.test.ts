@@ -76,3 +76,24 @@ it("preserves backend denials and does not broaden default scope", async () => {
   expect(response.status).toBe(404);
   expect(fetcher.mock.calls[0]![1].headers["X-Project-ID"]).toBeUndefined();
 });
+it.each([
+  [id, "archive"],
+  [id, "restore"],
+  ["proposals", id, "accept"],
+  ["proposals", id, "reject"],
+  ["jobs", id, "retry"],
+  ["reindex"],
+])("allows only explicitly supported lifecycle mutations: %s", async (...path) => {
+  const fetcher = vi.fn().mockResolvedValue(new Response("{}"));
+  vi.stubGlobal("fetch", fetcher);
+  const response = await POST(
+    new NextRequest(`https://app.test/api/memory/${path.join("/")}`, {
+      method: "POST",
+      headers: { cookie: "access_token=fixture", "X-Project-ID": id },
+      body: '{"revision":1}',
+    }),
+    { params: Promise.resolve({ path }) },
+  );
+  expect(response.status).toBe(200);
+  expect(fetcher.mock.calls[0]![1].headers["X-Project-ID"]).toBe(id);
+});

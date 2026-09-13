@@ -57,19 +57,38 @@ def estimated_tokens(text):
     return wide + math.ceil((len(text) - wide) / 3)
 
 
-def select_memories(query, items):
+def select_memories(query, items, *, semantic_scores=None):
+    semantic_scores = semantic_scores or {}
     query_terms = terms(query[:4000])
     candidates = []
     for item in items:
         title_terms, content_terms = terms(item.title), terms(item.content)
         overlap = query_terms & (title_terms | content_terms)
-        if not item.pinned and not overlap:
+        if not item.pinned and not overlap and str(item.id) not in semantic_scores:
             continue
         score = len(overlap) / max(1, math.sqrt(len(title_terms | content_terms))) + len(
             query_terms & title_terms
         )
         candidates.append((item, score))
-    candidates.sort(key=lambda pair: (not pair[0].pinned, -pair[1], str(pair[0].id)))
+    lexical_rank = {
+        str(item.id): rank
+        for rank, (item, score) in enumerate(
+            sorted(candidates, key=lambda p: (-p[1], str(p[0].id))), 1
+        )
+        if score > 0
+    }
+    semantic_rank = {
+        key: rank
+        for rank, key in enumerate(
+            sorted(semantic_scores, key=lambda k: (-semantic_scores[k], k)), 1
+        )
+    }
+
+    def fused(item):
+        key = str(item.id)
+        return sum(1 / (60 + ranks[key]) for ranks in (lexical_rank, semantic_rank) if key in ranks)
+
+    candidates.sort(key=lambda pair: (not pair[0].pinned, -fused(pair[0]), str(pair[0].id)))
     selected, tokens = [], 0
     for item, _ in candidates:
         payload = {

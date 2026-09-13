@@ -6,7 +6,14 @@ import { Brain } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { currentProject } from "@/lib/project-scope";
 import { useAuthStore } from "@/stores";
-import { kindLabel, memoryError, memoryKey, type MemoryItem, type MemoryKind } from "@/lib/memory";
+import {
+  kindLabel,
+  memoryError,
+  memoryKey,
+  type MemoryItem,
+  type MemoryProposal,
+  type MemoryKind,
+} from "@/lib/memory";
 import { useUnsavedInput } from "@/hooks/use-unsaved-input";
 import {
   Button,
@@ -24,10 +31,12 @@ import type { ChatMessage } from "@/types";
 export function MemoryEditor({
   item,
   message,
+  proposal,
   onClose,
 }: {
   item?: MemoryItem;
   message?: ChatMessage;
+  proposal?: MemoryProposal;
   onClose: () => void;
 }) {
   const zh = useLocale() === "zh";
@@ -35,21 +44,23 @@ export function MemoryEditor({
   const client = useQueryClient();
   const project = currentProject();
   const userId = useAuthStore((s) => s.user?.id);
+  const draft = proposal?.payload ?? item;
+  const [expires, setExpires] = useState(draft?.expires_on ?? "");
   const [title, setTitle] = useState(
-    item?.title ??
+    draft?.title ??
       message?.content
         .split("\n")[0]
         ?.replace(/^#+\s*/, "")
         .slice(0, 80) ??
       "",
   );
-  const [content, setContent] = useState(item?.content ?? message?.content ?? "");
-  const [kind, setKind] = useState<MemoryKind>(item?.kind ?? "note");
-  const [pinned, setPinned] = useState(item?.pinned ?? false);
+  const [content, setContent] = useState(draft?.content ?? message?.content ?? "");
+  const [kind, setKind] = useState<MemoryKind>(draft?.kind ?? "note");
+  const [pinned, setPinned] = useState(draft?.pinned ?? false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const initialTitle =
-    item?.title ??
+    draft?.title ??
     message?.content
       .split("\n")[0]
       ?.replace(/^#+\s*/, "")
@@ -57,10 +68,11 @@ export function MemoryEditor({
     "";
   useUnsavedInput(
     busy ||
-      content !== (item?.content ?? message?.content ?? "") ||
+      content !== (draft?.content ?? message?.content ?? "") ||
       title !== initialTitle ||
-      kind !== (item?.kind ?? "note") ||
-      pinned !== (item?.pinned ?? false),
+      kind !== (draft?.kind ?? "note") ||
+      pinned !== (draft?.pinned ?? false) ||
+      expires !== (draft?.expires_on ?? ""),
   );
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -73,9 +85,16 @@ export function MemoryEditor({
         content: content.trim(),
         kind,
         pinned,
-        source_message_id: item?.source_message_id ?? message?.id ?? null,
+        expires_on: expires || null,
+        source_message_id: draft?.source_message_id ?? message?.id ?? null,
       };
-      if (item) await apiClient.put(`/memory/${item.id}`, { ...body, revision: item.revision });
+      if (proposal)
+        await apiClient.post(`/memory/proposals/${proposal.id}/accept`, {
+          ...body,
+          revision: proposal.revision,
+        });
+      else if (item)
+        await apiClient.put(`/memory/${item.id}`, { ...body, revision: item.revision });
       else await apiClient.post("/memory", body);
       if (useAuthStore.getState().user?.id !== userId || currentProject()?.id !== project?.id)
         return;
@@ -92,7 +111,11 @@ export function MemoryEditor({
       <DialogContent className="flex max-h-[90dvh] w-[calc(100%-1.5rem)] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-xl">
         <DialogHeader className="shrink-0 border-b px-6 py-5">
           <DialogTitle>
-            {item ? t("编辑记忆", "Edit memory") : t("保存到项目记忆", "Save project memory")}
+            {proposal
+              ? t("确认记忆建议", "Review memory suggestion")
+              : item
+                ? t("编辑记忆", "Edit memory")
+                : t("保存到项目记忆", "Save project memory")}
           </DialogTitle>
           <DialogDescription>
             {t("仅保存在", "Saved only in")} {project?.name ?? t("默认项目", "Default project")}。
@@ -101,6 +124,33 @@ export function MemoryEditor({
         </DialogHeader>
         <form onSubmit={save} className="flex min-h-0 flex-col">
           <div className="space-y-5 overflow-y-auto px-6 py-5">
+            {proposal && (
+              <div className="bg-muted/30 space-y-3 rounded-xl border p-4 text-sm">
+                <p className="font-medium">
+                  {t("新消息中的原文依据", "Evidence from the new message")}
+                </p>
+                <blockquote className="text-muted-foreground border-l-2 pl-3 break-words whitespace-pre-wrap">
+                  {proposal.quote}
+                </blockquote>
+                <p>{proposal.reason}</p>
+                {proposal.target && (
+                  <div className="border-t pt-3">
+                    <p className="font-medium">
+                      {t("将更新的原记忆", "Memory to update")} · v{proposal.target_revision}
+                    </p>
+                    <p className="mt-2 break-words whitespace-pre-wrap">
+                      {proposal.target.content}
+                    </p>
+                  </div>
+                )}
+                <p className="text-muted-foreground text-xs">
+                  {t(
+                    "请核对对象、数字和否定条件。确认后才用于回答。",
+                    "Check scope, numbers and negations. Used in answers only after confirmation.",
+                  )}
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="memory-title">{t("标题", "Title")}</Label>
               <Input
@@ -151,6 +201,23 @@ export function MemoryEditor({
                 )}
               </p>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="memory-expires">
+                {t("有效至（可选）", "Valid through (optional)")}
+              </Label>
+              <Input
+                id="memory-expires"
+                type="date"
+                value={expires}
+                onChange={(e) => setExpires(e.target.value)}
+              />
+              <p className="text-muted-foreground text-xs">
+                {t(
+                  "按 UTC 日期生效，到期后停止召回但保留记录。留空表示持续保留。",
+                  "Valid through the UTC date; expired notes are retained but excluded from recall. Leave blank for lasting notes.",
+                )}
+              </p>
+            </div>
             <label
               htmlFor="memory-pinned"
               aria-label={t("优先回忆", "Prioritize recall")}
@@ -173,7 +240,7 @@ export function MemoryEditor({
                 </span>
               </span>
             </label>
-            {(message || item?.source_message_id) && (
+            {(message || draft?.source_message_id) && (
               <p className="text-muted-foreground text-xs">
                 {t(
                   "这条记忆由消息整理，保存后仍可编辑。删除来源会话时，关联记忆也会删除。",
