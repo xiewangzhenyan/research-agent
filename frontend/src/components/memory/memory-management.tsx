@@ -14,7 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui";
 import { apiClient } from "@/lib/api-client";
-import { fetchCapabilities } from "@/lib/model-capabilities";
+import { useGenerationConfig } from "@/hooks/use-generation-config";
 import {
   memoryError,
   memoryKey,
@@ -37,12 +37,7 @@ export function MemoryManagement({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [review, setReview] = useState<MemoryProposal | null>(null);
-  const models = useQuery({
-    queryKey: ["memory-models", ...memoryKey()],
-    queryFn: ({ signal }) => fetchCapabilities(signal),
-    enabled: data.enabled,
-    staleTime: 60000,
-  });
+  const models = useGenerationConfig(data.enabled);
   async function perform(action: () => Promise<unknown>) {
     setBusy(true);
     setError("");

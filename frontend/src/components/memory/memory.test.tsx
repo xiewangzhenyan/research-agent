@@ -115,7 +115,7 @@ it("renders disabled consent by default and saves the settings revision", async 
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init: RequestInit) => {
-      if (String(url).includes("capabilities"))
+      if (String(url).includes("generation-config"))
         return new Response(JSON.stringify({ models: [], default: "test" }));
       return fetcher(url, init);
     }),

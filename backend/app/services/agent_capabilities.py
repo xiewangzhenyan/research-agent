@@ -11,17 +11,11 @@ from app.core.config import settings
 from app.schemas.model_config import (
     AgentCapabilitiesResponse,
     CapabilityInfo,
-    GenerationModelInfo,
     LocalModelInfo,
 )
 from app.services.knowledge_enrichment import RERANK_MODEL, RERANK_REVISION
 from app.services.knowledge_index import MODEL
-from app.services.model_config import (
-    allowed_models,
-    model_controls,
-    policy_version,
-    resolve_generation_config,
-)
+from app.services.model_config import generation_config
 
 _health_lock = asyncio.Lock()
 _health_cache: tuple[str, float, LocalModelInfo] | None = None
@@ -66,20 +60,7 @@ async def get_capabilities(user=None) -> AgentCapabilitiesResponse:
         item["available"] for item in tools["items"] if item["id"] == "run_python"
     )
     return AgentCapabilitiesResponse(
-        default=settings.AI_MODEL,
-        policy_version=policy_version(),
-        models=[
-            GenerationModelInfo(
-                id=model,
-                temperature="temperature" in model_controls(model),
-                thinking_efforts=["low", "medium", "high"]
-                if "thinking_effort" in model_controls(model)
-                else [],
-                defaults=resolve_generation_config({"model": model}),
-                status="configured" if settings.OPENAI_API_KEY else "unconfigured",
-            )
-            for model in allowed_models()
-        ],
+        **generation_config().model_dump(),
         # Encoder loads on demand in API/ingestion processes. Do not load another
         # copy or claim all workers are healthy based on this API process.
         embedding=LocalModelInfo(

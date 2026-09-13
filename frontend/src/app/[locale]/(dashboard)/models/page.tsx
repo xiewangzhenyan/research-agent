@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useLocale } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { Cpu, Database, ListFilter, RefreshCw, ArrowUpRight, Check, Minus } from "lucide-react";
@@ -8,6 +9,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui";
 import { fetchCapabilities, type LocalModelInfo } from "@/lib/model-capabilities";
 import { useAuthStore } from "@/stores";
+import { useGenerationConfig } from "@/hooks/use-generation-config";
 
 const names: Record<string, [string, string]> = {
   current_datetime: ["日期与时间", "Date and time"],
@@ -89,8 +91,8 @@ function LocalModel({
             ? "离线加载本地模型文件。此页面不额外加载模型；实际处理状态请查看知识库文件记录。"
             : "Loads local model files offline. This page does not start inference; check document processing for actual results."
           : zh
-            ? "检测校验服务状态与固定模型版本，结果最多缓存 30 秒。是否启用重排由检索设置决定。"
-            : "Health and pinned revision are checked, cached for up to 30 seconds. Retrieval settings control whether reranking is used."}
+            ? "按需检测服务状态与固定模型版本。下方时间对应最近一次检测，可点击刷新状态更新。是否启用重排由检索设置决定。"
+            : "Health and pinned revision are checked on demand. See the last check time below or refresh the status. Retrieval settings control whether reranking is used."}
       </p>
       {model.checked_at && (
         <p className="text-muted-foreground mt-2 text-xs">
@@ -105,14 +107,17 @@ function LocalModel({
 export default function ModelsPage() {
   const zh = useLocale() === "zh";
   const user = useAuthStore((s) => s.user);
-  const query = useQuery({
+  const [tab, setTab] = useState("generation");
+  const query = useGenerationConfig();
+  const runtime = useQuery({
     queryKey: ["agent-capabilities", user?.id],
     queryFn: ({ signal }) => fetchCapabilities(signal),
-    enabled: !!user,
+    enabled: !!user && tab !== "generation",
     staleTime: 30000,
     retry: 1,
   });
   const data = query.data;
+  const refreshing = query.isFetching || runtime.isFetching;
   return (
     <div className="models-workspace space-y-6 pb-8">
       <PageHeader
@@ -133,11 +138,14 @@ export default function ModelsPage() {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => query.refetch()}
-          disabled={query.isFetching}
+          onClick={() => {
+            void query.refetch();
+            if (tab !== "generation") void runtime.refetch({ cancelRefetch: false });
+          }}
+          disabled={refreshing}
         >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          {zh ? "刷新状态" : "Refresh"}
+          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "motion-safe:animate-spin" : ""}`} />
+          {refreshing ? (zh ? "正在更新…" : "Updating…") : zh ? "刷新状态" : "Refresh"}
         </Button>
       </div>
       {query.isPending && (
@@ -147,29 +155,47 @@ export default function ModelsPage() {
       )}
       {query.isError && (
         <div role="alert" className="border-destructive/30 bg-destructive/5 rounded-2xl border p-5">
-          {zh
-            ? "配置加载失败，请点击刷新状态重试。"
-            : "Configuration unavailable. Refresh to retry."}
+          {data
+            ? zh
+              ? "更新失败，暂用上次获取的模型配置。请点击刷新状态重试。"
+              : "Update failed. Showing the last configuration. Refresh to retry."
+            : zh
+              ? "配置加载失败，请点击刷新状态重试。"
+              : "Configuration unavailable. Refresh to retry."}
         </div>
       )}
       {data && (
-        <Tabs defaultValue="knowledge" className="space-y-6">
+        <Tabs value={tab} onValueChange={setTab} className="space-y-6">
           <TabsList
             className="workspace-tabs w-full justify-start"
             aria-label={zh ? "模型分类" : "Model categories"}
           >
-            <TabsTrigger value="knowledge">{zh ? "知识模型" : "Knowledge models"}</TabsTrigger>
             <TabsTrigger value="generation">{zh ? "对话模型" : "Chat models"}</TabsTrigger>
+            <TabsTrigger value="knowledge">{zh ? "知识模型" : "Knowledge models"}</TabsTrigger>
             <TabsTrigger value="capabilities">{zh ? "平台能力" : "Capabilities"}</TabsTrigger>
           </TabsList>
+          {tab !== "generation" && runtime.isPending && (
+            <p role="status" className="text-muted-foreground py-8 text-center">
+              {zh ? "正在检测运行状态…" : "Checking runtime status…"}
+            </p>
+          )}
+          {tab !== "generation" && runtime.isError && (
+            <p role="alert" className="text-destructive text-sm">
+              {zh
+                ? "运行状态更新失败，请刷新重试；已有检测结果仅供参考。"
+                : "Runtime update failed. Refresh to retry; previous results may be outdated."}
+            </p>
+          )}
           <TabsContent value="knowledge">
-            <section
-              aria-label={zh ? "本地知识模型" : "Local knowledge models"}
-              className="grid gap-5 xl:grid-cols-2"
-            >
-              <LocalModel model={data.embedding} kind="embedding" zh={zh} />
-              <LocalModel model={data.rerank} kind="rerank" zh={zh} />
-            </section>
+            {runtime.data && (
+              <section
+                aria-label={zh ? "本地知识模型" : "Local knowledge models"}
+                className="grid gap-5 xl:grid-cols-2"
+              >
+                <LocalModel model={runtime.data.embedding} kind="embedding" zh={zh} />
+                <LocalModel model={runtime.data.rerank} kind="rerank" zh={zh} />
+              </section>
+            )}
           </TabsContent>
           <TabsContent value="generation">
             <section className="border-border bg-card overflow-hidden rounded-2xl border">
@@ -238,45 +264,56 @@ export default function ModelsPage() {
             </section>
           </TabsContent>
           <TabsContent value="capabilities">
-            <section className="border-border bg-card rounded-2xl border p-5 sm:p-6">
-              <h2 className="text-lg font-semibold">{zh ? "平台能力" : "Platform capabilities"}</h2>
-              <p className="text-muted-foreground mt-1 text-sm">
-                {zh
-                  ? "状态对应当前运行时；知识检索由会话服务组织。"
-                  : "Status reflects current runtime wiring; knowledge retrieval is managed by the session service."}
-              </p>
-              <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-                {data.capabilities.map((item) => (
-                  <li
-                    key={item.id}
-                    className="border-border flex items-center justify-between gap-3 rounded-xl border p-3 text-sm"
-                  >
-                    <span className="flex items-center gap-2">
-                      {item.available ? (
-                        <Check className="text-brand h-4 w-4 shrink-0" />
-                      ) : (
-                        <Minus className="text-muted-foreground h-4 w-4 shrink-0" />
-                      )}
-                      {names[item.id]?.[zh ? 0 : 1] ?? item.id}
-                    </span>
-                    <span className="text-muted-foreground shrink-0 text-xs">
-                      {item.available
-                        ? zh
-                          ? "已接入"
-                          : "Connected"
-                        : zh
-                          ? "尚未接入"
-                          : "Not connected"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            {runtime.data && (
+              <section className="border-border bg-card rounded-2xl border p-5 sm:p-6">
+                <h2 className="text-lg font-semibold">
+                  {zh ? "平台能力" : "Platform capabilities"}
+                </h2>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {zh
+                    ? "状态对应当前运行时；知识检索由会话服务组织。"
+                    : "Status reflects current runtime wiring; knowledge retrieval is managed by the session service."}
+                </p>
+                <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {runtime.data.capabilities.map((item) => (
+                    <li
+                      key={item.id}
+                      className="border-border flex items-center justify-between gap-3 rounded-xl border p-3 text-sm"
+                    >
+                      <span className="flex items-center gap-2">
+                        {item.available ? (
+                          <Check className="text-brand h-4 w-4 shrink-0" />
+                        ) : (
+                          <Minus className="text-muted-foreground h-4 w-4 shrink-0" />
+                        )}
+                        {names[item.id]?.[zh ? 0 : 1] ?? item.id}
+                      </span>
+                      <span className="text-muted-foreground shrink-0 text-xs">
+                        {item.available
+                          ? zh
+                            ? "已接入"
+                            : "Connected"
+                          : zh
+                            ? "尚未接入"
+                            : "Not connected"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
           </TabsContent>
           <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-3 text-xs">
             <span>
               {zh ? "配置策略版本：" : "Policy version: "}
               <code>{data.policy_version}</code>
+              {query.dataUpdatedAt > 0 && (
+                <span className="ml-3">
+                  {zh ? "更新于 " : "Updated "}
+                  {new Date(query.dataUpdatedAt).toLocaleTimeString(zh ? "zh-CN" : "en-US")}
+                  {zh ? " · 5 分钟内跨页面复用" : " · Reused across pages for 5 minutes"}
+                </span>
+              )}
             </span>
             <Link href="/knowledge" className="text-brand inline-flex min-h-10 items-center gap-1">
               {zh ? "前往知识库调整检索参数" : "Configure knowledge retrieval"}

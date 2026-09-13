@@ -23,7 +23,7 @@ import { CodeExecutionPanel, type ExecutionResult } from "@/components/tasks/cod
 import { InputFiles, type InputFile } from "@/components/tasks/input-files";
 import { ArtifactPanel } from "@/components/tasks/artifact-panel";
 import { fetchTools } from "@/lib/tool-catalog";
-import { fetchCapabilities } from "@/lib/model-capabilities";
+import { useGenerationConfig } from "@/hooks/use-generation-config";
 
 type Task = {
   id: string;
@@ -142,12 +142,7 @@ function TasksWorkspace() {
   const [busy, setBusy] = useState(false);
   const [offset, setOffset] = useState(0);
   const submission = useRef({ hash: "", key: "" });
-  const capabilities = useQuery({
-    queryKey: ["agent-capabilities", user?.id],
-    queryFn: ({ signal }) => fetchCapabilities(signal),
-    enabled: !!user,
-    staleTime: 30000,
-  });
+  const capabilities = useGenerationConfig();
   const knowledge = useQuery({
     queryKey: ["task-knowledge-bases", user?.id],
     queryFn: () => api<{ items: { id: string; name: string }[] }>("/api/knowledge/bases"),

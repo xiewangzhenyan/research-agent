@@ -1,7 +1,7 @@
 "use client";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme";
@@ -37,6 +37,10 @@ function AccountProviders({ children }: ProvidersProps) {
         },
       }),
   );
+
+  // AccountProviders is keyed by identity; dispose private caches and pending
+  // requests when that boundary is replaced (logout or account switch).
+  useEffect(() => () => queryClient.clear(), [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>

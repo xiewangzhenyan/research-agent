@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useAuthStore } from "@/stores/auth-store";
+import type { User } from "@/types";
 import { ChatControls } from "./chat-controls";
 
 vi.mock("next-intl", () => ({ useLocale: () => "zh" }));
@@ -11,7 +14,18 @@ vi.mock("@/components/ui", () => ({
   PopoverTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   PopoverContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
-afterEach(() => vi.unstubAllGlobals());
+let client: QueryClient;
+beforeEach(() => {
+  client = new QueryClient();
+  useAuthStore.getState().setUser({ id: "owner" } as User);
+});
+afterEach(() => {
+  client.clear();
+  vi.unstubAllGlobals();
+});
+function mount(ui: ReactNode) {
+  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
+}
 const config = {
   default: "reasoning",
   models: [
@@ -30,7 +44,7 @@ const config = {
   ],
 };
 async function open(props = {}) {
-  render(
+  mount(
     <ChatControls
       onModelChange={vi.fn()}
       onTemperatureChange={vi.fn()}
@@ -69,9 +83,10 @@ it("keeps controls unavailable on failure and permits a retry", async () => {
   const fetch = vi
     .fn()
     .mockResolvedValueOnce(new Response("{}", { status: 503 }))
+    .mockResolvedValueOnce(new Response("{}", { status: 503 }))
     .mockResolvedValueOnce(new Response(JSON.stringify(config)));
   vi.stubGlobal("fetch", fetch);
-  render(<ChatControls />);
+  mount(<ChatControls />);
   fireEvent.click(screen.getByRole("button", { name: "聊天模型与设置" }));
   await screen.findByRole("alert");
   expect(screen.queryByRole("button", { name: "standard" })).toBeNull();

@@ -25,10 +25,13 @@ export interface LocalModelInfo {
   checked_at: string | null;
 }
 
-export interface AgentCapabilities {
+export interface GenerationConfig {
   default: string;
   policy_version: string;
   models: GenerationModelInfo[];
+}
+
+export interface AgentCapabilities extends GenerationConfig {
   embedding: LocalModelInfo;
   rerank: LocalModelInfo;
   capabilities: Array<{ id: string; available: boolean; execution: string }>;

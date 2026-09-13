@@ -7,7 +7,12 @@ from pydantic import ValidationError
 
 from app.core.config import settings
 from app.core.exceptions import BadRequestError
-from app.schemas.model_config import EffectiveGenerationConfig, GenerationOptions
+from app.schemas.model_config import (
+    EffectiveGenerationConfig,
+    GenerationConfigResponse,
+    GenerationModelInfo,
+    GenerationOptions,
+)
 
 
 def allowed_models() -> list[str]:
@@ -29,6 +34,26 @@ def policy_version() -> str:
         "thinking_effort": settings.AI_THINKING_EFFORT,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def generation_config() -> GenerationConfigResponse:
+    """Read deployment policy without probing tools, loading models or doing I/O."""
+    return GenerationConfigResponse(
+        default=settings.AI_MODEL,
+        policy_version=policy_version(),
+        models=[
+            GenerationModelInfo(
+                id=model,
+                temperature="temperature" in model_controls(model),
+                thinking_efforts=["low", "medium", "high"]
+                if "thinking_effort" in model_controls(model)
+                else [],
+                defaults=resolve_generation_config({"model": model}),
+                status="configured" if settings.OPENAI_API_KEY else "unconfigured",
+            )
+            for model in allowed_models()
+        ],
+    )
 
 
 def resolve_generation_config(data: dict) -> EffectiveGenerationConfig:

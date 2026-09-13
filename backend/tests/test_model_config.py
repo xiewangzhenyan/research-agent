@@ -11,8 +11,10 @@ from pydantic_ai.models.test import TestModel
 
 from app.agents.assistant import get_agent
 from app.agents.tool_catalog import CHAT_TOOL_NAMES
+from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.exceptions import BadRequestError
+from app.main import app
 from app.services import agent_capabilities, agent_session, knowledge_answer
 from app.services.model_config import resolve_generation_config
 
@@ -228,3 +230,38 @@ async def test_discovery_redacts_and_checks_reranker_version(payload, status, mo
 async def test_discovery_requires_login(client):
     response = await client.get("/api/v1/agent/capabilities")
     assert response.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_generation_discovery_requires_login(client):
+    response = await client.get("/api/v1/agent/generation-config")
+    assert response.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_generation_discovery_is_redacted_and_independent_of_runtime_health(
+    client, monkeypatch
+):
+    from app.services import tool_policy
+
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(id=uuid4())
+    health = AsyncMock(side_effect=AssertionError("A model selector must not probe runtime health"))
+    monkeypatch.setattr(agent_capabilities, "rerank_health", health)
+    monkeypatch.setattr(tool_policy, "tool_catalog", health)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "private-test-credential")
+    response = await client.get("/api/v1/agent/generation-config")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "private, no-store"
+    data = response.json()
+    assert set(data) == {"default", "models", "policy_version"}
+    assert data["default"] == "reasoning"
+    assert [m["id"] for m in data["models"]] == ["reasoning", "standard", "unknown-alias"]
+    assert data["models"][0]["thinking_efforts"] == ["low", "medium", "high"]
+    assert data["models"][1]["defaults"]["temperature"] == 0.7
+    assert "private-test-credential" not in response.text
+    assert "http" not in response.text
+    monkeypatch.setattr(settings, "AI_TEMPERATURE", 0.2)
+    updated = (await client.get("/api/v1/agent/generation-config")).json()
+    assert updated["policy_version"] != data["policy_version"]
+    assert updated["models"][1]["defaults"]["temperature"] == 0.2
+    health.assert_not_awaited()

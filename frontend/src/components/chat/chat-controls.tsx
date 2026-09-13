@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, ChevronDown, Sliders, ArrowUpRight } from "lucide-react";
 import { useLocale } from "next-intl";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { fetchCapabilities, type AgentCapabilities } from "@/lib/model-capabilities";
+import { useGenerationConfig } from "@/hooks/use-generation-config";
 
 type Effort = "low" | "medium" | "high" | null;
 interface ChatControlsProps {
@@ -21,23 +21,12 @@ export function ChatControls({
   onThinkingEffortChange,
 }: ChatControlsProps) {
   const zh = useLocale() === "zh";
-  const [data, setData] = useState<AgentCapabilities | null>(null);
-  const [error, setError] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const query = useGenerationConfig();
+  const { data } = query;
   const [model, setModel] = useState<string | null>(null);
   const [temperature, setTemperature] = useState<number | null>(null);
   const [effort, setEffort] = useState<Effort>(null);
   const [tab, setTab] = useState<"model" | "settings">("model");
-  useEffect(() => {
-    const controller = new AbortController();
-    setError(false);
-    fetchCapabilities(controller.signal)
-      .then(setData)
-      .catch(() => {
-        if (!controller.signal.aborted) setError(true);
-      });
-    return () => controller.abort();
-  }, [attempt]);
   const current = data?.models.find((item) => item.id === (model ?? data.default));
   const pick = (value: string | null) => {
     setModel(value);
@@ -118,16 +107,21 @@ export function ChatControls({
           ))}
         </div>
         <div className="max-h-[min(440px,60vh)] space-y-4 overflow-y-auto p-4">
-          {error ? (
+          {query.isError ? (
             <div role="alert" className="space-y-2 text-sm">
               <p>
-                {zh
-                  ? "配置加载失败，暂时无法调整参数。"
-                  : "Configuration unavailable. Controls are disabled."}
+                {data
+                  ? zh
+                    ? "更新失败，暂用上次获取的模型配置。"
+                    : "Update failed. Showing the last configuration."
+                  : zh
+                    ? "配置加载失败，暂时无法调整参数。"
+                    : "Configuration unavailable. Controls are disabled."}
               </p>
               <button
                 type="button"
-                onClick={() => setAttempt((n) => n + 1)}
+                onClick={() => query.refetch()}
+                disabled={query.isFetching}
                 className="text-brand min-h-10 underline"
               >
                 {zh ? "重新加载" : "Retry"}
@@ -138,7 +132,7 @@ export function ChatControls({
               {zh ? "正在读取服务器配置…" : "Loading configuration…"}
             </p>
           ) : null}
-          {data && !error && tab === "model" && (
+          {data && tab === "model" && (
             <>
               <p className="text-muted-foreground text-xs leading-relaxed">
                 {zh
@@ -173,7 +167,7 @@ export function ChatControls({
               </ul>
             </>
           )}
-          {data && !error && tab === "settings" && (
+          {data && tab === "settings" && (
             <>
               <div className="space-y-2">
                 <label htmlFor="chat-temp" className="text-sm font-medium">

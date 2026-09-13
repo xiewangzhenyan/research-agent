@@ -62,10 +62,13 @@ class CapabilityInfo(BaseModel):
     execution: Literal["agent_tool", "session_service", "background_worker", "unavailable"]
 
 
-class AgentCapabilitiesResponse(BaseModel):
+class GenerationConfigResponse(BaseModel):
     default: str
     models: list[GenerationModelInfo]
+    policy_version: str
+
+
+class AgentCapabilitiesResponse(GenerationConfigResponse):
     embedding: LocalModelInfo
     rerank: LocalModelInfo
     capabilities: list[CapabilityInfo]
-    policy_version: str

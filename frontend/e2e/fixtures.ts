@@ -49,9 +49,14 @@ export async function mockWorkspace(page: Page, authenticated = true) {
       return route.fulfill({ json: {} });
     }
     if (path === "/api/projects") return route.fulfill({ json: [] });
+    if (path === "/api/tasks") return route.fulfill({ json: [] });
+    if (path === "/api/tools")
+      return route.fulfill({
+        json: { items: [], sandbox: { status: "unavailable", file_execution: false } },
+      });
     if (path === "/api/agent/models")
       return route.fulfill({ json: { models: ["test"], default: "test" } });
-    if (path === "/api/agent/capabilities")
+    if (["/api/agent/capabilities", "/api/agent/generation-config"].includes(path))
       return route.fulfill({
         json: {
           models: [

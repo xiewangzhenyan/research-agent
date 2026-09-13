@@ -4,18 +4,18 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Response, WebSocket, WebSocketDisconnect
 
 from app.api.deps import CurrentUser, CurrentUserWS
 from app.core.config import settings
 from app.core.exceptions import NotFoundError
 from app.db.session import get_db_context
 from app.schemas.base import AgentModelsResponse
-from app.schemas.model_config import AgentCapabilitiesResponse
+from app.schemas.model_config import AgentCapabilitiesResponse, GenerationConfigResponse
 from app.services.agent import AgentConnectionManager
 from app.services.agent_capabilities import get_capabilities
 from app.services.agent_session import AgentSession
-from app.services.model_config import allowed_models
+from app.services.model_config import allowed_models, generation_config
 from app.services.project import ProjectService
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,13 @@ async def list_models() -> dict[str, Any]:
         "default": settings.AI_MODEL,
         "models": allowed_models(),
     }
+
+
+@router.get("/agent/generation-config", response_model=GenerationConfigResponse)
+async def generation_models(user: CurrentUser, response: Response) -> GenerationConfigResponse:
+    """Authenticated model selector metadata, independent of runtime health checks."""
+    response.headers["Cache-Control"] = "private, no-store"
+    return generation_config()
 
 
 @router.get("/agent/capabilities", response_model=AgentCapabilitiesResponse)
