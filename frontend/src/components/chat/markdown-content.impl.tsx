@@ -3,6 +3,10 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
+import { normalizeChatMath, remarkChatCitations } from "@/lib/chat-markdown";
 import { ExternalLink } from "lucide-react";
 
 import { CopyButton } from "./copy-button";
@@ -15,25 +19,18 @@ function languageLabel(className: string | undefined): string | null {
   return match && match[1] ? match[1].toLowerCase() : null;
 }
 
-/**
- * Pre-process markdown to turn bare citation markers [N] into markdown links
- * with a special `#cite-N` href. The `a` component override below detects this
- * and renders an interactive CitationBadge instead of a regular link.
- *
- * Only replaces [N] that is NOT followed by `(` (already a link) or `:` (link
- * reference definition). Code spans/blocks are left as-is because the regex
- * doesn't enter them — in practice agent responses never cite inside code.
- */
-function preprocessCitations(content: string): string {
-  return content.replace(/\[(\d{1,3})\](?![\(:])/g, (_, n) => `[[${n}]](#cite-${n})`);
-}
-
-export function MarkdownContent({ content, onCiteClick }: MarkdownContentProps) {
-  const processed = onCiteClick ? preprocessCitations(content) : content;
+export function MarkdownContent({ content, onCiteClick, isStreaming }: MarkdownContentProps) {
+  const processed = normalizeChatMath(content, isStreaming);
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeHighlight]}
+      remarkPlugins={[remarkGfm, remarkMath, ...(onCiteClick ? [remarkChatCitations] : [])]}
+      rehypePlugins={[
+        [
+          rehypeKatex,
+          { trust: false, strict: "ignore", throwOnError: false, maxExpand: 1000, maxSize: 20 },
+        ],
+        rehypeHighlight,
+      ]}
       components={{
         pre({ children, ...props }) {
           const codeElement = children as React.ReactElement<{
@@ -226,4 +223,3 @@ export function MarkdownContent({ content, onCiteClick }: MarkdownContentProps) 
     </ReactMarkdown>
   );
 }
-

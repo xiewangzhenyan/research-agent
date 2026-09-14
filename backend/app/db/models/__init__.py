@@ -31,6 +31,9 @@ __all__ = [
     "MemoryVersion",
     "MemoryProposal",
     "MemoryExtractionJob",
+    "ConversationContextJob",
+    "ConversationContextBlock",
+    "ConversationContextSource",
 ]
 
 from app.db.models.knowledge import (
@@ -53,4 +56,10 @@ from app.db.models.memory import (
     MemoryVersion,
     MemoryProposal,
     MemoryExtractionJob,
+)
+
+from app.db.models.conversation_context import (
+    ConversationContextJob,
+    ConversationContextBlock,
+    ConversationContextSource,
 )

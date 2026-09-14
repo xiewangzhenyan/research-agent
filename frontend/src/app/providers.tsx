@@ -46,7 +46,12 @@ function AccountProviders({ children }: ProvidersProps) {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>{children}</TooltipProvider>
-        <Toaster richColors position="bottom-right" />
+        <Toaster
+          position="top-center"
+          offset="max(20px, env(safe-area-inset-top))"
+          visibleToasts={3}
+          closeButton
+        />
       </ThemeProvider>
     </QueryClientProvider>
   );

@@ -43,6 +43,7 @@ class MemoryRepository:
                     MemoryItem.id,
                 )
                 .limit(100)
+                .execution_options(populate_existing=True)
             )
         )
 

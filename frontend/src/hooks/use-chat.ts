@@ -21,6 +21,7 @@ import { qk } from "@/lib/query-keys";
 import { setUrlParam } from "@/lib/utils";
 import { useAuthStore, useChatStore, useConversationStore } from "@/stores";
 import { useKnowledgeStore } from "@/stores/knowledge-store";
+import type { GenerationOptions } from "@/lib/model-capabilities";
 import type { AskUserAnswer, ChatMessageFile } from "@/types";
 
 export interface QueuedMessage {
@@ -55,9 +56,18 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
   const [submitting, setSubmitting] = useState(false);
   const sending = useRef(false);
   const python = useRef(false);
-  const model = useRef<string | null>(null);
-  const temperature = useRef<number | null>(null);
-  const effort = useRef<"low" | "medium" | "high" | null>(null);
+  const [generationDraft, setGenerationDraft] = useState<{
+    scope: string;
+    value: GenerationOptions;
+  } | null>(null);
+  const generationScope = useRef(scope);
+  const composerEpoch = useRef(0);
+  if (generationScope.current !== scope) {
+    generationScope.current = scope;
+    composerEpoch.current += 1;
+    python.current = false;
+    if (generationDraft !== null) setGenerationDraft(null);
+  }
   const historyKey = ["chat-history", userId, projectId, conversationId];
   const runsKey = ["chat-runs", userId, projectId, conversationId];
   const url = `/chat/conversations/${conversationId}/state`;
@@ -70,6 +80,10 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
       !(error instanceof ApiError && [401, 403, 404].includes(error.status)) && count < 2,
     refetchOnWindowFocus: true,
   });
+  const generation =
+    generationDraft?.scope === scope ? generationDraft.value : (history.data?.generation ?? {});
+  const generationReady = !conversationId || !!history.data;
+  const setGeneration = (value: GenerationOptions) => setGenerationDraft({ scope, value });
   const execution = useQuery({
     queryKey: runsKey,
     queryFn: ({ signal }) =>
@@ -234,6 +248,12 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
       setPending((items) => items.filter((item) => item.id !== entry.id));
       setUrlParam("new", null);
       if (!conversationId) {
+        // Assigning a server ID to this draft is the same conversation. Preserve
+        // its controls and recording lifecycle; an actual selection change resets them.
+        generationScope.current = `${userId}:${projectId}:${run.conversation_id}`;
+        setGenerationDraft((draft) =>
+          draft?.scope === requestedScope ? { ...draft, scope: generationScope.current } : draft,
+        );
         useConversationStore.getState().setCurrentConversationId(run.conversation_id);
         setUrlParam("id", run.conversation_id);
         setUrlParam("knowledge", null);
@@ -277,6 +297,10 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
 
   const sendMessage = (content: string, fileIds?: string[], files?: ChatMessageFile[]) => {
     if (sending.current || !userId) return false;
+    if (!generationReady) {
+      toast.error("请等待本会话设置加载完成后发送。");
+      return false;
+    }
     const knowledge = useKnowledgeStore.getState();
     if (
       !knowledge.ready ||
@@ -310,11 +334,7 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
         knowledge_document_ids: knowledge.documentIds,
         knowledge_strict: knowledge.strict,
         python_enabled: python.current,
-        generation: {
-          model: model.current,
-          temperature: temperature.current,
-          thinking_effort: effort.current,
-        },
+        generation: { ...generation },
       },
     };
     setPending((items) => [...items, entry]);
@@ -378,18 +398,13 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
     retryQueued,
     cancelQueued,
     clearQueued,
+    composerKey: `${userId}:${projectId}:${composerEpoch.current}`,
     setPythonEnabled: (value: boolean) => {
       python.current = value;
     },
-    setModel: (value: string | null) => {
-      model.current = value;
-    },
-    setTemperature: (value: number | null) => {
-      temperature.current = value;
-    },
-    setThinkingEffort: (value: "low" | "medium" | "high" | null) => {
-      effort.current = value;
-    },
+    generation,
+    generationReady,
+    setGeneration,
     pendingApproval: null,
     sendResumeDecisions: () => {},
     answerSubmitting,

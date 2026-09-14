@@ -17,7 +17,11 @@ def test_python_is_never_implicitly_authorized():
     async def check():
         user = SimpleNamespace(is_app_admin=True)
         with patch.object(sandbox_client, "health", AsyncMock(return_value={"status": "ready"})):
-            assert await resolve_tools(user, None) == ["current_datetime", "ask_user"]
+            assert await resolve_tools(user, None) == [
+                "current_datetime",
+                "ask_user",
+                "create_document",
+            ]
             assert await resolve_tools(user, []) == []
             assert await resolve_tools(user, ["run_python"]) == ["run_python"]
             with (

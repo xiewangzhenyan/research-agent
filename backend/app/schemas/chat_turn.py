@@ -17,7 +17,8 @@ class ChatTurnCreate(BaseModel):
     knowledge_document_ids: list[UUID] | None = Field(default=None, min_length=1, max_length=5)
     knowledge_strict: bool | None = None
     python_enabled: bool = False
-    generation: GenerationOptions = Field(default_factory=GenerationOptions)
+    # Omitted/null inherits saved overrides; {} resets to deployment defaults.
+    generation: GenerationOptions | None = None
 
     @model_validator(mode="after")
     def has_content(self):

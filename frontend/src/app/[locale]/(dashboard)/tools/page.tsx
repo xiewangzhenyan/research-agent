@@ -30,6 +30,7 @@ export default function ToolsPage() {
     current_datetime: t("当前时间", "Current time"),
     ask_user: t("用户澄清", "Ask user"),
     run_python: t("Python 计算", "Python execution"),
+    create_document: t("文档生成", "Create documents"),
   };
   return (
     <div className="tools-workspace space-y-6 pb-8">
@@ -37,8 +38,8 @@ export default function ToolsPage() {
         eyebrow={t("能力与权限", "TOOLS & PERMISSIONS")}
         title={t("工具中心", "Tools")}
         description={t(
-          "查看可用工具与执行边界，在创建任务时按需授权。",
-          "Inspect available tools and choose permissions when creating a task.",
+          "对话自动使用基础工具；数据分析可在输入框中按需开启。",
+          "Chat uses basic tools automatically. Enable data analysis in the composer when needed.",
         )}
         actions={
           <Button variant="outline" disabled={query.isFetching} onClick={() => query.refetch()}>
@@ -84,6 +85,8 @@ export default function ToolsPage() {
                         {
                           current_datetime: "Read the server date and time.",
                           ask_user: "Pause and ask for missing information.",
+                          create_document:
+                            "Generate Word, Excel, PowerPoint or Markdown from text and tables.",
                           run_python:
                             "Execute Python standard-library code in an isolated environment with no network.",
                         } as Record<string, string>
@@ -105,12 +108,18 @@ export default function ToolsPage() {
                     <dd>
                       {item.timeout_seconds
                         ? `${item.timeout_seconds} ${t("秒", "sec")}`
-                        : t("等待用户补充", "Wait for input")}
+                        : item.execution === "interaction"
+                          ? t("等待用户补充", "Wait for input")
+                          : t("按内容限额处理", "Bounded by content limits")}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted-foreground">{t("输出上限", "Output limit")}</dt>
-                    <dd>{Math.round(item.output_limit_bytes / 1024)} KB</dd>
+                    <dd>
+                      {item.id === "create_document"
+                        ? t("单文件 2 MiB", "2 MiB per file")
+                        : `${Math.round(item.output_limit_bytes / 1024)} KB`}
+                    </dd>
                   </div>
                 </dl>
                 {!item.available && (

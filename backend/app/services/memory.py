@@ -1,4 +1,4 @@
-"""Project memory lifecycle. Models suggest; authenticated users approve changes."""
+"""Project memory lifecycle around automatic Mem0 writes and user corrections."""
 
 import hashlib
 from datetime import UTC, datetime
@@ -46,10 +46,18 @@ class MemoryService:
     async def authorize(self):
         await ProjectService(self.db, self.user_id).validate(self.project_id)
 
+    async def invalidate_pending(self):
+        # User corrections/removals take precedence over already queued work.
+        pref = await self.repo.preference()
+        if pref:
+            pref.revision += 1
+            await self.db.flush()
+
     async def settings(self):
         await self.authorize()
         pref = await self.repo.preference()
         return {
+            "engine": "mem0",
             "enabled": pref.enabled if pref else False,
             "revision": pref.revision if pref else 0,
             "auto_extract": pref.auto_extract if pref else False,
@@ -79,9 +87,11 @@ class MemoryService:
                 setattr(pref, key, getattr(data, key))
         if not pref.enabled:
             pref.auto_extract = False
+        else:
+            pref.auto_extract = True
         pref.revision += 1
         await self.repo.save(pref)
-        # In-flight jobs recheck this revision before writing candidates.
+        # In-flight jobs recheck this revision before committing automatic facts.
         return await self.settings()
 
     async def list(self):
@@ -133,7 +143,9 @@ class MemoryService:
             raise NotFoundError(message="当前项目中不存在此记忆")
         return item
 
-    async def save(self, data, item_id=None, *, source_override=False):
+    async def save(
+        self, data, item_id=None, *, source_override=False, automatic_quote=None, vector=None
+    ):
         await self.authorize()
         await self.repo.lock_account()
         item = await self.get(item_id) if item_id else None
@@ -162,6 +174,8 @@ class MemoryService:
         for key in ("title", "content", "kind", "pinned", "source_message_id", "expires_on"):
             setattr(item, key, getattr(data, key))
         item.content_hash = digest
+        item.origin = "automatic" if automatic_quote else "manual"
+        item.source_quote = automatic_quote
         item.revision += 1
         item.embedding, item.embedding_revision, item.embedding_model, item.index_attempts = (
             None,
@@ -169,8 +183,18 @@ class MemoryService:
             None,
             0,
         )
+        if vector is not None:
+            from app.services.memory_semantic import fingerprint
+
+            item.embedding, item.embedding_revision, item.embedding_model = (
+                vector,
+                item.revision,
+                fingerprint(),
+            )
         await self.repo.save(item)
         await self.repo.snapshot(item)
+        if automatic_quote is None:
+            await self.invalidate_pending()
         return public_item(item)
 
     async def archive(self, item_id, revision, archived):
@@ -185,6 +209,7 @@ class MemoryService:
         item.embedding_revision, item.index_attempts = None, 0
         await self.repo.save(item)
         await self.repo.snapshot(item)
+        await self.invalidate_pending()
         return public_item(item)
 
     async def history(self, item_id):
@@ -204,6 +229,7 @@ class MemoryService:
         if item.revision != revision:
             raise AlreadyExistsError(message="这条记忆已更新，请刷新后再删除")
         await self.repo.delete(item)
+        await self.invalidate_pending()
 
     async def source(self, item_id):
         item = await self.get(item_id)
@@ -261,7 +287,7 @@ class MemoryService:
             raise NotFoundError(message="任务不存在")
         config = await self.settings()
         if not config["enabled"] or not config["auto_extract"]:
-            raise BadRequestError(message="请先开启自动整理候选")
+            raise BadRequestError(message="请先开启聊天记忆")
         if job.status != "failed" or job.attempts >= 2:
             raise AlreadyExistsError(message="任务已重试或不处于失败状态")
         from sqlalchemy import func
@@ -304,7 +330,8 @@ class MemoryService:
         if not config["enabled"]:
             return {"status": "disabled", "items": [], "omitted": 0, "estimated_tokens": 0}
         items = [i for i in await self.repo.list() if memory_state(i) == "active"]
-        scores, semantic_status = {}, "off"
+        revisions = {i.id: i.revision for i in items}
+        scores, ranked, semantic_status = {}, None, "off"
         if config["semantic_recall"]:
             indexed = [i for i in items if i.embedding_revision == i.revision]
             semantic_status = "pending" if items and not indexed else "empty"
@@ -318,10 +345,38 @@ class MemoryService:
                 else:
                     if any(i.embedding_model == fingerprint for i in indexed):
                         scores = await self.repo.semantic(vector, fingerprint)
-                        semantic_status = "ready"
+                        from app.services.mem0_memory import rank, scope_key
+
+                        try:
+                            ranked = rank(
+                                query[:2000],
+                                items,
+                                scores,
+                                vector,
+                                scope=scope_key(self.user_id, self.project_id),
+                            )
+                        except Exception:
+                            scores, ranked, semantic_status = {}, None, "unavailable"
+                        else:
+                            semantic_status = "ready"
                     else:
                         semantic_status = "model_changed"
-        result = select_memories(query, items, semantic_scores=scores)
+        latest = await self.settings()
+        if latest["revision"] != config["revision"]:
+            return {
+                "status": "no_match" if latest["enabled"] else "disabled",
+                "items": [],
+                "omitted": 0,
+                "estimated_tokens": 0,
+                "retrieval_mode": "keyword",
+                "semantic_status": "changed",
+            }
+        items = [
+            i
+            for i in await self.repo.list()
+            if revisions.get(i.id) == i.revision and memory_state(i) == "active"
+        ]
+        result = select_memories(query, items, semantic_scores=scores, ranked_scores=ranked)
         return {
             **result,
             "retrieval_mode": "hybrid" if semantic_status == "ready" else "keyword",

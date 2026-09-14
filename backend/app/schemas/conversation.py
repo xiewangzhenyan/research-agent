@@ -7,10 +7,10 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, field_validator
 
 from app.schemas.base import BaseSchema, TimestampSchema
-from app.schemas.model_config import EffectiveAnswerConfig
+from app.schemas.model_config import EffectiveAnswerConfig, GenerationOptions
 
 
 class ToolCallBase(BaseSchema):
@@ -153,6 +153,14 @@ class ConversationRead(ConversationBase, TimestampSchema):
     """Schema for reading a conversation (API response)."""
 
     project_id: UUID | None = None
+    generation_options: GenerationOptions = Field(default_factory=GenerationOptions)
+
+    @field_validator("generation_options", mode="before")
+    @classmethod
+    def empty_generation_options(cls, value):
+        # Transient ORM instances and old imported records may omit defaults.
+        return {} if value is None else value
+
     id: UUID
     user_id: UUID | None = None
     active_knowledge_base_ids: list[UUID] = Field(default_factory=list)

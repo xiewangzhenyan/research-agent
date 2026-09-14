@@ -65,7 +65,11 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "leaflet": "^1.9.4",
-    "react-leaflet": "^5.0.0"
+    "react-leaflet": "^5.0.0",
+    "remark-math": "^6.0.0",
+    "rehype-katex": "^7.0.1",
+    "katex": "^0.16.47",
+    "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

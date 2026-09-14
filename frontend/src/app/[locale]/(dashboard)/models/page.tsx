@@ -10,12 +10,15 @@ import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/u
 import { fetchCapabilities, type LocalModelInfo } from "@/lib/model-capabilities";
 import { useAuthStore } from "@/stores";
 import { useGenerationConfig } from "@/hooks/use-generation-config";
+import { apiClient } from "@/lib/api-client";
+import type { AudioConfig } from "@/lib/audio-input";
 
 const names: Record<string, [string, string]> = {
   current_datetime: ["日期与时间", "Date and time"],
   ask_user: ["交互式提问", "User questions"],
   knowledge_retrieval: ["知识库检索与引用", "Knowledge retrieval and citations"],
   run_python: ["Python 代码执行", "Python execution"],
+  create_document: ["文档生成与下载", "Document generation and download"],
   create_chart: ["图表生成工具", "Chart tool"],
   web_search: ["联网搜索", "Web search"],
   multi_agent: ["多智能体协作", "Multi-agent collaboration"],
@@ -112,12 +115,20 @@ export default function ModelsPage() {
   const runtime = useQuery({
     queryKey: ["agent-capabilities", user?.id],
     queryFn: ({ signal }) => fetchCapabilities(signal),
-    enabled: !!user && tab !== "generation",
+    enabled: !!user && ["knowledge", "capabilities"].includes(tab),
     staleTime: 30000,
     retry: 1,
   });
+  const speech = useQuery({
+    queryKey: ["audio-config", user?.id],
+    queryFn: ({ signal }) => apiClient.get<AudioConfig>("/audio/config", { signal }),
+    enabled: !!user && tab === "speech",
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
   const data = query.data;
-  const refreshing = query.isFetching || runtime.isFetching;
+  const refreshing = query.isFetching || runtime.isFetching || speech.isFetching;
   return (
     <div className="models-workspace space-y-6 pb-8">
       <PageHeader
@@ -140,7 +151,9 @@ export default function ModelsPage() {
           size="sm"
           onClick={() => {
             void query.refetch();
-            if (tab !== "generation") void runtime.refetch({ cancelRefetch: false });
+            if (["knowledge", "capabilities"].includes(tab))
+              void runtime.refetch({ cancelRefetch: false });
+            if (tab === "speech") void speech.refetch({ cancelRefetch: false });
           }}
           disabled={refreshing}
         >
@@ -172,14 +185,15 @@ export default function ModelsPage() {
           >
             <TabsTrigger value="generation">{zh ? "对话模型" : "Chat models"}</TabsTrigger>
             <TabsTrigger value="knowledge">{zh ? "知识模型" : "Knowledge models"}</TabsTrigger>
+            <TabsTrigger value="speech">{zh ? "语音模型" : "Speech models"}</TabsTrigger>
             <TabsTrigger value="capabilities">{zh ? "平台能力" : "Capabilities"}</TabsTrigger>
           </TabsList>
-          {tab !== "generation" && runtime.isPending && (
+          {["knowledge", "capabilities"].includes(tab) && runtime.isPending && (
             <p role="status" className="text-muted-foreground py-8 text-center">
               {zh ? "正在检测运行状态…" : "Checking runtime status…"}
             </p>
           )}
-          {tab !== "generation" && runtime.isError && (
+          {["knowledge", "capabilities"].includes(tab) && runtime.isError && (
             <p role="alert" className="text-destructive text-sm">
               {zh
                 ? "运行状态更新失败，请刷新重试；已有检测结果仅供参考。"
@@ -194,6 +208,60 @@ export default function ModelsPage() {
               >
                 <LocalModel model={runtime.data.embedding} kind="embedding" zh={zh} />
                 <LocalModel model={runtime.data.rerank} kind="rerank" zh={zh} />
+              </section>
+            )}
+          </TabsContent>
+          <TabsContent value="speech">
+            {speech.isPending && (
+              <p role="status">{zh ? "正在读取语音配置…" : "Loading speech configuration…"}</p>
+            )}
+            {speech.isError && (
+              <p role="alert">
+                {zh
+                  ? "语音配置读取失败，请刷新重试。"
+                  : "Speech configuration unavailable. Please refresh."}
+              </p>
+            )}
+            {speech.data && (
+              <section className="border-border bg-card rounded-2xl border p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-lg font-semibold">
+                    {zh ? "语音输入与转写" : "Voice input and transcription"}
+                  </h2>
+                  <span className="text-muted-foreground text-xs">
+                    {speech.data.enabled
+                      ? zh
+                        ? "已配置 · 使用时调用"
+                        : "Configured · on demand"
+                      : zh
+                        ? "尚未启用"
+                        : "Not enabled"}
+                  </span>
+                </div>
+                <dl className="mt-5 space-y-4 text-sm">
+                  {[
+                    [zh ? "服务提供方" : "Provider", zh ? "硅基流动" : "SiliconFlow"],
+                    [zh ? "主用模型" : "Primary model", speech.data.model],
+                    [
+                      zh ? "故障兜底" : "Fallback model",
+                      speech.data.fallback_model || (zh ? "未配置" : "Not configured"),
+                    ],
+                    [
+                      zh ? "单次录音" : "Recording limit",
+                      `${speech.data.max_duration_seconds} ${zh ? "秒" : "seconds"}`,
+                    ],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex flex-wrap justify-between gap-x-6 gap-y-1">
+                      <dt className="text-muted-foreground">{label}</dt>
+                      <dd className="min-w-0 break-all">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="text-muted-foreground mt-5 text-sm leading-relaxed">
+                  {zh
+                    ? "录音结束后转写为文字，确认后发送。主模型超时或暂时不可用时自动切换；密钥由服务端管理，原始录音不存入知识库或项目记忆。"
+                    : "Record, transcribe, then review before sending. Temporary failures fall back automatically. Keys stay on the server; audio is not saved in knowledge bases or project memory."}
+                </p>
               </section>
             )}
           </TabsContent>

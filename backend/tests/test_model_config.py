@@ -58,12 +58,17 @@ def test_rejects_invalid_or_unapproved_controls(data):
 
 def test_model_specific_defaults_and_explicit_off():
     assert resolve_generation_config({}).provider_settings()["openai_reasoning_effort"] == "medium"
-    assert resolve_generation_config({"thinking_effort": "off"}).provider_settings() == {}
+    assert resolve_generation_config({"thinking_effort": "off"}).provider_settings() == {
+        "max_tokens": 8000
+    }
     assert resolve_generation_config({"model": "standard"}).provider_settings() == {
-        "temperature": 0.7
+        "temperature": 0.7,
+        "max_tokens": 8000,
     }
     assert resolve_generation_config({"model": "standard", "temperature": 0}).temperature == 0
-    assert resolve_generation_config({"model": "unknown-alias"}).provider_settings() == {}
+    assert resolve_generation_config({"model": "unknown-alias"}).provider_settings() == {
+        "max_tokens": 8000
+    }
 
 
 def test_policy_snapshot_changes_when_defaults_change(monkeypatch):
@@ -92,7 +97,7 @@ async def test_session_rejects_before_database_retrieval_or_model_call(data):
 
 
 @pytest.mark.anyio
-async def test_grounded_and_rewrite_receive_same_provider_settings():
+async def test_grounded_and_rewrite_share_sampling_but_bound_auxiliary_output():
     config = resolve_generation_config({"model": "standard", "temperature": 0.15})
     agent = MagicMock()
     agent.run = AsyncMock(
@@ -105,14 +110,20 @@ async def test_grounded_and_rewrite_receive_same_provider_settings():
         await knowledge_answer.grounded_answer(
             "q", [{"index": 1, "content": "data"}], "standard", configuration=config
         )
-        assert factory.call_args.kwargs["model_settings"] == {"temperature": 0.15}
+        assert factory.call_args.kwargs["model_settings"] == {
+            "temperature": 0.15,
+            "max_tokens": 8000,
+        }
         agent.run.return_value = SimpleNamespace(
             output=knowledge_answer.RewrittenQuery(query="follow up")
         )
         await knowledge_answer.rewrite_query(
             "q", [{"role": "user", "content": "history"}], "standard", configuration=config
         )
-        assert factory.call_args.kwargs["model_settings"] == {"temperature": 0.15}
+        assert factory.call_args.kwargs["model_settings"] == {
+            "temperature": 0.15,
+            "max_tokens": 2000,
+        }
 
 
 @pytest.mark.anyio
@@ -265,3 +276,112 @@ async def test_generation_discovery_is_redacted_and_independent_of_runtime_healt
     assert updated["policy_version"] != data["policy_version"]
     assert updated["models"][1]["defaults"]["temperature"] == 0.2
     health.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"top_p": -0.1},
+        {"top_p": 1.1},
+        {"top_p": True},
+        {"top_p": "0.5"},
+        {"top_p": float("nan")},
+        {"max_output_tokens": True},
+        {"max_output_tokens": 255},
+        {"max_output_tokens": 32001},
+        {"max_output_tokens": "1024"},
+        {"max_output_tokens": 2048.0},
+        {"model": "standard", "top_p": 0.5},
+    ],
+)
+def test_new_controls_reject_unapproved_values(data):
+    with pytest.raises(BadRequestError):
+        resolve_generation_config(data)
+
+
+def test_top_p_clears_server_temperature_default_and_rejects_two_overrides(monkeypatch):
+    monkeypatch.setattr(settings, "AI_MODEL_CONTROLS", {"standard": ["temperature", "top_p"]})
+    config = resolve_generation_config(
+        {"model": "standard", "top_p": 0.4, "max_output_tokens": 2048}
+    )
+    assert config.provider_settings() == {"top_p": 0.4, "max_tokens": 2048}
+    with pytest.raises(BadRequestError):
+        resolve_generation_config({"model": "standard", "temperature": 0.2, "top_p": 0.4})
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("sampling", [{"top_p": 0.4}, {"temperature": 0.2}])
+async def test_generation_controls_reach_responses_http_body(monkeypatch, sampling):
+    import json
+
+    from openai import AsyncOpenAI
+    from pydantic_ai import Agent
+    from pydantic_ai.models.openai import OpenAIResponsesModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    monkeypatch.setattr(settings, "AI_AVAILABLE_MODELS", ["gpt-4.1"])
+    monkeypatch.setattr(settings, "AI_MODEL_CONTROLS", {"gpt-4.1": ["temperature", "top_p"]})
+    bodies = []
+
+    def request(req):
+        bodies.append(json.loads(req.content))
+        return httpx.Response(
+            200,
+            json={
+                "id": "resp_test",
+                "object": "response",
+                "created_at": 1,
+                "status": "completed",
+                "model": "gpt-4.1",
+                "parallel_tool_calls": True,
+                "output": [
+                    {
+                        "type": "message",
+                        "id": "msg_test",
+                        "role": "assistant",
+                        "status": "completed",
+                        "content": [{"type": "output_text", "text": "ok", "annotations": []}],
+                    }
+                ],
+            },
+        )
+
+    config = resolve_generation_config({"model": "gpt-4.1", "max_output_tokens": 2048, **sampling})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(request)) as http:
+        model = OpenAIResponsesModel(
+            "gpt-4.1",
+            provider=OpenAIProvider(
+                openai_client=AsyncOpenAI(api_key="test-only", http_client=http)
+            ),
+        )
+        result = await Agent(model).run("test", model_settings=config.provider_settings())
+    assert result.output == "ok"
+    assert bodies[0]["max_output_tokens"] == 2048
+    assert "max_tokens" not in bodies[0]
+    for name, value in sampling.items():
+        assert bodies[0][name] == value
+    if "top_p" in sampling:
+        assert "temperature" not in bodies[0]
+
+
+def test_deployment_output_limit_is_discovered_enforced_and_versioned(monkeypatch):
+    from app.services.model_config import generation_config
+
+    previous = resolve_generation_config({}).policy_version
+    monkeypatch.setattr(settings, "AI_MODEL_OUTPUT_LIMITS", {"standard": 4096})
+    config = generation_config()
+    model = next(m for m in config.models if m.id == "standard")
+    assert model.output_token_limits == (256, 4096)
+    assert model.defaults.max_output_tokens == 4096
+    assert config.policy_version != previous
+    with pytest.raises(BadRequestError):
+        resolve_generation_config({"model": "standard", "max_output_tokens": 8000})
+
+
+def test_durable_generation_rejects_unsupported_fields():
+    from pydantic import ValidationError
+
+    from app.schemas.chat_turn import ChatTurnCreate
+
+    with pytest.raises(ValidationError):
+        ChatTurnCreate(idempotency_key=uuid4(), message="q", generation={"frequency_penalty": 0.5})

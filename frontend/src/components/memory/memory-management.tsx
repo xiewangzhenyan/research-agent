@@ -19,11 +19,9 @@ import {
   memoryError,
   memoryKey,
   type MemoryList,
-  type MemoryProposal,
   type MemoryItem,
   type MemorySettings,
 } from "@/lib/memory";
-import { MemoryEditor } from "./memory-editor";
 
 export function MemoryManagement({
   data,
@@ -36,7 +34,6 @@ export function MemoryManagement({
   const t = (cn: string, en: string) => (zh ? cn : en);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [review, setReview] = useState<MemoryProposal | null>(null);
   const models = useGenerationConfig(data.enabled);
   async function perform(action: () => Promise<unknown>) {
     setBusy(true);
@@ -71,23 +68,20 @@ export function MemoryManagement({
     <section className="bg-card space-y-5 rounded-2xl border p-5">
       <div className="flex items-start justify-between gap-5">
         <div>
-          <label htmlFor="memory-extract" className="flex items-center gap-2 font-medium">
+          <div className="flex items-center gap-2 font-medium">
             <Sparkles size={18} className="text-brand" />
-            {t("自动整理候选记忆", "Suggest memories from new messages")}
-          </label>
+            {t("自动记忆", "Automatic memory")}
+          </div>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-relaxed">
             {t(
-              "开启后，将新用户消息交给下方模型提取长期有用的信息，可能产生模型费用。不补扫历史，不直接写入或覆盖记忆。",
-              "Send new user messages to the selected model to suggest useful memories. Model usage may incur costs. No history backfill or automatic overwrites.",
+              "开启聊天记忆后，助手自动保存值得保留的信息，并根据你的新表述更新记忆，无需逐条确认。你可以随时查看、修改或删除；整理过程会产生模型用量。",
+              "While memory is enabled, useful facts are saved and updated automatically. View, correct or delete them at any time. Extraction uses model tokens.",
             )}
           </p>
         </div>
-        <Switch
-          id="memory-extract"
-          checked={data.auto_extract ?? false}
-          disabled={!data.enabled || busy}
-          onCheckedChange={(value) => setting({ auto_extract: value })}
-        />
+        <span className="text-muted-foreground bg-muted shrink-0 rounded-full px-3 py-1 text-xs">
+          {data.enabled ? t("已开启", "Enabled") : t("已关闭", "Disabled")}
+        </span>
       </div>
       {data.enabled && (
         <div className="grid gap-5 border-t pt-5 sm:grid-cols-2">
@@ -122,8 +116,8 @@ export function MemoryManagement({
             )}
             <p className="text-muted-foreground mt-2 text-xs">
               {t(
-                `账号近 24 小时已提取排队 ${data.daily_jobs ?? 0}/${data.daily_limit ?? 20} 次；每条消息最多 5 条建议。`,
-                `${data.daily_jobs ?? 0}/${data.daily_limit ?? 20} jobs queued in the last 24 hours for this account; up to 5 suggestions each.`,
+                `账号近 24 小时已整理排队 ${data.daily_jobs ?? 0}/${data.daily_limit ?? 20} 次；每条消息最多整理 5 条记忆。`,
+                `${data.daily_jobs ?? 0}/${data.daily_limit ?? 20} jobs queued in the last 24 hours for this account; up to 5 memories each.`,
               )}
             </p>
           </div>
@@ -162,65 +156,6 @@ export function MemoryManagement({
           {error}
         </p>
       )}
-      <div className="border-t pt-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-medium">
-            {t("待确认建议", "Suggestions to review")}{" "}
-            <span className="text-muted-foreground text-sm">{data.proposals?.length ?? 0}/20</span>
-          </h2>
-          <p className="text-muted-foreground text-xs">
-            {t(
-              "7 天内确认；逾期自动移出候选列表",
-              "Review within 7 days; expired suggestions are hidden",
-            )}
-          </p>
-        </div>
-        {!data.proposals?.length ? (
-          <p className="text-muted-foreground mt-3 text-sm">
-            {t(
-              "暂无建议。开启后，助手会从后续新消息中整理值得保留的信息。",
-              "No suggestions yet. After enabling, useful information from new messages appears here.",
-            )}
-          </p>
-        ) : (
-          <div className="mt-4 space-y-3">
-            {data.proposals.map((p) => (
-              <article key={p.id} className="bg-muted/20 min-w-0 space-y-3 rounded-xl border p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-brand text-xs">
-                    {p.action === "update" ? t("更新建议", "Update") : t("新增建议", "New")}
-                  </span>
-                  <h3 className="text-sm font-medium break-words">{p.payload.title}</h3>
-                </div>
-                <p className="text-sm break-words whitespace-pre-wrap">{p.payload.content}</p>
-                <blockquote className="text-muted-foreground border-l-2 pl-3 text-xs leading-relaxed break-words whitespace-pre-wrap">
-                  {t("原文：", "Source: ")}
-                  {p.quote}
-                </blockquote>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" disabled={busy} onClick={() => setReview(p)}>
-                    {t("核对并确认", "Review and confirm")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() =>
-                      perform(() =>
-                        apiClient.post(`/memory/proposals/${p.id}/reject`, {
-                          revision: p.revision,
-                        }),
-                      )
-                    }
-                  >
-                    {t("忽略建议", "Dismiss")}
-                  </Button>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
       {!!jobs.length && (
         <details className="border-t pt-4">
           <summary className="cursor-pointer text-sm">
@@ -236,8 +171,7 @@ export function MemoryManagement({
                   <p>
                     {labels[j.status] ?? j.status} ·{" "}
                     {new Date(j.created_at).toLocaleString(zh ? "zh-CN" : "en-US")}
-                    {j.status === "completed" &&
-                      ` · ${j.result_count} ${t("条建议", "suggestions")}`}
+                    {j.status === "completed" && ` · ${j.result_count} ${t("条已保存", "saved")}`}
                   </p>
                   <p className="text-muted-foreground break-all">
                     {j.model}
@@ -263,15 +197,6 @@ export function MemoryManagement({
             ))}
           </div>
         </details>
-      )}
-      {review && (
-        <MemoryEditor
-          proposal={review}
-          onClose={() => {
-            setReview(null);
-            void refresh();
-          }}
-        />
       )}
     </section>
   );

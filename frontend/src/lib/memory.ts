@@ -5,6 +5,8 @@ import { useAuthStore } from "@/stores/auth-store";
 export type MemoryKind = "preference" | "decision" | "constraint" | "note";
 export type MemoryItem = {
   id: string;
+  origin?: "manual" | "automatic";
+  source_quote?: string | null;
   project_id: string | null;
   title: string;
   content: string;
@@ -76,7 +78,7 @@ export const memoryKey = () => [
 export const kindLabel = (kind: MemoryKind, zh: boolean) =>
   ({
     preference: ["回答偏好", "Preference"],
-    decision: ["已确认决策", "Decision"],
+    decision: ["项目决策", "Decision"],
     constraint: ["项目约束", "Constraint"],
     note: ["重要笔记", "Note"],
   })[kind][zh ? 0 : 1];

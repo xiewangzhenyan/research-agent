@@ -241,10 +241,77 @@ test("restored clarification resumes from the same conversation", async ({ page 
   });
   await page.goto(`/chat?id=${cid}`);
   await expect(page.getByText("采用哪种格式？", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: /Markdown/ }).click();
+  await page
+    .getByRole("group", { name: "Question from the assistant" })
+    .getByRole("button", { name: /Markdown/ })
+    .click();
   await expect(page.getByText("关闭网页后完成的完整回答", { exact: true })).toBeVisible();
   expect(reply).toEqual({
     question_id: "format-question",
     answers: { "format-call": ["Markdown"] },
   });
+});
+
+test("draft model choices survive first-send acknowledgement and reset for a new chat", async ({
+  page,
+}) => {
+  const server = chatServer();
+  await server.attach(page);
+  await page.route("**/api/agent/generation-config", (route) =>
+    route.fulfill({
+      json: {
+        default: "test",
+        policy_version: "test",
+        models: [
+          {
+            id: "test",
+            temperature: true,
+            thinking_efforts: ["low", "medium", "high"],
+            defaults: {
+              model: "test",
+              temperature: 0.7,
+              thinking_effort: null,
+              policy_version: "test",
+            },
+            status: "configured",
+          },
+        ],
+      },
+    }),
+  );
+  await page.goto("/chat?new=1");
+  const settings = async () => {
+    await page.getByRole("button", { name: "聊天模型与设置" }).click();
+    await page.getByRole("button", { name: "回答设置", exact: true }).click();
+  };
+  await settings();
+  const temperature = page.getByLabel("回答随机性（温度）");
+  await temperature.press("Home");
+  for (let i = 0; i < 5; i++) await temperature.press("ArrowRight");
+  await page.getByRole("button", { name: "高", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await page.getByRole("textbox", { name: "输入消息" }).fill("请继续完成整理");
+  await page.getByRole("button", { name: "发送消息" }).click();
+  await expect(page).toHaveURL(new RegExp(`id=${cid}`));
+  expect(server.requests[0]?.generation).toMatchObject({
+    temperature: 0.25,
+    thinking_effort: "high",
+  });
+  await settings();
+  await expect(page.getByLabel("回答随机性（温度）")).toHaveValue("0.25");
+  await expect(page.getByRole("button", { name: "高", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.keyboard.press("Escape");
+  const menu = page.getByRole("button", { name: "切换菜单" });
+  if (await menu.isVisible()) await menu.click();
+  await page.getByRole("link", { name: "开始对话", exact: true }).click();
+  await expect(page).toHaveURL(/new=1/);
+  await settings();
+  await expect(page.getByLabel("回答随机性（温度）")).toHaveValue("0.7");
+  await expect(page.getByRole("button", { name: "默认", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });

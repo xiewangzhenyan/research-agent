@@ -58,3 +58,7 @@ v1_router.include_router(memory.router)
 from app.api.routes.v1 import chat_turns
 
 v1_router.include_router(chat_turns.router)
+
+from app.api.routes.v1 import audio
+
+v1_router.include_router(audio.router)

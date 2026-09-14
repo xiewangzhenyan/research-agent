@@ -117,16 +117,19 @@ async def test_progress_coalesces_tokens_and_keeps_final_text_thinking_and_tool_
 async def test_context_keeps_complete_recent_messages_in_order_and_scopes_memory():
     uid, pid, cid, mid = uuid4(), uuid4(), uuid4(), uuid4()
     db = AsyncMock()
-    db.get.return_value = SimpleNamespace(conversation_id=cid, created_at="2026-09-13", id=mid)
-    db.scalars.return_value = [
-        SimpleNamespace(role="assistant", content="recent answer"),
-        SimpleNamespace(role="user", content="recent question"),
-        SimpleNamespace(role="assistant", content="x" * 24000),
-        SimpleNamespace(role="user", content="older text"),
-    ]
-    conversations, memory = MagicMock(), MagicMock()
-    conversations.get_conversation = AsyncMock()
+    memory = MagicMock()
     memory.recall = AsyncMock(return_value=[])
+    recent = [
+        {"role": "user", "content": "recent question"},
+        {"role": "assistant", "content": "recent answer"},
+    ]
+    recalled_context = {
+        "history": recent,
+        "history_context": "",
+        "rewrite_history": recent,
+        "budgets": {"memory": 1600},
+        "context_usage": {"estimated_input_tokens": 0},
+    }
 
     @asynccontextmanager
     async def database():
@@ -135,7 +138,9 @@ async def test_context_keeps_complete_recent_messages_in_order_and_scopes_memory
     data = request(conversation_id=str(cid), user_message_id=str(mid))
     with (
         patch.object(chat, "get_worker_db_context", database),
-        patch.object(chat, "ConversationService", return_value=conversations) as constructor,
+        patch(
+            "app.services.conversation_context.recall", AsyncMock(return_value=recalled_context)
+        ) as recall,
         patch.object(chat, "MemoryService", return_value=memory) as memory_constructor,
         patch.object(chat, "memory_context", return_value=""),
         patch.object(chat, "usage_record", return_value={}),
@@ -143,15 +148,12 @@ async def test_context_keeps_complete_recent_messages_in_order_and_scopes_memory
             chat, "rewrite_query", AsyncMock(return_value=("resolved query", "rewritten"))
         ),
     ):
-        context = await chat.prepare_context(data, uid, pid, resolve_generation_config({}))
-    assert context["history"] == [
-        {"role": "user", "content": "recent question"},
-        {"role": "assistant", "content": "recent answer"},
-    ]
+        config = resolve_generation_config({})
+        context = await chat.prepare_context(data, uid, pid, config)
+    assert context["history"] == recent
     assert context["query"] == "resolved query"
     assert context["memory_context"] == ""
-    constructor.assert_called_once_with(db, project_id=pid)
-    conversations.get_conversation.assert_awaited_once_with(cid, user_id=uid, access="owner")
+    recall.assert_awaited_once_with(db, data, uid, pid, config)
     memory_constructor.assert_called_once_with(db, uid, project_id=pid)
     memory.recall.assert_awaited_once_with(data["prompt"], strict_knowledge=True)
 

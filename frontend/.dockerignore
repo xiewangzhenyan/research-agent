@@ -38,3 +38,10 @@ Thumbs.db
 # Misc
 *.log
 .turbo
+
+# Test reports and private local configuration are not build inputs.
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+.env*

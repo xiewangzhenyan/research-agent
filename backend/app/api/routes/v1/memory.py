@@ -1,4 +1,4 @@
-"""Human-controlled project memory. A header cannot grant account access."""
+"""Automatic project memory with user management. Headers cannot grant account access."""
 
 from uuid import UUID
 

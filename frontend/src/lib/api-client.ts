@@ -35,7 +35,7 @@ let refreshPromise: Promise<boolean> | null = null;
  * Resolves true on success (cookies + in-memory access token updated), false
  * if the refresh itself failed (caller should surface the original 401).
  */
-function refreshAccessToken(): Promise<boolean> {
+export function refreshAccessToken(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = fetch(`/api${REFRESH_ENDPOINT}`, {
       method: "POST",

@@ -1,4 +1,4 @@
-import type { EffectiveConfig } from "@/lib/model-capabilities";
+import type { EffectiveConfig, GenerationOptions } from "@/lib/model-capabilities";
 import type { RawMessage } from "@/lib/conversation-to-chat";
 
 export interface ChatRun {
@@ -25,6 +25,7 @@ export interface ChatRun {
 }
 
 export interface ChatSnapshot {
+  generation?: GenerationOptions;
   messages?: RawMessage[];
   before?: string | null;
   runs: ChatRun[];

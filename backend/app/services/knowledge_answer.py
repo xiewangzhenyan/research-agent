@@ -11,6 +11,7 @@ from pydantic_ai import Agent
 
 from app.agents.assistant import _build_model
 from app.schemas.model_config import EffectiveGenerationConfig
+from app.services.context_budget import ContextBudgetGuard
 from app.services.model_config import resolve_generation_config
 
 logger = logging.getLogger(__name__)
@@ -76,7 +77,7 @@ async def rewrite_query(
         return query, "original"
     agent = Agent(
         _build_model(config.model),
-        model_settings=config.provider_settings(),
+        model_settings={**config.provider_settings(include_output_limit=False), "max_tokens": 2000},
         output_type=RewrittenQuery,
         retries=0,
         system_prompt=(
@@ -173,7 +174,8 @@ async def grounded_answer(
                     "sources": sources,
                 },
                 ensure_ascii=False,
-            )
+            ),
+            capabilities=[ContextBudgetGuard(config)],
         )
     output, cited = validate_answer(response.output, sources)
     return (

@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import or_, select, tuple_
 from sqlalchemy.orm import selectinload
 
-from app.agents.tool_catalog import CHAT_TOOL_NAMES, PYTHON_TOOL, TOOL_POLICY_VERSION
+from app.agents.tool_catalog import DURABLE_TOOL_NAMES, PYTHON_TOOL, TOOL_POLICY_VERSION
 from app.core.exceptions import AlreadyExistsError, BadRequestError, NotFoundError, RateLimitError
 from app.db.models.agent_run import AgentRun
 from app.db.models.conversation import Message
@@ -98,7 +98,17 @@ class ChatTurnService:
                 raise BadRequestError(message="单次对话附件合计最多 20 MiB，请拆分后发送")
             if sum(len(f.parsed_content or "") for f in attached) > 60000:
                 raise BadRequestError(message="附件文本过长，请导入知识库后提问")
-        configuration = resolve_generation_config(data.generation.model_dump())
+        generation = (
+            data.generation.model_dump(exclude_none=True)
+            if data.generation is not None
+            else (conversation.generation_options or {})
+            if conversation
+            else {}
+        )
+        configuration = resolve_generation_config(generation)
+        from app.services.context_budget import check_prompt
+
+        check_prompt(data.message, configuration)
         if conversation is None:
             conversation = await self.conversations.create_conversation(
                 ConversationCreate(user_id=self.user_id, title=data.message[:50] or "附件对话")
@@ -112,6 +122,8 @@ class ChatTurnService:
             ),
             user_id=self.user_id,
         )
+        # Same transaction as the accepted message; runs retain their own immutable snapshot.
+        conversation.generation_options = generation
         sent_at = datetime.now(UTC)
         user_message = await self.conversations.add_message(
             conversation.id, MessageCreate(role="user", content=data.message), user_id=self.user_id
@@ -141,7 +153,7 @@ class ChatTurnService:
             if documents is not None
             else None,
             "knowledge_strict": strict,
-            "tools": list(CHAT_TOOL_NAMES),
+            "tools": list(DURABLE_TOOL_NAMES),
             "tool_policy_version": TOOL_POLICY_VERSION,
             "conversation_id": str(conversation.id),
             "user_message_id": str(user_message.id),
@@ -155,7 +167,7 @@ class ChatTurnService:
                 raise BadRequestError(
                     message="严格资料模式不执行代码，请关闭严格模式后使用计算工具"
                 )
-            request["tools"] = await resolve_tools(user, [*CHAT_TOOL_NAMES, PYTHON_TOOL])
+            request["tools"] = await resolve_tools(user, [*DURABLE_TOOL_NAMES, PYTHON_TOOL])
             health = await sandbox_client.health()
             request["sandbox_protocol"] = 2 if health.get("file_execution") else 1
             if files and request["sandbox_protocol"] != 2:
@@ -193,7 +205,9 @@ class ChatTurnService:
         return run
 
     async def state(self, conversation_id, *, before=None, include_messages=True):
-        await self.conversations.get_conversation(conversation_id, user_id=self.user_id)
+        conversation = await self.conversations.get_conversation(
+            conversation_id, user_id=self.user_id, access="owner"
+        )
         query_runs = select(AgentRun).where(
             AgentRun.conversation_id == conversation_id,
             AgentRun.user_id == self.user_id,
@@ -211,7 +225,7 @@ class ChatTurnService:
                 ).order_by(AgentRun.created_at, AgentRun.id)
             )
         )
-        result = {"runs": public_runs(runs)}
+        result = {"runs": public_runs(runs), "generation": conversation.generation_options or {}}
         if not include_messages:
             return result
         query = select(Message).where(Message.conversation_id == conversation_id)
@@ -315,3 +329,6 @@ async def save_chat_result(db, run, result):
         )
     result.pop("tool_calls", None)
     await db.flush()
+    from app.services.conversation_context import enqueue
+
+    await enqueue(db, run.conversation_id, run.effective_config)

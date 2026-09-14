@@ -81,7 +81,7 @@ export async function mockWorkspace(page: Page, authenticated = true) {
         },
       });
     if (path === "/api/memory/settings") {
-      Object.assign(memory, body, { revision: memory.revision + 1 });
+      Object.assign(memory, body, { auto_extract: body.enabled, revision: memory.revision + 1 });
       return route.fulfill({ json: memory });
     }
     if (path === "/api/memory") {

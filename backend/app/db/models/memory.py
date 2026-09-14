@@ -1,4 +1,4 @@
-"""Project-scoped confirmed memories and separately consented extraction candidates."""
+"""Project-scoped Mem0 facts, versions and durable extraction jobs."""
 
 from datetime import date, datetime
 from uuid import UUID, uuid4
@@ -68,6 +68,8 @@ class MemoryItem(Base, TimestampMixin):
     kind: Mapped[str] = mapped_column(String(20))
     pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     content_hash: Mapped[str] = mapped_column(String(64))
+    origin: Mapped[str] = mapped_column(String(16), default="manual", server_default="manual")
+    source_quote: Mapped[str | None] = mapped_column(Text, nullable=True)
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     # Deleting a source conversation also removes notes derived from its messages.
     source_message_id: Mapped[UUID | None] = mapped_column(

@@ -6,7 +6,21 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path?
   if (!token) return NextResponse.json({ detail: "请先登录" }, { status: 401 });
   const { path = [] } = await params;
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const isExport =
+    request.method === "POST" &&
+    path.length === 3 &&
+    path[0] === "messages" &&
+    uuid.test(path[1] ?? "") &&
+    path[2] === "export";
   const valid =
+    isExport ||
+    (request.method === "GET" &&
+      path.length === 5 &&
+      path[0] === "conversations" &&
+      uuid.test(path[1] ?? "") &&
+      path[2] === "messages" &&
+      uuid.test(path[3] ?? "") &&
+      path[4] === "context") ||
     (request.method === "POST" && path.length === 1 && path[0] === "turns") ||
     (request.method === "GET" &&
       path.length === 3 &&
@@ -38,13 +52,24 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path?
     return new NextResponse(response.body, {
       status: response.status,
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type":
+          isExport && response.ok
+            ? (response.headers.get("Content-Type") ?? "application/octet-stream")
+            : "application/json",
+        ...(isExport && response.ok && response.headers.get("Content-Disposition")
+          ? { "Content-Disposition": response.headers.get("Content-Disposition")! }
+          : {}),
+        "X-Content-Type-Options": "nosniff",
         "Cache-Control": "private, no-store",
       },
     });
   } catch {
     return NextResponse.json(
-      { detail: "发送结果暂未确认，请重试；相同消息不会重复提交" },
+      {
+        detail: isExport
+          ? "导出暂时失败，请稍后重试"
+          : "发送结果暂未确认，请重试；相同消息不会重复提交",
+      },
       { status: 502 },
     );
   }

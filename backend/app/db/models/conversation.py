@@ -62,6 +62,7 @@ class Conversation(Base, TimestampMixin):
         JSONB(none_as_null=True), nullable=True
     )
     knowledge_strict: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    generation_options: Mapped[dict] = mapped_column(JSONB, default=dict, server_default="{}")
 
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

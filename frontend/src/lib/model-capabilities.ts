@@ -1,9 +1,24 @@
 import type { MemoryUsage } from "@/lib/memory";
 
+export interface GenerationOptions {
+  model?: string | null;
+  temperature?: number | null;
+  top_p?: number | null;
+  max_output_tokens?: number | null;
+  thinking_effort?: "low" | "medium" | "high" | "off" | null;
+}
+
 export interface EffectiveConfig {
   memory?: MemoryUsage;
+  context?: {
+    recent_messages: number;
+    references: Array<{ message_id: string; via: string }>;
+    omitted: boolean;
+  };
   model: string;
   temperature: number | null;
+  top_p?: number | null;
+  max_output_tokens?: number | null;
   thinking_effort: "low" | "medium" | "high" | null;
   policy_version: string;
 }
@@ -11,6 +26,8 @@ export interface EffectiveConfig {
 export interface GenerationModelInfo {
   id: string;
   temperature: boolean;
+  top_p?: boolean;
+  output_token_limits?: [number, number];
   thinking_efforts: string[];
   defaults: EffectiveConfig;
   status: "configured" | "unconfigured";

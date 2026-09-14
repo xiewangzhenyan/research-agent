@@ -85,7 +85,7 @@ def test_opt_in_scope_ownership_and_revision_conflicts():
             assert (await client.delete(item_url + "?revision=1", headers=h)).status_code == 409
             assert (
                 await client.put(
-                    BASE + "/settings", headers=h, json={"enabled": False, "revision": 1}
+                    BASE + "/settings", headers=h, json={"enabled": False, "revision": 2}
                 )
             ).status_code == 200
             assert (

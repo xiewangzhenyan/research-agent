@@ -93,3 +93,34 @@ it("keeps controls unavailable on failure and permits a retry", async () => {
   fireEvent.click(screen.getByRole("button", { name: "重新加载" }));
   await screen.findByRole("button", { name: "standard" });
 });
+
+it("restores a controlled snapshot and updates advanced parameters atomically", async () => {
+  const extended = {
+    ...config,
+    models: config.models.map((m) => ({
+      ...m,
+      top_p: m.id === "standard",
+      output_token_limits: [256, 32000],
+    })),
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(JSON.stringify(extended))),
+  );
+  const change = vi.fn();
+  await open({
+    value: { model: "standard", top_p: 0.4, max_output_tokens: 2048 },
+    onChange: change,
+  });
+  fireEvent.click(screen.getByRole("button", { name: "回答设置" }));
+  fireEvent.click(screen.getByText("更多参数"));
+  expect(screen.getByLabelText("输出长度上限（Token）")).toHaveValue("2048");
+  expect(screen.getByLabelText(/Top P ·/)).toHaveValue("0.4");
+  fireEvent.change(screen.getByLabelText("回答随机性（温度）"), { target: { value: "0.25" } });
+  expect(change).toHaveBeenLastCalledWith({
+    model: "standard",
+    temperature: 0.25,
+    top_p: null,
+    max_output_tokens: 2048,
+  });
+});

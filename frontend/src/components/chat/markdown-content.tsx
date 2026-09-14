@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 export interface MarkdownContentProps {
   content: string;
   onCiteClick?: (index: number) => void;
+  isStreaming?: boolean;
 }
 
 /**
@@ -23,13 +24,10 @@ const MarkdownContentImpl = dynamic(
   () => import("./markdown-content.impl").then((m) => m.MarkdownContent),
   {
     ssr: false,
-    loading: () => (
-      <p className="text-foreground/55 leading-relaxed whitespace-pre-wrap">&nbsp;</p>
-    ),
+    loading: () => <p className="text-foreground/55 leading-relaxed whitespace-pre-wrap">&nbsp;</p>,
   },
 );
 
-export function MarkdownContent({ content, onCiteClick }: MarkdownContentProps) {
-  return <MarkdownContentImpl content={content} onCiteClick={onCiteClick} />;
+export function MarkdownContent(props: MarkdownContentProps) {
+  return <MarkdownContentImpl {...props} />;
 }
-

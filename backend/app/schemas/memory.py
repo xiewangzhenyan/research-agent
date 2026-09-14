@@ -36,6 +36,8 @@ class MemoryResponse(MemoryCreate):
     archived_at: datetime | None = None
     state: Literal["active", "expired", "archived"] = "active"
     index_status: Literal["pending", "ready", "failed"] = "pending"
+    origin: Literal["manual", "automatic"] = "manual"
+    source_quote: str | None = None
 
 
 class MemoryPreferenceWrite(BaseModel):
@@ -81,9 +83,9 @@ class ExtractedMemory(BaseModel):
     content: str = Field(min_length=1, max_length=1200)
     kind: Literal["preference", "decision", "constraint", "note"]
     action: Literal["add", "update"]
-    target: int | None = Field(default=None, ge=0, le=7)
+    target: int | None = Field(default=None, ge=0, le=9)
     reason: str = Field(min_length=1, max_length=500)
-    quote: str = Field(min_length=8, max_length=1500)
+    quote: str = Field(min_length=4, max_length=1500)
     expires_on: date | None = None
     expiry_quote: str | None = Field(default=None, max_length=300)
 

@@ -166,7 +166,13 @@ class AgentSession:
             or len(file_ids) > 10
         ):
             raise ValueError("Invalid message")
-        configuration = resolve_generation_config(data)
+        # Legacy WebSocket envelopes also contain message/files. Only the declared
+        # generation subset belongs to the same strict policy used by durable chat.
+        from app.schemas.model_config import GenerationOptions
+
+        configuration = resolve_generation_config(
+            {key: value for key, value in data.items() if key in GenerationOptions.model_fields}
+        )
         base_ids_raw = data.get("knowledge_base_ids")
         document_ids_raw = data.get("knowledge_document_ids")
         strict = data.get("knowledge_strict", True)

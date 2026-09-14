@@ -2,8 +2,8 @@
 import { useUnsavedInput } from "@/hooks/use-unsaved-input";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Button, Badge, Spinner } from "@/components/ui";
-import { Send, Mic, MicOff, Paperclip, X, FileText, Upload } from "lucide-react";
+import { Badge, Spinner } from "@/components/ui";
+import { ArrowUp, Mic, Square, X, FileText, Upload } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
@@ -16,6 +16,8 @@ import {
   type SlashCommandContext,
 } from "./slash-commands";
 import { SlashCommandPalette } from "./slash-command-palette";
+import { ChatToolsMenu } from "./chat-tools-menu";
+import { useVoiceInput } from "@/hooks/use-voice-input";
 
 interface ChatInputProps {
   onSend: (message: string, fileIds?: string[], files?: FileUploadResponse[]) => boolean | void;
@@ -27,6 +29,8 @@ interface ChatInputProps {
   slashContext?: SlashCommandContext;
   /** Effective slash commands (built-ins + user customs, after overrides). */
   commands?: SlashCommand[];
+  controls?: React.ReactNode;
+  onPythonChange?: (enabled: boolean) => void;
 }
 
 export function ChatInput({
@@ -36,20 +40,29 @@ export function ChatInput({
   onStop,
   slashContext,
   commands,
+  controls,
+  onPythonChange,
 }: ChatInputProps) {
   const t = useTranslations("chat");
   const isZh = useLocale() === "zh";
   const [message, setMessage] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<FileUploadResponse[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  useUnsavedInput(!!message.trim() || attachedFiles.length > 0 || isUploading);
+  const voice = useVoiceInput(isZh, (text) => {
+    setMessage((draft) => (draft ? `${draft}${/\s$/.test(draft) ? "" : " "}${text}` : text));
+  });
+  const isListening = voice.listening;
+  const voiceBusy = voice.busy;
+  const cancelVoice = voice.cancel;
+  const composing = useRef(false);
+  useUnsavedInput(
+    !!message.trim() || attachedFiles.length > 0 || isUploading || voiceBusy || voice.canRetry,
+  );
   // Slash-command palette state. Open while message starts with "/" and the
   // caller wired a context — without one, commands have nothing to do.
   const [paletteIndex, setPaletteIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const showPalette = !!slashContext && message.startsWith("/") && !message.includes("\n");
   const allCommands = commands ?? BUILTIN_COMMANDS;
@@ -63,12 +76,6 @@ export function ChatInput({
   }, [filteredCommands.length, message]);
 
   useEffect(() => {
-    if (!isProcessing && !isUploading && textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [isProcessing, isUploading]);
-
-  useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
@@ -77,7 +84,9 @@ export function ChatInput({
 
   const runSlashCommand = useCallback(
     (cmd: SlashCommand) => {
+      if (disabled || isUploading || voiceBusy) return;
       if (cmd.action.kind === "client") {
+        cancelVoice();
         cmd.action.run(slashContext!);
         setMessage("");
         return;
@@ -87,14 +96,16 @@ export function ChatInput({
       const fileIds = attachedFiles.length > 0 ? attachedFiles.map((f) => f.id) : undefined;
       const files = attachedFiles.length > 0 ? attachedFiles : undefined;
       if (onSend(cmd.action.replaceWith, fileIds, files) === false) return;
+      cancelVoice();
       setMessage("");
       setAttachedFiles([]);
     },
-    [attachedFiles, onSend, slashContext],
+    [attachedFiles, onSend, slashContext, disabled, isUploading, voiceBusy, cancelVoice],
   );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (disabled || isUploading || voiceBusy || composing.current) return;
     if (showPalette && filteredCommands[paletteIndex]) {
       runSlashCommand(filteredCommands[paletteIndex]);
       return;
@@ -113,11 +124,13 @@ export function ChatInput({
       ) === false
     )
       return;
+    cancelVoice();
     setMessage("");
     setAttachedFiles([]);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (composing.current || e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (showPalette && filteredCommands.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -148,66 +161,10 @@ export function ChatInput({
     }
   };
 
-  const toggleMic = useCallback(() => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast.info(
-        isZh
-          ? "语音输入目前仅支持 Chrome 浏览器。"
-          : "Voice input is currently supported in Chrome only.",
-      );
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = navigator.language || "en-US";
-
-    let finalTranscript = "";
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (!result) continue;
-        if (result.isFinal) {
-          finalTranscript += result[0]?.transcript ?? "";
-        } else {
-          interim += result[0]?.transcript ?? "";
-        }
-      }
-      setMessage(() => {
-        return finalTranscript + (interim ? "\u200B" + interim : "");
-      });
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-      setMessage((prev) => prev.replace(/\u200B/g, ""));
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-      toast.error(isZh ? "语音识别失败" : "Speech recognition failed");
-    };
-
-    recognitionRef.current = recognition;
-    recognition.start();
-    setIsListening(true);
-    finalTranscript = message;
-  }, [isListening, isZh, message]);
-
   // File upload to backend — shared by the file picker and drag-and-drop.
   const uploadFiles = useCallback(
     async (files: File[]) => {
-      if (files.length === 0) return;
+      if (disabled || files.length === 0) return;
       for (const file of files) {
         if (file.size > MAX_UPLOAD_SIZE_MB * 1024 * 1024) {
           toast.error(
@@ -227,15 +184,16 @@ export function ChatInput({
         }
       }
     },
-    [isZh],
+    [isZh, disabled],
   );
 
   const handleFileSelect = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files || files.length === 0) return;
+      const selected = Array.from(files);
       e.target.value = "";
-      await uploadFiles(Array.from(files));
+      await uploadFiles(selected);
     },
     [uploadFiles],
   );
@@ -278,7 +236,7 @@ export function ChatInput({
   return (
     <form
       onSubmit={handleSubmit}
-      className="relative"
+      className="chat-composer relative"
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -343,100 +301,136 @@ export function ChatInput({
         </div>
       )}
 
-      <div className="flex items-end gap-2">
-        <textarea
-          ref={textareaRef}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={t("sendMessage")}
-          disabled={disabled}
-          rows={1}
-          className="placeholder:text-muted-foreground min-h-[40px] flex-1 resize-none scrollbar-thin bg-transparent py-2.5 text-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:text-base"
-        />
-
-        <div className="flex shrink-0 items-center gap-0.5 pb-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={toggleMic}
-            disabled={disabled}
-            className="h-9 w-9"
-            title={
-              isListening
-                ? isZh
-                  ? "停止录音"
-                  : "Stop recording"
-                : isZh
-                  ? "语音输入"
-                  : "Voice input"
-            }
-            aria-label={
-              isListening
-                ? isZh
-                  ? "停止录音"
-                  : "Stop recording"
-                : isZh
-                  ? "语音输入"
-                  : "Voice input"
-            }
-          >
-            {isListening ? (
-              <MicOff className="h-4 w-4 animate-pulse text-red-500" />
-            ) : (
-              <Mic className="text-muted-foreground h-4 w-4" />
-            )}
-          </Button>
-
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={disabled || isUploading}
-            className="h-9 w-9"
-            title={isZh ? "添加附件" : "Attach file"}
-            aria-label={isZh ? "添加附件" : "Attach file"}
-          >
-            {isUploading ? (
-              <Spinner className="text-muted-foreground h-4 w-4" />
-            ) : (
-              <Paperclip className="text-muted-foreground h-4 w-4" />
-            )}
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            onChange={handleFileSelect}
-            accept="image/jpeg,image/png,image/gif,image/webp,.txt,.md,.csv,.json,.py,.js,.ts,.tsx,.html,.css,.yaml,.yml,.toml,.xml,.sql,.sh,.pdf,.docx"
-            multiple
-            className="hidden"
-          />
-
-          {isProcessing && onStop && !message.trim() && attachedFiles.length === 0 ? (
-            <Button
+      <textarea
+        ref={textareaRef}
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onCompositionStart={() => {
+          composing.current = true;
+        }}
+        onCompositionEnd={() => {
+          composing.current = false;
+        }}
+        placeholder={t("sendMessage")}
+        aria-label={isZh ? "输入消息" : "Message"}
+        disabled={disabled}
+        readOnly={isListening}
+        rows={2}
+        className="composer-textarea placeholder:text-muted-foreground w-full resize-none scrollbar-thin bg-transparent px-4 pt-3 pb-2 text-base disabled:cursor-not-allowed disabled:opacity-50 sm:px-5"
+      />
+      {voice.error && (
+        <div
+          role="alert"
+          className="text-muted-foreground flex items-start gap-2 px-4 pb-2 text-xs leading-5"
+        >
+          <span className="flex-1">{voice.error}</span>
+          {voice.canRetry && (
+            <button
               type="button"
-              size="icon"
-              onClick={onStop}
-              className="h-9 w-9 rounded-lg"
-              title={isZh ? "停止生成" : "Stop generating"}
+              onClick={voice.retry}
+              disabled={disabled}
+              className="text-foreground shrink-0 underline underline-offset-2"
             >
-              <span className="h-3 w-3 rounded-[3px] bg-current" aria-hidden="true" />
-              <span className="sr-only">{isZh ? "停止生成" : "Stop generating"}</span>
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              size="icon"
-              disabled={disabled || isUploading || (!message.trim() && attachedFiles.length === 0)}
-              className="h-9 w-9 rounded-lg"
-            >
-              {isProcessing ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-              <span className="sr-only">{isZh ? "发送消息" : "Send message"}</span>
-            </Button>
+              {isZh ? "重试转写" : "Retry transcription"}
+            </button>
           )}
+          <button
+            type="button"
+            onClick={voice.clearError}
+            aria-label={isZh ? "关闭语音提示" : "Dismiss voice message"}
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
+      )}
+      {voiceBusy && (
+        <div className="text-muted-foreground flex items-center gap-2 px-4 pb-2 text-xs">
+          <p role="status" className="flex-1">
+            {voice.phase === "requesting"
+              ? isZh
+                ? "请允许使用麦克风…"
+                : "Waiting for microphone access…"
+              : isListening
+                ? isZh
+                  ? `正在录音 ${voice.elapsed} / 60 秒 · 结束后转写为文字`
+                  : `Recording ${voice.elapsed} / 60 s · Stop to transcribe`
+                : isZh
+                  ? "正在转写… 完成后可编辑并发送。"
+                  : "Transcribing… Review the text before sending."}
+          </p>
+          <button
+            type="button"
+            onClick={voice.cancel}
+            className="shrink-0 underline underline-offset-2"
+          >
+            {isZh ? "取消" : "Cancel"}
+          </button>
+        </div>
+      )}
+      <div className="composer-toolbar flex items-center gap-1 px-2 pb-2 sm:px-3">
+        <ChatToolsMenu
+          onAttach={() => fileInputRef.current?.click()}
+          onPythonChange={onPythonChange}
+          disabled={disabled || isUploading}
+        />
+        {isUploading && <Spinner className="text-muted-foreground h-4 w-4" />}
+        <div className="min-w-0 flex-1">{controls}</div>
+        <button
+          type="button"
+          onClick={() => {
+            void voice.toggle();
+          }}
+          disabled={(disabled && !isListening) || (voiceBusy && !isListening)}
+          className="composer-icon"
+          aria-pressed={isListening}
+          title={
+            isListening ? (isZh ? "结束录音" : "Stop recording") : isZh ? "语音输入" : "Voice input"
+          }
+          aria-label={
+            isListening ? (isZh ? "结束录音" : "Stop recording") : isZh ? "语音输入" : "Voice input"
+          }
+        >
+          {isListening ? (
+            <Square className="h-4 w-4 fill-current" />
+          ) : voiceBusy ? (
+            <Spinner className="h-4 w-4" />
+          ) : (
+            <Mic className="h-5 w-5" />
+          )}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          onChange={handleFileSelect}
+          accept="image/jpeg,image/png,image/gif,image/webp,.txt,.md,.csv,.json,.py,.js,.ts,.tsx,.html,.css,.yaml,.yml,.toml,.xml,.sql,.sh,.pdf,.docx"
+          multiple
+          className="hidden"
+        />
+        {isProcessing && onStop && !message.trim() && attachedFiles.length === 0 ? (
+          <button
+            type="button"
+            onClick={onStop}
+            className="composer-send"
+            aria-label={isZh ? "停止生成" : "Stop generating"}
+          >
+            <Square className="h-3.5 w-3.5 fill-current" />
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={
+              disabled ||
+              isUploading ||
+              voiceBusy ||
+              (!message.trim() && attachedFiles.length === 0)
+            }
+            className="composer-send"
+            aria-label={isZh ? "发送消息" : "Send message"}
+          >
+            <ArrowUp className="h-5 w-5" />
+          </button>
+        )}
       </div>
     </form>
   );

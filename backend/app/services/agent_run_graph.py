@@ -1,7 +1,7 @@
 # ruff: noqa: RUF001 - Chinese user-facing copy
 """LangGraph owns node progression; all checkpoint state is JSON-compatible.
 
-Only read-only tools are enabled. A crash inside generation can repeat that model
+Tool access is fixed per run; document writes are fenced and bounded. A crash inside generation can repeat that model
 call; completed graph nodes are recovered from PostgreSQL checkpoints.
 """
 
@@ -9,22 +9,29 @@ import hashlib
 import json
 from dataclasses import asdict
 from typing import TypedDict
-from uuid import UUID
+from uuid import UUID, uuid5
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
-from pydantic_ai import CallDeferred, DeferredToolRequests, DeferredToolResults, RunContext
+from pydantic_ai import (
+    CallDeferred,
+    DeferredToolRequests,
+    DeferredToolResults,
+    ModelRetry,
+    RunContext,
+)
 from pydantic_ai.messages import ModelMessagesTypeAdapter
 from pydantic_ai.usage import RunUsage, UsageLimits
 
 from app.agents.assistant import Deps, get_agent
-from app.agents.tool_catalog import CHAT_TOOL_NAMES, PYTHON_TOOL, TOOL_SPECS
+from app.agents.tool_catalog import DOCUMENT_TOOL, DURABLE_TOOL_NAMES, PYTHON_TOOL, TOOL_SPECS
 from app.agents.tools.ask_user_tool import format_answers
-from app.core.exceptions import AuthorizationError
+from app.core.exceptions import AuthorizationError, BadRequestError, RateLimitError
 from app.db.models.user import User
 from app.db.session import get_worker_db_context
 from app.schemas.model_config import EffectiveGenerationConfig
 from app.services import sandbox_client
+from app.services.document_export import DocumentRequest, render_async
 from app.services.knowledge import KnowledgeService
 from app.services.knowledge_answer import grounded_answer
 from app.services.retrieval_snapshot import capture, execution_record, restore
@@ -66,7 +73,7 @@ def build_run_graph(
     project_id: UUID | None = None,
     chat_request=None,
 ):
-    allowed = tuple(CHAT_TOOL_NAMES if allowed_tools is None else allowed_tools)
+    allowed = tuple(DURABLE_TOOL_NAMES if allowed_tools is None else allowed_tools)
     config = EffectiveGenerationConfig.model_validate(configuration)
     retrieval_config = restore(retrieval_snapshot)
 
@@ -107,9 +114,23 @@ def build_run_graph(
                 else "任务无需知识库检索",
             },
         )
-        return {"sources": sources, "retrieval_runs": records}
+        if chat_request and state.get("chat", {}).get("budgets"):
+            from app.services.context_budget import fit_items
+
+            selected, _ = fit_items(sources, state["chat"]["budgets"]["sources"])
+            state["chat"]["context_usage"]["omitted"] |= len(selected) < len(sources)
+            sources = selected
+        return {
+            "sources": sources,
+            "retrieval_runs": records,
+            **({"chat": state["chat"]} if chat_request else {}),
+        }
 
     async def generate(state):
+        if chat_request:
+            from app.services.conversation_context import revalidate
+
+            await revalidate(chat_request, state["chat"], user_id, project_id)
         rounds = state.get("rounds", 0)
         if rounds >= 5:
             raise ValueError("任务超过最大澄清轮数")
@@ -122,6 +143,18 @@ def build_run_graph(
             },
         )
         if state["base_ids"] and (not chat_request or chat_request["knowledge_strict"]):
+            if chat_request and state["chat"].get("context_usage"):
+                from app.services.context_budget import cost
+
+                state["chat"]["context_usage"]["estimated_input_tokens"] = cost(
+                    {
+                        "question": state["prompt"],
+                        "query": state["chat"]["query"],
+                        "sources": state["sources"],
+                    }
+                )
+                state["chat"]["effective_config"]["context"] = state["chat"]["context_usage"]
+                await emit("chat_config", state["chat"]["effective_config"])
             output, citations, meta = await grounded_answer(
                 state["prompt"],
                 state["sources"],
@@ -132,7 +165,13 @@ def build_run_graph(
             await emit(
                 "step_completed", {"step": "generate", "message": "答案与原文引用校验完成", **meta}
             )
-            return {"output": output, "citations": citations, "pending": None, "rounds": rounds + 1}
+            return {
+                "output": output,
+                "citations": citations,
+                "pending": None,
+                "rounds": rounds + 1,
+                **({"chat": state["chat"]} if chat_request else {}),
+            }
 
         async def ask_user(questions):
             # Bound persisted tool arguments even when a model emits huge strings.
@@ -184,6 +223,38 @@ def build_run_graph(
             from app.services.chat_execution import ChatProgress
 
             progress = ChatProgress(emit)
+        if DOCUMENT_TOOL in allowed and run_id is not None:
+
+            @agent.tool(name=DOCUMENT_TOOL)
+            async def create_document(ctx: RunContext[Deps], document: DocumentRequest) -> dict:
+                """Create a real downloadable md/docx/xlsx/pptx file from Markdown content.
+
+                Use for document requests without Python. Supply a concise title and the
+                complete content (up to 100000 characters). Word preserves headings/lists/
+                tables; Excel turns Markdown tables into sheets and other text into notes;
+                PPT makes up to 60 text slides from headings (tables become row text).
+                No code, macros, images, web fetches, calculated formulas or editable math.
+                LaTeX stays text in Office; preserve it verbatim. Each file is at most 2 MiB.
+                Use only supplied or established facts. Never invent a download URL:
+                after successful creation, the UI displays a card using returned metadata.
+                """
+                await authorize(DOCUMENT_TOOL)
+                await emit("document_started", {"tool": DOCUMENT_TOOL, "message": "正在生成文档"})
+                try:
+                    file = await render_async(document)
+                    execution_id = uuid5(run_id, "document-v1:" + document.model_dump_json())
+                    async with get_worker_db_context() as db:
+                        artifacts = await RunArtifactService(
+                            db, user_id, project_id=project_id
+                        ).save(run_id, attempt, execution_id, [file])
+                except (BadRequestError, RateLimitError) as exc:
+                    raise ModelRetry(str(exc)) from exc
+                result = {"artifacts": artifacts}
+                await emit(
+                    "document_created", {"tool": DOCUMENT_TOOL, "message": "文档已保存", **result}
+                )
+                return result
+
         if PYTHON_TOOL in allowed:
 
             @agent.tool(name=PYTHON_TOOL)
@@ -241,6 +312,8 @@ def build_run_graph(
                 chat_request, state["chat"], user_id, project_id, state.get("sources", [])
             )
             initial_history = build_message_history(state["chat"]["history"])
+            state["chat"]["effective_config"]["context"] = state["chat"]["context_usage"]
+            await emit("chat_config", state["chat"]["effective_config"])
         if PYTHON_TOOL in allowed:
             execution_request = sandbox_request or {}
             manifest = [
@@ -251,9 +324,28 @@ def build_run_graph(
                 {"protocol": execution_request.get("sandbox_protocol", 1), "inputs": manifest},
                 ensure_ascii=False,
             )
+        if chat_request and state.get("messages") and state["chat"].get("budgets"):
+            from app.services.context_budget import cost
+
+            if (
+                cost(state["messages"]) + cost(state.get("replies", {}))
+                > state["chat"]["budgets"]["input"]
+            ):
+                raise BadRequestError(
+                    message="本轮工具与澄清记录已达上下文预算，请新发一条消息继续"
+                )
+        from app.services.context_budget import ContextBudgetGuard
+
+        async def validate_history():
+            if chat_request:
+                from app.services.conversation_context import revalidate
+
+                await revalidate(chat_request, state["chat"], user_id, project_id)
+
         result = await agent.run(
             None if state.get("messages") else prompt,
             output_type=[str, DeferredToolRequests],
+            capabilities=[ContextBudgetGuard(config, validate_history)],
             deps=Deps(
                 user_id=str(user_id),
                 ask_user=ask_user,
@@ -270,10 +362,11 @@ def build_run_graph(
             usage_limits=UsageLimits(
                 request_limit=12, tool_calls_limit=20, total_tokens_limit=60000
             ),
-            model_settings={**config.provider_settings(), "max_tokens": 8000, "timeout": 120},
+            model_settings={"max_tokens": 8000, **config.provider_settings(), "timeout": 120},
             event_stream_handler=stream_events,
         )
         update = {
+            **({"chat": state["chat"]} if chat_request else {}),
             "messages": result.all_messages_json().decode(),
             "usage": {k: v for k, v in asdict(result.usage).items() if k != "cost"},
             "rounds": rounds + 1,
@@ -344,6 +437,9 @@ def build_run_graph(
             return {"routing": routing}
 
         async def collaborate(state):
+            from app.services.conversation_context import revalidate
+
+            await revalidate(chat_request, state["chat"], user_id, project_id)
             from app.services.knowledge_collaboration import build_collaboration_graph
 
             child = build_collaboration_graph(

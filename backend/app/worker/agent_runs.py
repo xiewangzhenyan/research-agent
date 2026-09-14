@@ -231,6 +231,10 @@ async def execute(run_id, conn):
                 pending_input=snapshot.values["pending"],
             )
         else:
+            if request.get("kind") == "chat":
+                from app.services.conversation_context import revalidate
+
+                await revalidate(request, snapshot.values["chat"], user_id, project_id)
             await mutate(
                 "completed",
                 {"message": "任务已完成"},
@@ -409,9 +413,10 @@ async def main():
             await AsyncPostgresSaver(conn).setup()
         print("Task checkpoint schema ready")
         return
+    from app.worker.conversation_context import loop as context_loop
     from app.worker.memory import loop as memory_loop
 
-    await asyncio.gather(loop(), loop(), maintain(), memory_loop())
+    await asyncio.gather(loop(), loop(), maintain(), memory_loop(), context_loop())
 
 
 if __name__ == "__main__":

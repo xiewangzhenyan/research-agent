@@ -1,6 +1,6 @@
 """Server-owned policy: task choices may reduce permission, never expand it."""
 
-from app.agents.tool_catalog import CHAT_TOOL_NAMES, PYTHON_TOOL, TOOL_POLICY_VERSION, TOOL_SPECS
+from app.agents.tool_catalog import DURABLE_TOOL_NAMES, PYTHON_TOOL, TOOL_POLICY_VERSION, TOOL_SPECS
 from app.core.config import settings
 from app.core.exceptions import AuthorizationError, BadRequestError
 from app.services import sandbox_client
@@ -11,7 +11,7 @@ async def tool_catalog(user):
     eligible = bool(user and (user.is_app_admin or settings.SANDBOX_ALLOW_PUBLIC))
     items = []
     for name, spec in TOOL_SPECS.items():
-        available = name in CHAT_TOOL_NAMES or (eligible and sandbox["status"] == "ready")
+        available = name in DURABLE_TOOL_NAMES or (eligible and sandbox["status"] == "ready")
         items.append(
             {
                 "id": name,
@@ -20,7 +20,7 @@ async def tool_catalog(user):
                 "version": TOOL_POLICY_VERSION,
                 "execution": spec.execution,
                 "available": available,
-                "default_enabled": name in CHAT_TOOL_NAMES,
+                "default_enabled": name in DURABLE_TOOL_NAMES,
                 "timeout_seconds": spec.timeout_seconds,
                 "output_limit_bytes": spec.output_limit_bytes,
                 "retry": spec.retry,
@@ -35,7 +35,7 @@ async def tool_catalog(user):
 
 
 async def resolve_tools(user, requested):
-    names = list(dict.fromkeys(CHAT_TOOL_NAMES if requested is None else requested))
+    names = list(dict.fromkeys(DURABLE_TOOL_NAMES if requested is None else requested))
     if any(name not in TOOL_SPECS for name in names):
         raise BadRequestError(message="任务包含未注册工具")
     if PYTHON_TOOL in names:

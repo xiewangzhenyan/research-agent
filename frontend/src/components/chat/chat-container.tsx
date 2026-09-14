@@ -1,6 +1,7 @@
 "use client";
+
+import type { GenerationOptions } from "@/lib/model-capabilities";
 import dynamic from "next/dynamic";
-import { ChatToolOptions } from "./chat-tool-options";
 import { KnowledgeSelector } from "./knowledge-selector";
 
 import { useEffect, useRef, useCallback } from "react";
@@ -52,10 +53,11 @@ export function ChatContainer() {
     loadingOlder,
     connectionError,
     refresh,
+    composerKey,
     setPythonEnabled,
-    setModel,
-    setTemperature,
-    setThinkingEffort,
+    generation,
+    generationReady,
+    setGeneration,
     pendingApproval,
     sendResumeDecisions,
     pendingQuestions,
@@ -86,7 +88,7 @@ export function ChatContainer() {
   // Auto-scroll on every messages update unless user has scrolled up
   useEffect(() => {
     if (messages.length === 0 || userScrolledUpRef.current) return;
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
   }, [messages]);
   const { commands: slashCommands } = useSlashCommands();
 
@@ -140,10 +142,11 @@ export function ChatContainer() {
           currentConversationId !== null && isConversationLoading && messages.length === 0
         }
         sendMessage={sendMessage}
+        composerKey={composerKey}
         onPythonChange={setPythonEnabled}
-        onModelChange={setModel}
-        onTemperatureChange={setTemperature}
-        onThinkingEffortChange={setThinkingEffort}
+        generation={generation}
+        generationReady={generationReady}
+        onGenerationChange={setGeneration}
         onRegenerate={handleRegenerate}
         slashContext={slashContext}
         slashCommands={slashCommands}
@@ -183,6 +186,10 @@ interface ChatUIProps {
     fileIds?: string[],
     files?: import("@/types").ChatMessageFile[],
   ) => void;
+  composerKey?: string;
+  generation?: GenerationOptions;
+  generationReady?: boolean;
+  onGenerationChange?: (value: GenerationOptions) => void;
   onPythonChange?: (value: boolean) => void;
   onModelChange?: (model: string | null) => void;
   onTemperatureChange?: (temperature: number | null) => void;
@@ -218,6 +225,10 @@ function ChatUI({
   connectionError,
   onRefresh,
   sendMessage,
+  composerKey,
+  generation,
+  generationReady,
+  onGenerationChange,
   onPythonChange,
   onModelChange,
   onTemperatureChange,
@@ -312,49 +323,35 @@ function ChatUI({
               onRetry={onRetryQueued}
             />
           )}
-          <div className="bg-card border-border focus-within:border-foreground/30 rounded-2xl border transition-colors">
+          <div className="composer-surface">
             <KnowledgeSelector />
-            {onPythonChange && <ChatToolOptions onChange={onPythonChange} />}
-            <div className="px-3 pt-3 sm:px-4 sm:pt-4">
-              <ChatInput
-                onSend={sendMessage}
-                disabled={
-                  !isConnected ||
-                  !!isSubmitting ||
-                  !!pendingApproval ||
-                  !!(pendingQuestions && pendingQuestions.length)
-                }
-                isProcessing={isProcessing}
-                onStop={onStop}
-                slashContext={slashContext}
-                commands={slashCommands}
-              />
-            </div>
-            <div className="border-foreground/8 flex items-center justify-between border-t px-3 py-2 sm:px-4">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`inline-flex items-center gap-1.5 font-mono text-[10px] tracking-wider uppercase ${isConnected ? "text-muted-foreground" : "text-destructive"}`}
-                >
-                  <span
-                    className={`inline-block h-1.5 w-1.5 rounded-full ${
-                      isConnected ? "bg-emerald-500" : "bg-destructive"
-                    }`}
-                  />
-                  {isConnected ? tc("live") : tc("offline")}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
+            <ChatInput
+              key={composerKey}
+              onSend={sendMessage}
+              disabled={
+                !isConnected ||
+                !!isSubmitting ||
+                !!pendingApproval ||
+                !!(pendingQuestions && pendingQuestions.length)
+              }
+              isProcessing={isProcessing}
+              onStop={onStop}
+              slashContext={slashContext}
+              commands={slashCommands}
+              onPythonChange={onPythonChange}
+              controls={
                 <ChatControls
+                  value={generation}
+                  onChange={onGenerationChange}
+                  disabled={generationReady === false}
                   onModelChange={onModelChange}
                   onTemperatureChange={onTemperatureChange}
                   onThinkingEffortChange={onThinkingEffortChange}
                 />
-              </div>
-            </div>
+              }
+            />
           </div>
-          <p className="text-foreground/40 mt-2 text-center font-mono text-[10px] tracking-wider uppercase">
-            {tc("aiDisclaimer")}
-          </p>
+          <p className="text-foreground/40 mt-2 text-center text-[11px]">{tc("aiDisclaimer")}</p>
         </div>
       </div>
       <FilePreviewPanel />

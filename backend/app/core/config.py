@@ -4,7 +4,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import computed_field, field_validator, ValidationInfo
+from pydantic import Field, SecretStr, computed_field, field_validator, ValidationInfo
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -150,8 +150,12 @@ class Settings(BaseSettings):
         "gpt-5.5": ["thinking_effort"],
         "gpt-5.4": ["thinking_effort"],
         "gpt-5.4-mini": ["thinking_effort"],
-        "gpt-4.1": ["temperature"],
+        "gpt-4.1": ["temperature", "top_p"],
     }
+    # Exact deployment limits. Unconfigured aliases keep the existing 8000-token cap.
+    AI_MODEL_OUTPUT_LIMITS: dict[str, int] = {}
+    # Explicit deployment limits; unknown aliases use a conservative 32K window.
+    AI_MODEL_CONTEXT_LIMITS: dict[str, int] = {}
     AI_AVAILABLE_MODELS: list[str] = [
         "gpt-5.5",
         "gpt-5.5-pro",
@@ -166,6 +170,32 @@ class Settings(BaseSettings):
     ]
     AI_FRAMEWORK: str = "pydantic_ai"
     LLM_PROVIDER: str = "openai"
+
+    # Server-only speech recognition, independent of chat credentials.
+    ASR_ENABLED: bool = False
+    ASR_BASE_URL: str = "https://api.siliconflow.cn/v1"
+    ASR_API_KEY: SecretStr = Field(default=SecretStr(""), repr=False)
+    ASR_MODEL: str = "Qwen/Qwen3-ASR-1.7B"
+    ASR_FALLBACK_MODEL: str = "XingChenAGI/XingChenASR-V3.2-Ultra"
+    ASR_TIMEOUT_SECONDS: int = Field(default=25, ge=5, le=45)
+    ASR_DAILY_AUDIO_SECONDS: int = Field(default=1800, ge=60, le=86400)
+
+    @field_validator("ASR_BASE_URL")
+    @classmethod
+    def validate_asr_url(cls, value: str) -> str:
+        from urllib.parse import urlsplit
+
+        url = urlsplit(value)
+        if (
+            url.scheme != "https"
+            or not url.hostname
+            or url.username
+            or url.password
+            or url.query
+            or url.fragment
+        ):
+            raise ValueError("ASR_BASE_URL must be an HTTPS URL without credentials or query")
+        return value.rstrip("/")
 
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",

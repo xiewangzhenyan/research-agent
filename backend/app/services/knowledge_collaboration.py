@@ -91,7 +91,11 @@ async def run_role(role, payload, config, usage):
         json.dumps(payload, ensure_ascii=False),
         usage=RunUsage(**usage),
         usage_limits=UsageLimits(request_limit=12, total_tokens_limit=60000),
-        model_settings={**config.provider_settings(), "max_tokens": 5000, "timeout": 75},
+        model_settings={
+            **config.provider_settings(include_output_limit=False),
+            "max_tokens": (config.max_output_tokens or 8000) if role == "writer" else 5000,
+            "timeout": 75,
+        },
     )
     output = result.output.model_dump()
     if role == "planner" and any(not q.strip() or len(q) > 500 for q in output["queries"]):

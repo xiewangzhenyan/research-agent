@@ -12,11 +12,12 @@ from pydantic_ai.models.function import FunctionModel
 from sqlalchemy import func, select
 
 from app.db.models.conversation import Message
-from app.db.models.memory import MemoryExtractionJob, MemoryItem, MemoryProposal, MemoryVersion
+from app.db.models.memory import MemoryExtractionJob, MemoryItem, MemoryVersion
 from app.db.session import get_worker_db_context
 from app.schemas.memory import ExtractionResult
 from app.services import memory_extraction as extraction
 from app.services.agent import persist_user_turn
+from app.services.mem0_memory import MemoryBatch, snapshot
 from app.worker import memory as worker
 from tests.test_project_spaces_integration import header, workspace
 
@@ -75,16 +76,14 @@ def result(action="add", target=None):
 
 
 async def run(job, output=None):
-    with patch.object(
-        extraction,
-        "infer",
-        AsyncMock(
-            return_value=(
-                output or result(),
-                {"requests": 1, "input_tokens": 50, "output_tokens": 40},
-            )
-        ),
-    ):
+    async def inferred(text, history, targets, config, **kwargs):
+        return MemoryBatch(
+            output or result(),
+            snapshot(targets),
+            {"requests": 1, "input_tokens": 50, "output_tokens": 40},
+        )
+
+    with patch.object(extraction, "infer", inferred):
         await worker.locked(7301, job, worker.execute)
 
 
@@ -159,7 +158,7 @@ def test_expiry_archive_versions_and_conflicting_revision():
     asyncio.run(check())
 
 
-def test_proposals_review_update_source_history_and_idempotent_delivery():
+def test_automatic_update_source_history_and_idempotent_delivery():
     async def check():
         async with workspace() as (owner, other, _, _, a, b, _, client):
             h = header(a)
@@ -171,35 +170,32 @@ def test_proposals_review_update_source_history_and_idempotent_delivery():
             new_mid, new_cid = await message(client, a)
             job = await queue(owner, a, new_mid)
             assert await queue(owner, a, new_mid) == job
-            await asyncio.gather(run(job, result("update", 0)), run(job, result("update", 0)))
+
+            async def infer(text, history, targets, config, **kwargs):
+                return MemoryBatch(result("update", 0), snapshot(targets))
+
+            with patch.object(extraction, "infer", infer):
+                await asyncio.gather(
+                    worker.locked(7301, job, worker.execute),
+                    worker.locked(7301, job, worker.execute),
+                )
             data = (await client.get(BASE, headers=h)).json()
-            assert len(data["proposals"]) == 1
-            assert data["items"][0]["content"] == NOTE["content"]
-            p = data["proposals"][0]
-            assert p["target"]["id"] == note["id"]
-            body = {**p["payload"], "revision": p["revision"], "content": TEXT + " 已核对。"}
-            url = BASE + f"/proposals/{p['id']}/accept"
-            assert (await client.post(url, headers=header(b), json=body)).status_code == 404
-            denied = await client.post(
-                url, headers=h, json={**body, "source_message_id": str(old_mid)}
-            )
-            assert denied.status_code == 400
-            accepted = await client.post(url, headers=h, json=body)
-            assert accepted.status_code == 200, accepted.text
-            assert accepted.json()["item"]["revision"] == 2
-            assert (await client.post(url, headers=h, json=body)).status_code == 409
-            assert (await client.get(BASE, headers=h)).json()["proposals"] == []
+            assert data["proposals"] == [] and len(data["items"]) == 1
+            saved = data["items"][0]
+            assert saved["id"] == note["id"] and saved["revision"] == 2
+            assert saved["content"] == TEXT and saved["origin"] == "automatic"
+            assert saved["source_quote"] == TEXT and saved["source_message_id"] == str(new_mid)
+            assert (await client.get(BASE, headers=header(b))).json()["items"] == []
+            preview = (
+                await client.post(BASE + "/preview", headers=h, json={"query": "测量温度"})
+            ).json()
+            assert preview["items"][0]["content"] == TEXT
             assert (
                 len((await client.get(BASE + f"/{note['id']}/history", headers=h)).json()["items"])
                 == 2
             )
             await client.delete(f"/api/v1/conversations/{old_cid}", headers=h)
-            # Current source was deliberately replaced by the reviewed update.
             assert len((await client.get(BASE, headers=h)).json()["items"]) == 1
-            assert (
-                len((await client.get(BASE + f"/{note['id']}/history", headers=h)).json()["items"])
-                == 1
-            )
             await client.delete(f"/api/v1/conversations/{new_cid}", headers=h)
             assert (await client.get(BASE, headers=h)).json()["items"] == []
             async with get_worker_db_context() as db:
@@ -208,7 +204,7 @@ def test_proposals_review_update_source_history_and_idempotent_delivery():
     asyncio.run(check())
 
 
-@pytest.mark.parametrize("change", ["settings", "source", "target"])
+@pytest.mark.parametrize("change", ["settings", "source", "target", "delete"])
 def test_changes_during_inference_never_write_stale_suggestions(change):
     async def check():
         async with workspace() as (owner, _, _, _, a, _, _, client):
@@ -218,52 +214,36 @@ def test_changes_during_inference_never_write_stale_suggestions(change):
             mid, cid = await message(client, a)
             job = await queue(owner, a, mid)
 
-            async def infer(*args):
+            async def infer(*args, **kwargs):
                 if change == "settings":
                     await enable(client, a, enabled=False)
                     await enable(client, a)  # Off -> on must not revive the old settings revision.
                 elif change == "source":
                     await client.delete(f"/api/v1/conversations/{cid}", headers=h)
+                elif change == "delete":
+                    await client.delete(BASE + "/" + note["id"] + "?revision=1", headers=h)
                 else:
                     await client.put(
                         BASE + "/" + note["id"],
                         headers=h,
                         json={**NOTE, "content": "已改为 35°C", "revision": 1},
                     )
-                return result("update", 0), {}
+                return MemoryBatch(result("update", 0), snapshot(args[2]))
 
             with patch.object(extraction, "infer", infer):
                 await worker.locked(7301, job, worker.execute)
-            assert (await client.get(BASE, headers=h)).json()["proposals"] == []
+            data = (await client.get(BASE, headers=h)).json()
+            assert data["proposals"] == []
+            assert all(i["content"] != TEXT for i in data["items"])
 
     asyncio.run(check())
 
 
-def test_reject_stale_accept_expired_proposal_and_retry_bounds():
+def test_failed_automatic_extraction_retry_bounds_and_no_error_payload_leak():
     async def check():
         async with workspace() as (owner, _, _, _, a, _, _, client):
             h = header(a)
             await enable(client, a)
-            note = (await client.post(BASE, headers=h, json=NOTE)).json()
-            mid, _ = await message(client, a)
-            job = await queue(owner, a, mid)
-            await run(job, result("update", 0))
-            p = (await client.get(BASE, headers=h)).json()["proposals"][0]
-            await client.put(
-                BASE + "/" + note["id"],
-                headers=h,
-                json={**NOTE, "content": "测量改为 40°C", "revision": 1},
-            )
-            url = BASE + f"/proposals/{p['id']}"
-            assert (
-                await client.post(url + "/accept", headers=h, json={**p["payload"], "revision": 1})
-            ).status_code == 409
-            assert (
-                await client.post(url + "/reject", headers=h, json={"revision": 1})
-            ).status_code == 200
-            assert (
-                await client.post(url + "/reject", headers=h, json={"revision": 1})
-            ).status_code == 409
             mid, _ = await message(client, a)
             failed = await queue(owner, a, mid)
             with patch.object(
@@ -276,15 +256,35 @@ def test_reject_stale_accept_expired_proposal_and_retry_bounds():
                 assert (await client.post(retry, headers=h)).status_code == 409
             data = (await client.get(BASE, headers=h)).json()
             assert "private provider payload" not in str(data)
-            assert next(j for j in data["jobs"] if j["id"] == str(failed))["attempts"] == 2
-            async with get_worker_db_context() as db:
-                proposal = await db.get(MemoryProposal, UUID(p["id"]))
-                proposal.status, proposal.revision = "pending", 1
-                proposal.expires_at = datetime.now(UTC) - timedelta(seconds=1)
-            assert (
-                await client.post(url + "/accept", headers=h, json={**p["payload"], "revision": 1})
-            ).status_code == 409
-            assert (await client.get(BASE, headers=h)).json()["proposals"] == []
+            assert data["items"] == [] and data["jobs"][0]["attempts"] == 2
+
+    asyncio.run(check())
+
+
+def test_enabling_memory_enables_automatic_writes_and_old_jobs_cannot_overwrite_newer_facts():
+    async def check():
+        async with workspace() as (owner, _, _, _, a, b, _, client):
+            h = header(a)
+            enabled = await client.put(
+                BASE + "/settings", headers=h, json={"enabled": True, "revision": 0}
+            )
+            assert enabled.json()["auto_extract"] is True and enabled.json()["engine"] == "mem0"
+            old_mid, _ = await message(client, a, "之前的测量温度必须固定在 25°C。")
+            old_job = await queue(owner, a, old_mid)
+            new_mid, _ = await message(client, a)
+            new_job = await queue(owner, a, new_mid)
+            await run(new_job)
+            with patch.object(
+                extraction,
+                "infer",
+                AsyncMock(side_effect=AssertionError("Old work must not call the model")),
+            ) as infer:
+                await worker.locked(7301, old_job, worker.execute)
+                infer.assert_not_awaited()
+            data = (await client.get(BASE, headers=h)).json()
+            assert [i["content"] for i in data["items"]] == [TEXT]
+            assert next(j for j in data["jobs"] if j["id"] == str(old_job))["status"] == "skipped"
+            assert (await client.get(BASE, headers=header(b))).json()["items"] == []
 
     asyncio.run(check())
 
@@ -315,10 +315,22 @@ def test_actual_pydantic_extraction_and_persisted_chat_queue_hook():
                     ]
                 )
 
-            with patch.object(extraction, "_build_model", return_value=FunctionModel(model)):
+            with (
+                patch("app.services.mem0_memory._build_model", return_value=FunctionModel(model)),
+                patch(
+                    "app.services.memory_semantic.encode_query",
+                    return_value=([1.0] + [0.0] * 511, "test"),
+                ),
+                patch(
+                    "app.services.memory_semantic.encode_note",
+                    return_value=([1.0] + [0.0] * 511, "test"),
+                ),
+                patch("app.services.memory_semantic.fingerprint", return_value="test"),
+            ):
                 await worker.locked(7301, job.id, worker.execute)
             data = (await client.get(BASE, headers=header(a))).json()
-            assert len(data["proposals"]) == 1 and data["jobs"][0]["usage"]["requests"] == 1
+            assert len(data["items"]) == 1 and data["jobs"][0]["usage"]["requests"] == 1
+            assert data["items"][0]["origin"] == "automatic" and data["proposals"] == []
             # Restore a KB default and check the native strict-mode snapshot.
             await client.put(
                 f"/api/v1/projects/{a.id}",
@@ -503,6 +515,42 @@ def test_real_offline_vector_index_and_recall_without_embedding_api():
     asyncio.run(check())
 
 
+@pytest.mark.skipif(
+    os.getenv("RUN_LOCAL_MEMORY_MODEL") != "1", reason="requires mounted offline model"
+)
+def test_real_mem0_pipeline_with_cached_chinese_encoder_and_pgvector():
+    async def check():
+        async with workspace() as (owner, _, _, _, a, _, _, client):
+            h = header(a)
+            await enable(client, a)
+            mid, _ = await message(client, a)
+            job_id = await queue(owner, a, mid)
+
+            def model(messages, info):
+                return ModelResponse(
+                    parts=[
+                        ToolCallPart(info.output_tools[0].name, result().model_dump(mode="json"))
+                    ]
+                )
+
+            with patch("app.services.mem0_memory._build_model", return_value=FunctionModel(model)):
+                await worker.locked(7301, job_id, worker.execute)
+            data = (await client.get(BASE, headers=h)).json()
+            assert data["jobs"][0]["status"] == "completed", data["jobs"]
+            assert data["items"][0]["origin"] == "automatic"
+            assert data["items"][0]["index_status"] == "ready"
+            recalled = (
+                await client.post(
+                    BASE + "/preview", headers=h, json={"query": "超表面测量的温度要求"}
+                )
+            ).json()
+            assert (
+                recalled["retrieval_mode"] == "hybrid" and recalled["items"][0]["content"] == TEXT
+            )
+
+    asyncio.run(check())
+
+
 def test_dispatcher_handles_default_project_index_and_candidate_job():
     async def check():
         async with workspace() as (owner, _, _, _, _, _, _, client):
@@ -511,7 +559,9 @@ def test_dispatcher_handles_default_project_index_and_candidate_job():
             mid, _ = await message(client, None)
             job_id = await queue(owner, None, mid)
             with (
-                patch.object(extraction, "infer", AsyncMock(return_value=(result(), {}))),
+                patch.object(
+                    extraction, "infer", AsyncMock(return_value=MemoryBatch(result(), []))
+                ),
                 patch(
                     "app.services.memory_semantic.encode_note",
                     return_value=([1.0] + [0.0] * 511, "review"),

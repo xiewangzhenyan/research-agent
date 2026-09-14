@@ -8,6 +8,8 @@ import { activateProject } from "@/lib/project-scope";
 import type { ChatMessage, User } from "@/types";
 import type { MemoryItem, MemoryProposal } from "@/lib/memory";
 import MemoryPage from "@/app/[locale]/(dashboard)/memory/page";
+import { MemoryManagement } from "./memory-management";
+import type { MemoryList } from "@/lib/memory";
 
 vi.mock("next-intl", async (original) => ({
   ...(await original<object>()),
@@ -127,6 +129,51 @@ it("renders disabled consent by default and saves the settings revision", async 
   await waitFor(() => expect(screen.getByRole("switch", { name: "开启聊天记忆" })).toBeChecked());
   const mutation = fetcher.mock.calls.find((c) => c[1].method === "PUT")!;
   expect(JSON.parse(mutation[1].body as string)).toEqual({ enabled: true, revision: 0 });
+  expect(screen.queryByText("待确认建议")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "核对并确认" })).not.toBeInTheDocument();
+});
+
+it("shows automatically saved results without a second consent switch or a review queue", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(new Response(JSON.stringify({ models: [], default: "test" }))),
+  );
+  mount(
+    <MemoryManagement
+      data={
+        {
+          enabled: true,
+          auto_extract: true,
+          revision: 1,
+          semantic_recall: true,
+          extraction_model: "test",
+          items: [],
+          proposals: [],
+          limit: 100,
+          daily_jobs: 1,
+          daily_limit: 20,
+          jobs: [
+            {
+              id,
+              status: "completed",
+              attempts: 1,
+              result_count: 2,
+              error: null,
+              created_at: "2026-09-14T00:00:00Z",
+              model: "test",
+              usage: null,
+            },
+          ],
+        } as MemoryList
+      }
+      refresh={vi.fn()}
+    />,
+  );
+  expect(screen.getByText("自动记忆")).toBeInTheDocument();
+  expect(screen.getByText(/无需逐条确认/)).toBeInTheDocument();
+  expect(screen.queryByText("待确认建议")).not.toBeInTheDocument();
+  expect(screen.getByText(/2 条已保存/)).toBeInTheDocument();
+  expect(screen.getAllByRole("switch")).toHaveLength(1); // Only the retrieval setting.
 });
 
 it("reviews a proposal before submission and preserves source, revision and expiry", async () => {

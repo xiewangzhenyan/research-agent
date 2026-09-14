@@ -36,9 +36,7 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
   // formatted view for args + raw output (the </> button). Charts are the
   // exception: they're only useful when visible, so expand them by default.
   const [expanded, setExpanded] = useState(
-    defaultExpanded ||
-      toolCall.name === "ask_user" ||
-      false,
+    defaultExpanded || toolCall.name === "ask_user" || false,
   );
   const [showRaw, setShowRaw] = useState(false);
 
@@ -70,18 +68,31 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
   const isWebSearch = webResults !== null;
   const isAskUser = toolCall.name === "ask_user";
 
-  const hasSpecialRenderer =
-    isDateTime || isRAGSearch || isWebSearch || isAskUser;
+  const hasSpecialRenderer = isDateTime || isRAGSearch || isWebSearch || isAskUser;
   const friendlyName = isDateTime
-    ? (zh ? "当前日期与时间" : "Current Date & Time")
+    ? zh
+      ? "当前日期与时间"
+      : "Current Date & Time"
     : isRAGSearch
-      ? (zh ? "知识库检索" : "Knowledge Base Search")
+      ? zh
+        ? "知识库检索"
+        : "Knowledge Base Search"
       : isWebSearch
-        ? (zh ? "联网搜索" : "Web Search")
-          : isAskUser
-            ? (zh ? "补充提问" : "Question")
-            : toolCall.name === "run_python"
-              ? (zh ? "运行 Python" : "Run Python")
+        ? zh
+          ? "联网搜索"
+          : "Web Search"
+        : isAskUser
+          ? zh
+            ? "补充提问"
+            : "Question"
+          : toolCall.name === "run_python"
+            ? zh
+              ? "运行 Python"
+              : "Run Python"
+            : toolCall.name === "create_document"
+              ? zh
+                ? "生成文档"
+                : "Create document"
               : toolDisplayName(toolCall.name);
 
   const ToolIcon = isDateTime
@@ -90,9 +101,9 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
       ? Search
       : isWebSearch
         ? Globe
-          : isAskUser
-            ? MessageCircleQuestion
-            : Wrench;
+        : isAskUser
+          ? MessageCircleQuestion
+          : Wrench;
 
   const toggleExpanded = () => {
     setExpanded((prev) => {
@@ -112,7 +123,8 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
   // and swap the chevron/raw toggle for a spinner — the header becomes a step caption.
   const isRunning = toolCall.status === "running" || toolCall.status === "pending";
   const isError = toolCall.status === "error";
-  const liveCaption = toolCaption(toolCall.name);
+  const liveCaption =
+    toolCall.name === "create_document" && zh ? "正在生成文档" : toolCaption(toolCall.name);
 
   return (
     <Card

@@ -153,8 +153,8 @@ function MemoryWorkspace() {
           </h1>
           <p className="text-muted-foreground mt-2 max-w-xl text-sm leading-relaxed">
             {t(
-              "让重要结论、约束和偏好在新聊天中延续。你确认保存，助手按需回忆。",
-              "Carry decisions, constraints and preferences into new chats. You confirm what is saved; the assistant recalls relevant notes.",
+              "自动记住重要事实、约束和偏好，让新聊天延续已有背景。你可以随时查看和纠正。",
+              "Useful facts, constraints and preferences carry into new chats automatically. View and correct them at any time.",
             )}
           </p>
         </div>
@@ -170,8 +170,8 @@ function MemoryWorkspace() {
           </label>
           <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-relaxed">
             {t(
-              "仅使用当前项目中你确认的记忆，其他项目和账号不会混入。关闭后不再读取记忆，当前会话历史仍保留。",
-              "Only confirmed notes in this project are recalled. Other accounts and projects are excluded. Turning this off keeps existing chat history.",
+              "开启后自动整理新消息中的有用信息，并在当前项目内按需回忆，无需逐条确认。关闭后停止整理和回忆，已有记忆与聊天历史保留。",
+              "Automatically organize new messages and recall relevant facts within this project. Turning this off stops extraction and recall while preserving saved memories and chat history.",
             )}
           </p>
           <p className="text-muted-foreground mt-2 text-xs">
@@ -264,8 +264,8 @@ function MemoryWorkspace() {
               </p>
               <p className="text-muted-foreground mx-auto mt-2 max-w-md text-sm">
                 {t(
-                  "例如“回答优先使用中文，保留专业术语英文”。也可以在聊天消息下点击记忆图标，整理后保存。",
-                  "For example, save a preferred response language. You can also use the memory icon below a chat message and review it before saving.",
+                  "开启聊天记忆后正常对话即可，例如“之后请用中文回答，保留专业术语英文”。助手会自动整理，也支持手动添加。",
+                  "Enable memory and chat normally, for example about your preferred response language. Useful facts are saved automatically; manual notes are also supported.",
                 )}
               </p>
             </div>
@@ -279,6 +279,11 @@ function MemoryWorkspace() {
                   <div className="mb-3 flex items-center gap-2">
                     <span className="text-muted-foreground rounded-md border px-2 py-1 text-xs">
                       {kindLabel(item.kind, zh)}
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {item.origin === "automatic"
+                        ? t("自动整理", "Automatic")
+                        : t("手动保存", "Manual")}
                     </span>
                     {item.pinned && (
                       <span className="text-brand flex items-center gap-1 text-xs">
@@ -308,6 +313,14 @@ function MemoryWorkspace() {
                   <p className="text-muted-foreground mt-2 flex-1 text-sm leading-relaxed break-words whitespace-pre-wrap">
                     {item.content}
                   </p>
+                  {item.source_quote && (
+                    <details className="text-muted-foreground mt-3 text-xs">
+                      <summary className="cursor-pointer">{t("查看原文", "Source quote")}</summary>
+                      <blockquote className="mt-2 border-l-2 pl-3 break-words whitespace-pre-wrap">
+                        {item.source_quote}
+                      </blockquote>
+                    </details>
+                  )}
                   <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
                     {item.source_message_id && (
                       <Button size="sm" variant="ghost" onClick={() => source(item)}>

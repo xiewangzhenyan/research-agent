@@ -25,6 +25,10 @@ def model_controls(model: str) -> list[str]:
     return settings.AI_MODEL_CONTROLS.get(model, [])
 
 
+def output_token_limit(model: str) -> int:
+    return max(256, min(32000, settings.AI_MODEL_OUTPUT_LIMITS.get(model, 8000)))
+
+
 def policy_version() -> str:
     payload = {
         "models": allowed_models(),
@@ -32,6 +36,8 @@ def policy_version() -> str:
         "temperature": settings.AI_TEMPERATURE,
         "thinking_enabled": settings.AI_THINKING_ENABLED,
         "thinking_effort": settings.AI_THINKING_EFFORT,
+        "output_tokens": {"default": 8000, "min": 256, "max": 32000},
+        "model_output_limits": settings.AI_MODEL_OUTPUT_LIMITS,
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
 
@@ -45,6 +51,8 @@ def generation_config() -> GenerationConfigResponse:
             GenerationModelInfo(
                 id=model,
                 temperature="temperature" in model_controls(model),
+                top_p="top_p" in model_controls(model),
+                output_token_limits=(256, output_token_limit(model)),
                 thinking_efforts=["low", "medium", "high"]
                 if "thinking_effort" in model_controls(model)
                 else [],
@@ -60,15 +68,25 @@ def resolve_generation_config(data: dict) -> EffectiveGenerationConfig:
     try:
         options = GenerationOptions.model_validate(data)
     except ValidationError as exc:
-        raise BadRequestError(message="模型参数格式无效，请检查模型、温度和推理强度") from exc
+        raise BadRequestError(message="模型参数格式无效，请检查数值范围与推理强度") from exc
     model = options.model or settings.AI_MODEL
     if model not in allowed_models():
         raise BadRequestError(message="该模型未获授权，请从模型列表重新选择")
     controls = model_controls(model)
+    if options.max_output_tokens is not None and options.max_output_tokens > output_token_limit(
+        model
+    ):
+        raise BadRequestError(
+            message=f"当前模型输出上限为 {output_token_limit(model)} Token，请调整设置"
+        )
     temperature = options.temperature
+    if options.top_p is not None and "top_p" not in controls:
+        raise BadRequestError(message="当前模型未开放 Top P 设置，请恢复默认值")
+    if options.top_p is not None and temperature is not None:
+        raise BadRequestError(message="温度和 Top P 请选择一项调整，另一项恢复默认")
     if temperature is not None and "temperature" not in controls:
         raise BadRequestError(message="当前模型未开放温度设置，请恢复默认值")
-    if temperature is None and "temperature" in controls:
+    if temperature is None and options.top_p is None and "temperature" in controls:
         temperature = settings.AI_TEMPERATURE
     effort = options.thinking_effort
     if effort not in (None, "off") and "thinking_effort" not in controls:
@@ -78,6 +96,8 @@ def resolve_generation_config(data: dict) -> EffectiveGenerationConfig:
     return EffectiveGenerationConfig(
         model=model,
         temperature=temperature,
+        top_p=options.top_p,
+        max_output_tokens=options.max_output_tokens or min(8000, output_token_limit(model)),
         thinking_effort=None if effort == "off" else effort,
         policy_version=policy_version(),
     )

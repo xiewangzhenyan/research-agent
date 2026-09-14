@@ -43,7 +43,12 @@ dependencies = [
     "langgraph-checkpoint-postgres>=3,<4",
     "psycopg[binary]>=3.2,<4",
     "pgvector==0.3.6",
+    # The application adapter is contract-tested against this SDK release.
+    "mem0ai==2.0.20",
     "jieba==0.42.1",
+    "openpyxl>=3.1,<4",
+    "python-pptx>=1,<2",
+    "markdown-it-py>=3,<5",
 ]
 
 # PEP 735 dependency group — installed by `uv sync` / `uv sync --dev` and

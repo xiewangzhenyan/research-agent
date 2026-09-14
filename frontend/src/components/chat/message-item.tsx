@@ -1,18 +1,22 @@
 "use client";
 
+import { useId, useState } from "react";
 import { useLocale } from "next-intl";
 import { cn, setUrlParam } from "@/lib/utils";
 import type { ChatMessage, ChatMessageFile } from "@/types";
 import { ToolCallCard } from "./tool-call-card";
 import { MarkdownContent } from "./markdown-content";
 import { RememberMessage } from "@/components/memory/memory-editor";
+import { ContextUsage } from "./context-usage";
 import { MemoryUsageBadge } from "@/components/memory/memory-usage";
 import { useProject } from "@/components/projects/project-provider";
 import { CopyButton } from "./copy-button";
+import { ExportAnswer } from "./export-answer";
+import { MessageArtifacts } from "./message-artifacts";
 import { RatingButtons } from "./rating-buttons";
 import { useChatStore, useFilePreviewStore } from "@/stores";
 import { useSourcesPanelStore } from "@/stores/sources-panel-store";
-import { Bot, FileText, Globe, Paperclip, RefreshCw, User } from "lucide-react";
+import { Bot, ChevronRight, FileText, Globe, Paperclip, RefreshCw, User } from "lucide-react";
 import Image from "next/image";
 import { useAuthStore } from "@/stores";
 import { getFileUrl } from "@/lib/file-api";
@@ -21,29 +25,38 @@ import type { SourceItem } from "@/lib/chat-sources";
 
 function ThinkingBlock({
   text,
-  open,
   isStreaming,
 }: {
   text: string;
-  open: boolean;
+  open?: boolean;
   isStreaming: boolean;
 }) {
+  const zh = useLocale() === "zh";
+  const [expanded, setExpanded] = useState(false);
+  const id = useId();
   return (
-    <details
-      className="border-foreground/10 bg-muted/40 group rounded-2xl rounded-tl-sm border px-3 py-2 sm:px-4"
-      open={open}
-    >
-      <summary className="text-foreground/55 hover:text-foreground/80 flex cursor-pointer items-center gap-2 font-mono text-[10px] tracking-wider uppercase select-none">
-        <span className="bg-foreground/30 inline-block h-1.5 w-1.5 rounded-full" />
-        Thinking
-        {isStreaming && (
-          <span className="bg-foreground/40 inline-block h-1 w-1 animate-pulse rounded-full" />
-        )}
-      </summary>
-      <pre className="text-foreground/65 mt-2 max-h-72 overflow-y-auto font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
-        {text}
-      </pre>
-    </details>
+    <div className="text-muted-foreground py-1 text-xs">
+      <button
+        type="button"
+        className="hover:text-foreground flex min-h-8 items-center gap-2"
+        aria-expanded={expanded}
+        aria-controls={id}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <ChevronRight
+          className={cn(
+            "h-3.5 w-3.5 transition-transform motion-reduce:transition-none",
+            expanded && "rotate-90",
+          )}
+        />
+        {isStreaming ? (zh ? "正在思考" : "Thinking") : zh ? "思考摘要" : "Reasoning summary"}
+      </button>
+      <div id={id} className="chat-reasoning-content" data-open={expanded} aria-hidden={!expanded}>
+        <div>
+          <pre className="font-sans text-xs leading-6 whitespace-pre-wrap">{text}</pre>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -61,15 +74,15 @@ function TextBubble({
   return (
     <div
       className={cn(
-        "relative rounded-2xl px-3 py-2 sm:px-4 sm:py-2.5",
-        isUser ? "bg-foreground text-background rounded-tr-sm" : "bg-muted rounded-tl-sm",
+        "relative min-w-0",
+        isUser ? "bg-muted text-foreground rounded-3xl px-4 py-3" : "py-1",
       )}
     >
       {isUser ? (
         <p className="text-sm break-words whitespace-pre-wrap">{text}</p>
       ) : (
-        <div className="prose-sm max-w-none text-sm">
-          <MarkdownContent content={text} onCiteClick={onCiteClick} />
+        <div className="chat-answer max-w-none">
+          <MarkdownContent content={text} onCiteClick={onCiteClick} isStreaming={showCursor} />
           {showCursor && (
             <span className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-full bg-current" />
           )}
@@ -184,7 +197,8 @@ export function MessageItem({
       </div>
       <div
         className={cn(
-          "max-w-[88%] flex-1 space-y-2 overflow-hidden sm:max-w-[85%]",
+          "min-w-0 flex-1 space-y-2",
+          isUser ? "max-w-[85%]" : "max-w-full",
           isUser && "flex flex-col items-end",
         )}
       >
@@ -287,11 +301,7 @@ export function MessageItem({
                 </p>
               )}
               {showPlaceholder && (
-                <div
-                  className="bg-muted flex items-center gap-2 rounded-2xl rounded-tl-sm px-4 py-2.5"
-                  role="status"
-                  aria-live="polite"
-                >
+                <div className="flex items-center gap-2 py-2.5" role="status" aria-live="polite">
                   <div className="flex gap-1" aria-hidden="true">
                     <span className="bg-muted-foreground/40 h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:0ms]" />
                     <span className="bg-muted-foreground/40 h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:150ms]" />
@@ -367,6 +377,8 @@ export function MessageItem({
           );
         })()}
 
+        {!isUser && workspace && <MessageArtifacts message={message} />}
+
         {!isUser && message.effectiveConfig && !message.isStreaming && (
           <details className="text-muted-foreground mt-2 text-xs">
             <summary className="min-h-8 cursor-pointer py-2">
@@ -382,6 +394,16 @@ export function MessageItem({
               <div>
                 <dt>{zh ? "温度" : "Temperature"}</dt>
                 <dd>{message.effectiveConfig.temperature ?? (zh ? "未发送该参数" : "Not sent")}</dd>
+              </div>
+              <div>
+                <dt>Top P</dt>
+                <dd>{message.effectiveConfig.top_p ?? (zh ? "未发送该参数" : "Not sent")}</dd>
+              </div>
+              <div>
+                <dt>{zh ? "输出长度上限" : "Output token limit"}</dt>
+                <dd>
+                  {message.effectiveConfig.max_output_tokens ?? (zh ? "未记录" : "Not recorded")}
+                </dd>
               </div>
               <div>
                 <dt>{zh ? "推理强度" : "Reasoning effort"}</dt>
@@ -406,7 +428,14 @@ export function MessageItem({
         )}
 
         {!isUser && !message.isStreaming && workspace && (
-          <MemoryUsageBadge usage={message.effectiveConfig?.memory} />
+          <>
+            <MemoryUsageBadge usage={message.effectiveConfig?.memory} />
+            <ContextUsage
+              usage={message.effectiveConfig?.context}
+              conversationId={message.conversationId}
+              answerId={message.id}
+            />
+          </>
         )}
 
         {hasSources && !isUser && (
@@ -428,18 +457,29 @@ export function MessageItem({
             <CopyButton
               text={message.content}
               className={cn(
-                "h-6 w-6 rounded-md sm:opacity-0 sm:group-hover:opacity-100",
+                "h-6 w-6 rounded-md focus-visible:opacity-100 sm:opacity-60 sm:group-hover:opacity-100",
                 isUser ? "bg-secondary hover:bg-secondary/80" : "bg-muted hover:bg-muted/80",
               )}
             />
             {workspace && authUser && <RememberMessage message={message} />}
+            {!isUser && (
+              <ExportAnswer
+                content={message.content}
+                messageId={message.id}
+                saved={
+                  !!workspace &&
+                  !message.isTemporaryId &&
+                  (!message.execution || message.execution.status === "completed")
+                }
+              />
+            )}
             {!isUser && onRegenerate && (
               <button
                 type="button"
                 onClick={onRegenerate}
-                title="Regenerate response"
-                aria-label="Regenerate response"
-                className="bg-muted hover:bg-muted/80 text-foreground/70 hover:text-foreground inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                title={zh ? "重新生成" : "Regenerate response"}
+                aria-label={zh ? "重新生成" : "Regenerate response"}
+                className="bg-muted hover:bg-muted/80 text-foreground/70 hover:text-foreground inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors focus-visible:opacity-100 sm:opacity-60 sm:group-hover:opacity-100"
               >
                 <RefreshCw className="h-3 w-3" />
               </button>

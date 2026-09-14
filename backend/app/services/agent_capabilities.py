@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 import httpx
 
-from app.agents.tool_catalog import CHAT_TOOL_NAMES
+from app.agents.tool_catalog import CHAT_TOOL_NAMES, DOCUMENT_TOOL
 from app.core.config import settings
 from app.schemas.model_config import (
     AgentCapabilitiesResponse,
@@ -72,6 +72,7 @@ async def get_capabilities(user=None) -> AgentCapabilitiesResponse:
                 CapabilityInfo(id=name, available=True, execution="agent_tool")
                 for name in CHAT_TOOL_NAMES
             ],
+            CapabilityInfo(id=DOCUMENT_TOOL, available=True, execution="background_worker"),
             CapabilityInfo(id="knowledge_retrieval", available=True, execution="session_service"),
             CapabilityInfo(id="durable_tasks", available=True, execution="background_worker"),
             CapabilityInfo(
