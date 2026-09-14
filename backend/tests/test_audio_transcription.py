@@ -144,6 +144,17 @@ async def test_empty_text_is_silence_not_a_reason_to_retry(service, provider):
         wav()[:-20],
         b"x" * (audio.MAX_AUDIO_BYTES + 1),
     ],
+    # Keep multi-megabyte audio payloads out of CI logs and JUnit case names.
+    ids=[
+        "empty",
+        "not-audio",
+        "too-short",
+        "too-long",
+        "wrong-sample-rate",
+        "stereo",
+        "truncated",
+        "oversized",
+    ],
 )
 async def test_invalid_audio_is_rejected_before_metering_or_provider(service, provider, data):
     with pytest.raises(BadRequestError):
