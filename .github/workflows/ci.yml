@@ -95,7 +95,7 @@ jobs:
         working-directory: backend
         run: |
           set -o pipefail
-          timeout --signal=TERM --kill-after=15s 10m uv run --frozen pytest tests/ -v --cov=app --cov-report=xml --cov-report=term:skip-covered --junitxml=test-results.xml 2>&1 | tee test-output.log
+          timeout --signal=TERM --kill-after=15s 10m uv run --frozen python scripts/run_unit_tests.py tests/ -v --cov=app --cov-report=xml --cov-report=term:skip-covered --junitxml=test-results.xml 2>&1 | tee test-output.log
       - name: Preserve test results even after failure
         if: always()
         uses: actions/upload-artifact@v4

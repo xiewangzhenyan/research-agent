@@ -79,3 +79,13 @@ Docker 构建需等待静态检查、后端单元、数据库及前端检查全�
 前端行覆盖率仍偏低，需要随功能补充测试逐步提高；不应把基线通过宣传为
 全功能已验证。修改代码应增加能验证行为的测试，并逐步提高门槛。不要为了
 通过 CI 排除业务文件、吞掉测试错误或继续调低最低值。
+
+
+## Python 3.12 coverage collection
+
+CI runs `python scripts/run_unit_tests.py tests/ --cov=app` from `backend/`.
+The wrapper preloads only jieba on Python 3.12 before coverage monitoring begins,
+because its generated probability-table dictionary can stall collection under
+PEP 669 instrumentation. Application modules are still imported under coverage;
+the measured source and coverage threshold remain unchanged. Python 3.13 can
+run pytest directly.
