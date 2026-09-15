@@ -332,7 +332,12 @@ async def execute(run_id, conn):
                         if isinstance(exc, ReadinessUnavailable)
                         else "任务执行失败或超时，请稍后新建任务重试",
                     )
-                    logger.warning("Task %s failed: %s", run_id, type(exc).__name__)
+                    logger.warning(
+                        "Task %s failed: %s (cause=%s)",
+                        run_id,
+                        type(exc).__name__,
+                        type(exc.__cause__).__name__ if exc.__cause__ else "none",
+                    )
                 current.finished_at, current.pending_input = datetime.now(UTC), None
                 await repo.event(
                     current, current.status, {"message": current.error or "任务已停止"}

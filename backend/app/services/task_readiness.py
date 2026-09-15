@@ -13,6 +13,7 @@ from app.agents.assistant import _build_model
 from app.core.exceptions import ExternalServiceError
 from app.services.clarification import REQUEST_LIMIT, ClarificationQuestion
 from app.services.context_budget import ContextBudgetGuard
+from app.services.model_config import model_controls
 
 
 class ReadinessUnavailable(ExternalServiceError):
@@ -42,6 +43,12 @@ def needs_assessment(request):
 
 
 async def assess_with_model(request, context, config, answers, usage, validate):
+    # This classification step has no executable tools. Do not inherit expensive
+    # answer reasoning defaults; only send the control when deployment allows it.
+    model_settings = {**config.provider_settings(), "max_tokens": 1600, "timeout": 40}
+    if "thinking_effort" in model_controls(config.model):
+        model_settings["openai_reasoning_effort"] = "low"
+        model_settings.pop("openai_reasoning_summary", None)
     agent = Agent(
         _build_model(config.model),
         output_type=ReadinessAssessment,
@@ -57,7 +64,7 @@ async def assess_with_model(request, context, config, answers, usage, validate):
         ),
     )
     try:
-        async with asyncio.timeout(20):
+        async with asyncio.timeout(45):
             result = await agent.run(
                 json.dumps(
                     {
@@ -74,7 +81,7 @@ async def assess_with_model(request, context, config, answers, usage, validate):
                 capabilities=[ContextBudgetGuard(config, validate)],
                 usage=RunUsage(**usage),
                 usage_limits=UsageLimits(request_limit=REQUEST_LIMIT, total_tokens_limit=60000),
-                model_settings={**config.provider_settings(), "max_tokens": 1600, "timeout": 18},
+                model_settings=model_settings,
             )
     except Exception as exc:
         # A failed assessment must not silently authorize execution.

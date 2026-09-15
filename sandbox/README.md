@@ -64,7 +64,7 @@ WantedBy=timers.target
 
 `POST /executions` 增加 `protocol: 2` 和 `inputs: [{name, content_base64, sha256}]`。最多 5 个输入、解码后合计 5 MiB，整个 HTTP 请求限制 8 MiB，独立节点的 HTTPS 反向代理须允许至少 8 MiB 请求体并关闭代理层响应缓存。业务端仅接受当前账号已上传的 CSV/JSON/TXT/MD/PNG/JPEG，提交时记录名称、大小与 SHA-256，执行前再次校验所有权和内容。任务 worker 对业务上传目录只有只读访问。
 
-管理器通过从未启动的 staging 容器将有界 tar 写入专属命名卷，文件权限 0444。执行容器将该卷只读挂载在 `/inputs`；不会得到业务目录、密钥或 Docker socket。代码只在 `/work` 与 `/tmp` 限额 tmpfs 中写入。`/work/outputs` 下最多收集 10 个平级 CSV/JSON/TXT/MD/PNG/JPEG/PDF；单个 2 MiB，总计 4 MiB。文件名支持中文；拒绝路径穿越、链接、稀疏文件、设备、目录嵌套、重复名及不支持的类型。归档不解压到宿主机。
+管理器通过固定的 staging 容器将有界 tar 写入专属命名卷，文件权限 0444。该容器仅执行受控的目录权限初始化与等待命令，不执行用户代码。执行容器将该卷只读挂载在 `/inputs`；不会得到业务目录、密钥或 Docker socket。代码只在 `/work` 与 `/tmp` 限额 tmpfs 中写入。`/work/outputs` 下最多收集 10 个平级 CSV/JSON/TXT/MD/PNG/JPEG/PDF；单个 2 MiB，总计 4 MiB。文件名支持中文；拒绝路径穿越、链接、稀疏文件、设备、目录嵌套、重复名及不支持的类型。归档不解压到宿主机。
 
 固定 supervisor 执行代码后保持 tmpfs 存活，管理器冻结整个容器后重新校验完成标记、读取产物，再停止全部进程。supervisor 和完成标记都不是可信安全证明；整个容器的输出始终视为不可信。失败、超时、取消、日志超限或产物校验失败均不发布产物。停止确认失败时保持待对账状态，不伪报终态。
 
@@ -74,7 +74,7 @@ WantedBy=timers.target
 
 ### 当前验证边界
 
-已构建数据分析 runner 镜像；模拟控制面测试与独立 PostgreSQL 集成测试分别验证协议和业务边界。可信 Docker staging 检查仅创建容器且从不启动，确认只读根目录下向命名卷写入/读回中文输入和 0444 权限。它不证明 gVisor 执行成功。
+模拟控制面测试与独立 PostgreSQL 集成测试分别验证文件协议和业务边界；这些测试不能替代目标节点的文件执行验收。Stdio MCP 的握手与隔离验收也不能替代 Python 文件协议 2 的验收。
 
 独立 runsc 节点的实际计算、只读卷写入拒绝、冻结 tmpfs 后产物采集、资源超限和杀死 manager 后的 watchdog 回收，仍须在执行节点验收；不满足就绪校验时保持关闭，不退回业务主机 runc 执行。文件版本节点迁移前先排空旧任务，不混用旧 runner 镜像。
 

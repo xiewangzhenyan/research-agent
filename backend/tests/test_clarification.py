@@ -127,13 +127,18 @@ def test_clear_questions_skip_extra_model_call_and_preferences_do_not_block():
     asyncio.run(check())
 
 
-def test_real_structured_model_contract_and_fail_closed_without_tools():
+@pytest.mark.parametrize("controls", [[], ["thinking_effort"]])
+def test_real_structured_model_contract_and_fail_closed_without_tools(controls):
     async def check():
         observed = []
 
         def model(messages, info):
             observed.append(str(messages))
             assert info.function_tools == []
+            assert info.model_settings["timeout"] == 40
+            assert info.model_settings.get("openai_reasoning_effort") == (
+                "low" if controls else None
+            )
             return ModelResponse(
                 parts=[
                     ToolCallPart(
@@ -154,7 +159,10 @@ def test_real_structured_model_contract_and_fail_closed_without_tools():
             )
 
         validate = AsyncMock()
-        with patch("app.services.task_readiness._build_model", return_value=FunctionModel(model)):
+        with (
+            patch("app.services.task_readiness._build_model", return_value=FunctionModel(model)),
+            patch("app.services.task_readiness.model_controls", return_value=controls),
+        ):
             result, usage = await assess_with_model(
                 {"prompt": "比较这些方案", "knowledge_base_ids": ["scoped"], "file_ids": []},
                 {"work_context": "不能省略的范围", "history": []},
