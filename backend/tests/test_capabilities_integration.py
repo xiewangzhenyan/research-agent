@@ -428,3 +428,64 @@ def test_unsharing_a_system_skill_revokes_runtime_without_blocking_new_chat(tmp_
             assert turn.request["capabilities"] == []
 
     asyncio.run(check())
+
+
+def test_running_stdio_requires_remote_stop_before_cancellation():
+    from app.core.exceptions import ExternalServiceError
+    from app.services import sandbox_client
+    from app.services.agent_run import AgentRunService
+
+    async def check():
+        entered = asyncio.Event()
+
+        async def remote(*args, **kwargs):
+            entered.set()
+            await asyncio.sleep(3600)
+
+        async with users() as (a, _):
+            value = await create_mcp(a, auto=True)
+            async with service(a) as s:
+                asset = await s.get(UUID(value["id"]), write=True)
+                asset.config = {**asset.config, "transport": "stdio", "command": "python"}
+                asset.revision += 1
+
+            async def stream(messages, info):
+                yield {
+                    0: DeltaToolCall(
+                        name="call_mcp_tool",
+                        tool_call_id="stdio",
+                        json_args=json.dumps(
+                            {
+                                "server_id": value["id"],
+                                "tool_name": "lookup",
+                                "arguments": {"query": "record"},
+                            }
+                        ),
+                    )
+                }
+
+            with (
+                patch(
+                    "app.agents.assistant._build_model",
+                    return_value=FunctionModel(stream_function=stream),
+                ),
+                patch("app.services.capability_runtime.exchange", side_effect=remote),
+                patch.object(
+                    sandbox_client, "cancel_run", AsyncMock(side_effect=ExternalServiceError())
+                ),
+            ):
+                turn = await submit(a, message="调用绑定工具")
+                assert "run_python" not in turn.request["tools"]
+                assert turn.request["capabilities"][0]["transport"] == "stdio"
+                work = asyncio.create_task(try_run(turn.id))
+                await asyncio.wait_for(entered.wait(), 10)
+                async with get_worker_db_context() as db:
+                    await AgentRunService(db, a).cancel(turn.id)
+                await asyncio.wait_for(work, 10)
+                assert (await get(a, turn.id)).status == "cancelling"
+            with patch.object(sandbox_client, "cancel_run", AsyncMock()) as stop:
+                await try_run(turn.id)
+                stop.assert_awaited_once_with(turn.id)
+            assert (await get(a, turn.id)).status == "cancelled"
+
+    asyncio.run(check())

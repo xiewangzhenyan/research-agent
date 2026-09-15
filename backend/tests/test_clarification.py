@@ -164,7 +164,12 @@ def test_real_structured_model_contract_and_fail_closed_without_tools(controls):
             patch("app.services.task_readiness.model_controls", return_value=controls),
         ):
             result, usage = await assess_with_model(
-                {"prompt": "比较这些方案", "knowledge_base_ids": ["scoped"], "file_ids": []},
+                {
+                    "prompt": "比较这些方案",
+                    "knowledge_base_ids": ["scoped"],
+                    "file_ids": [],
+                    "capabilities": [{"kind": "skill"}, {"kind": "mcp"}],
+                },
                 {"work_context": "不能省略的范围", "history": []},
                 resolve_generation_config({}),
                 [{"answer": "以前已补充的信息"}],
@@ -173,6 +178,7 @@ def test_real_structured_model_contract_and_fail_closed_without_tools(controls):
             )
         assert result.issues[0].kind == "ambiguity" and usage["requests"] == 1
         assert "不能省略的范围" in observed[0] and "以前已补充的信息" in observed[0]
+        assert '"bound_capability_kinds": ["skill", "mcp"]' in observed[0]
         validate.assert_awaited_once()
         with (
             patch(

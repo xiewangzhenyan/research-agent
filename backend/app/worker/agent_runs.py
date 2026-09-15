@@ -59,7 +59,13 @@ class LostRun(Exception):
 
 
 async def stop_sandbox(run_id, request):
-    if PYTHON_TOOL in (request.get("tools") or []):
+    # MCP commands have their own grants and need not enable the Python tool.
+    # Older snapshots omitted transport: conservatively stop those MCP runs too.
+    stdio = any(
+        item.get("kind") == "mcp" and item.get("transport", "stdio") == "stdio"
+        for item in request.get("capabilities", [])
+    )
+    if PYTHON_TOOL in (request.get("tools") or []) or stdio:
         await sandbox_client.cancel_run(run_id)
 
 

@@ -70,6 +70,7 @@ async def snapshot(service):
                 "kind": asset.kind,
                 "revision": asset.revision,
                 "version": asset.published_version,
+                "transport": asset.config.get("transport") if asset.kind == "mcp" else None,
             }
         )
     return values

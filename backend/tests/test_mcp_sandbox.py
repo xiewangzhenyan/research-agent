@@ -86,3 +86,22 @@ def test_stdio_uses_gateway_with_run_identity_and_validates_result(monkeypatch):
             await exchange(asset)
 
     asyncio.run(check())
+
+
+@pytest.mark.parametrize(
+    "capabilities,expected",
+    [
+        ([{"kind": "mcp", "transport": "stdio"}], True),
+        ([{"kind": "mcp"}], True),
+        ([{"kind": "mcp", "transport": "streamable-http"}], False),
+        ([{"kind": "skill", "transport": None}], False),
+    ],
+)
+def test_cancellation_stops_stdio_without_python_permission(monkeypatch, capabilities, expected):
+    from app.worker.agent_runs import stop_sandbox
+
+    cancel = AsyncMock()
+    monkeypatch.setattr(mcp_sandbox.sandbox_client, "cancel_run", cancel)
+    run = uuid4()
+    asyncio.run(stop_sandbox(run, {"tools": [], "capabilities": capabilities}))
+    assert cancel.await_count == int(expected)
