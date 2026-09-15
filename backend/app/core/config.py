@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     SANDBOX_URL: str = ""
     SANDBOX_TOKEN: str = ""
     SANDBOX_IMAGE_ID: str = ""
+    SANDBOX_MCP_IMAGE_ID: str = ""
     SANDBOX_ALLOW_PUBLIC: bool = False
 
     RAG_SEARCH_BACKEND: Literal["legacy", "postgres"] = "legacy"
@@ -170,6 +171,9 @@ class Settings(BaseSettings):
     ]
     AI_FRAMEWORK: str = "pydantic_ai"
     LLM_PROVIDER: str = "openai"
+
+    # Stable server-only key for encrypted MCP credentials (shared with task workers).
+    CAPABILITY_ENCRYPTION_KEY: SecretStr = Field(default=SecretStr(""), repr=False)
 
     # Server-only speech recognition, independent of chat credentials.
     ASR_ENABLED: bool = False

@@ -86,7 +86,9 @@ def answer(quote="服务期限为30天，不支持自动续期。"):
 
 
 def roles(calls, reject=False, invalid=False):
-    async def invoke(role, payload, config, usage):
+    async def invoke(role, payload, config, usage, *, validate=None, request_limit=12):
+        if validate:
+            await validate()
         calls.append(role)
         if role == "planner":
             result = {"objective": "核对条款", "queries": ["服务期限", "自动续期"]}

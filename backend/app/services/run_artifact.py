@@ -53,6 +53,9 @@ class RunArtifactService:
         run = await self.owned_run(run_id, lock=True)
         if run.status != "running" or run.attempt != attempt:
             raise AlreadyExistsError(message="任务执行权已失效，未保存产物")
+        from app.services.work_task import WorkTaskService
+
+        await WorkTaskService(self.db, self.user_id, project_id=self.project_id).validate_run(run)
         execution_id = UUID(str(execution_id))
         existing = {item.id: item for item in await self.repo.list(run_id, self.user_id)}
         items, new = [], []

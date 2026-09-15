@@ -118,6 +118,8 @@ class AssistantAgent:
         async def ask_user(ctx: RunContext[Deps], questions: list[QuestionItem]) -> str:
             """Ask the user one or more questions and wait for their answers.
 
+            Mark missing_input/ambiguity/conflict for necessary questions; these cannot be skipped.
+            Prefer stating reasonable defaults for minor preferences instead of asking.
             Use this when a decision or missing detail would materially change what
             you do next and you can't reasonably assume it. You may pass several
             questions at once — the user answers them one after another and you get

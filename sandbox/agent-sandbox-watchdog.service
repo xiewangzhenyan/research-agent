@@ -1,0 +1,7 @@
+[Unit]
+Description=Reap expired agent sandbox containers and volumes
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/agent-sandbox/source/watchdog.py

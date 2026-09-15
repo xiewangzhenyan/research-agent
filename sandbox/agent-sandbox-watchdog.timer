@@ -1,0 +1,9 @@
+[Unit]
+Description=Run agent sandbox cleanup independently of its manager
+
+[Timer]
+OnBootSec=15s
+OnUnitActiveSec=15s
+
+[Install]
+WantedBy=timers.target

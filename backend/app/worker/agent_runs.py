@@ -27,6 +27,7 @@ from app.services import sandbox_client
 from app.services.agent_run_graph import build_run_graph
 from app.services.knowledge import KnowledgeService
 from app.services.knowledge_collaboration import WORKFLOW_VERSION, build_collaboration_graph
+from app.services.task_readiness import ReadinessUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +125,14 @@ async def execute(run_id, conn):
         await check_connection()
         async with get_worker_db_context() as db:
             repo = AgentRunRepository(db)
+            if request.get("work_task"):
+                await repo.account_lock(user_id)
             current = await repo.get(run_id, lock=True)
             if not current or current.attempt != attempt or current.status != "running":
                 raise LostRun()
+            from app.services.work_task import WorkTaskService
+
+            await WorkTaskService(db, user_id, project_id=project_id).validate_run(current)
             if current.conversation_id:
                 message = await db.get(Message, current.assistant_message_id)
                 if not message:
@@ -161,6 +167,12 @@ async def execute(run_id, conn):
             from app.services.project import ProjectService
 
             await ProjectService(db, user_id).validate(project_id)
+            from app.services.work_task import WorkTaskService
+
+            current = await AgentRunRepository(db).get(run_id)
+            if not current:
+                raise LostRun()
+            await WorkTaskService(db, user_id, project_id=project_id).validate_run(current)
             if request.get("kind") == "chat":
                 from app.services.conversation import ConversationService
 
@@ -203,7 +215,7 @@ async def execute(run_id, conn):
                 retrieval_snapshot=request.get("retrieval_snapshot"),
                 chat_request=request if request.get("kind") == "chat" else None,
             )
-        graph_config = {"configurable": {"thread_id": f"run:{run_id}"}, "recursion_limit": 20}
+        graph_config = {"configurable": {"thread_id": f"run:{run_id}"}, "recursion_limit": 40}
         snapshot = await graph.aget_state(graph_config)
         graph_input = None
         if not snapshot.values:
@@ -218,6 +230,7 @@ async def execute(run_id, conn):
                     {"message": "等待补充信息"},
                     status="waiting_input",
                     pending_input=pending,
+                    resume_input=None,
                 )
                 return
         async with asyncio.timeout(300):
@@ -229,6 +242,7 @@ async def execute(run_id, conn):
                 {"message": "等待补充信息"},
                 status="waiting_input",
                 pending_input=snapshot.values["pending"],
+                resume_input=None,
             )
         else:
             if request.get("kind") == "chat":
@@ -314,7 +328,9 @@ async def execute(run_id, conn):
                 else:
                     current.status, current.error = (
                         "failed",
-                        "任务执行失败或超时，请稍后新建任务重试",
+                        "必要信息检查暂不可用，后续执行已停止，请稍后重试"
+                        if isinstance(exc, ReadinessUnavailable)
+                        else "任务执行失败或超时，请稍后新建任务重试",
                     )
                     logger.warning("Task %s failed: %s", run_id, type(exc).__name__)
                 current.finished_at, current.pending_input = datetime.now(UTC), None

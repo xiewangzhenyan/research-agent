@@ -15,6 +15,9 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path?
   const valid =
     isExport ||
     (request.method === "GET" &&
+      path[0] === "work-tasks" &&
+      (path.length === 1 || (path.length === 2 && uuid.test(path[1] ?? "")))) ||
+    (request.method === "GET" &&
       path.length === 5 &&
       path[0] === "conversations" &&
       uuid.test(path[1] ?? "") &&
@@ -29,7 +32,7 @@ async function proxy(request: NextRequest, { params }: { params: Promise<{ path?
       path[2] === "state");
   if (!valid) return NextResponse.json({ detail: "无效对话路径" }, { status: 400 });
   const query = new URLSearchParams();
-  for (const key of ["before", "include_messages"]) {
+  for (const key of ["before", "include_messages", "conversation_id"]) {
     const value = request.nextUrl.searchParams.get(key);
     if (value !== null) query.set(key, value);
   }

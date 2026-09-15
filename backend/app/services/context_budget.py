@@ -47,6 +47,12 @@ def fit_items(items, tokens):
 def envelope(request, config):
     check_prompt(request["prompt"], config)
     available = input_budget(config) - cost(request["prompt"]) - 512
+    work = cost(request.get("work_context", ""))
+    if work > available:
+        raise BadRequestError(
+            message="任务目标与当前消息超出模型上下文预算，请重新设定更精炼的完整目标"
+        )
+    available -= work
     # Current materials have priority over older conversational background.
     sources = min(6500, max(0, available // 2)) if request.get("knowledge_base_ids") else 0
     files = min(6000, max(0, (available - sources) // 2)) if request.get("file_ids") else 0
@@ -56,6 +62,7 @@ def envelope(request, config):
     archive = min(3500, remaining - memory - recent)
     return {
         "input": input_budget(config),
+        "work": work,
         "sources": sources,
         "files": files,
         "memory": memory,

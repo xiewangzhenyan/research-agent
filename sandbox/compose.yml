@@ -7,6 +7,7 @@ services:
     environment:
       SANDBOX_TOKEN: ${SANDBOX_TOKEN:?Set a dedicated random secret}
       SANDBOX_IMAGE: ${SANDBOX_IMAGE:?Set the sha256 image ID of the fixed runner}
+      SANDBOX_MCP_IMAGE: ${SANDBOX_MCP_IMAGE:-}
       SANDBOX_CONCURRENCY: ${SANDBOX_CONCURRENCY:-1}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock

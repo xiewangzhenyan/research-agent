@@ -34,6 +34,11 @@ __all__ = [
     "ConversationContextJob",
     "ConversationContextBlock",
     "ConversationContextSource",
+    "WorkTask",
+    "WorkTaskRevision",
+    "WorkTaskConversation",
+    "WorkStep",
+    "WorkTaskEvent",
 ]
 
 from app.db.models.knowledge import (
@@ -63,3 +68,27 @@ from app.db.models.conversation_context import (
     ConversationContextBlock,
     ConversationContextSource,
 )
+
+from app.db.models.work_task import (
+    WorkTask,
+    WorkTaskRevision,
+    WorkTaskConversation,
+    WorkStep,
+    WorkTaskEvent,
+)
+
+from app.db.models.capability import (
+    CapabilityAsset,
+    SkillVersion,
+    CapabilityBinding,
+    CapabilityAudit,
+    CapabilityInvocation,
+)
+
+__all__ += [
+    "CapabilityAsset",
+    "SkillVersion",
+    "CapabilityBinding",
+    "CapabilityAudit",
+    "CapabilityInvocation",
+]

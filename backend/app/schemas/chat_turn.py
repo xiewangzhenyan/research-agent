@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.model_config import GenerationOptions
+from app.schemas.work_task import WorkTaskSelection
 
 
 class ChatTurnCreate(BaseModel):
@@ -19,6 +20,7 @@ class ChatTurnCreate(BaseModel):
     python_enabled: bool = False
     # Omitted/null inherits saved overrides; {} resets to deployment defaults.
     generation: GenerationOptions | None = None
+    work_task: WorkTaskSelection | None = None
 
     @model_validator(mode="after")
     def has_content(self):

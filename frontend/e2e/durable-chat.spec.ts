@@ -8,7 +8,7 @@ const rid = "eeeeeeee-5555-4555-8555-555555555555";
 const projectId = "ffffffff-6666-4666-8666-666666666666";
 const config = { model: "test", temperature: null, thinking_effort: null, policy_version: "test" };
 
-function chatServer() {
+function chatServer(required = false) {
   let submitted = false,
     completed = false,
     waiting = false;
@@ -29,7 +29,17 @@ function chatServer() {
           calls: [
             {
               call_id: "format-call",
-              questions: [{ question: "采用哪种格式？", options: ["Markdown", "纯文本"] }],
+              questions: [
+                required
+                  ? {
+                      question: "需要计算哪份数据？",
+                      reason: "数据范围会改变计算结果，补充后才能继续执行。",
+                      required: true,
+                      allow_custom: true,
+                      options: ["附件中的实验数据", "知识库中的公开数据"],
+                    }
+                  : { question: "采用哪种格式？", options: ["Markdown", "纯文本"] },
+              ],
             },
           ],
         }
@@ -242,7 +252,7 @@ test("restored clarification resumes from the same conversation", async ({ page 
   await page.goto(`/chat?id=${cid}`);
   await expect(page.getByText("采用哪种格式？", { exact: true })).toBeVisible();
   await page
-    .getByRole("group", { name: "Question from the assistant" })
+    .getByRole("group", { name: "需要补充的信息" })
     .getByRole("button", { name: /Markdown/ })
     .click();
   await expect(page.getByText("关闭网页后完成的完整回答", { exact: true })).toBeVisible();
@@ -314,4 +324,70 @@ test("draft model choices survive first-send acknowledgement and reset for a new
     "aria-pressed",
     "true",
   );
+});
+
+test("required clarification survives reopening, explains rejection and retries without duplicate answers", async ({
+  page,
+  context,
+}, testInfo) => {
+  const server = chatServer(true);
+  server.ask();
+  await server.attach(page);
+  await page.goto(`/chat?id=${cid}`);
+  await expect(page.getByText("需要计算哪份数据？", { exact: true })).toBeVisible();
+  await page.close();
+  const reopened = await context.newPage();
+  await server.attach(reopened);
+  const replies: unknown[] = [];
+  await reopened.route(`**/api/tasks/${rid}/resume`, async (route) => {
+    replies.push(route.request().postDataJSON());
+    if (replies.length === 1)
+      return route.fulfill({
+        status: 400,
+        json: { detail: "此问题涉及必要信息，请补充具体数据范围" },
+      });
+    server.finish();
+    return route.fulfill({ json: {} });
+  });
+  await reopened.goto(`/chat?id=${cid}`);
+  const card = reopened.getByRole("group", { name: "需要补充的信息" });
+  await expect(card.getByText("补充后继续 · 此问题不可跳过")).toBeVisible();
+  await expect(card.getByRole("button", { name: "采用默认值" })).toHaveCount(0);
+  await reopened.screenshot({
+    path: testInfo.outputPath("required-clarification.png"),
+    fullPage: true,
+  });
+  await card.getByRole("button", { name: "自行填写" }).click();
+  await card.getByRole("textbox", { name: "补充信息" }).fill("不知道");
+  await card.getByRole("button", { name: "提交并继续" }).click();
+  await expect(
+    reopened.getByText("此问题涉及必要信息，请补充具体数据范围", { exact: true }),
+  ).toBeVisible();
+  await expect(card.getByRole("textbox")).toHaveValue("不知道");
+  await card.getByRole("textbox").fill("附件 A 的 2025 年数据");
+  await card.getByRole("button", { name: "提交并继续" }).click();
+  await expect(reopened.getByText("关闭网页后完成的完整回答", { exact: true })).toBeVisible();
+  expect(replies).toEqual([
+    { question_id: "format-question", answers: { "format-call": ["不知道"] } },
+    { question_id: "format-question", answers: { "format-call": ["附件 A 的 2025 年数据"] } },
+  ]);
+  expect(await reopened.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+    true,
+  );
+});
+
+test("required clarification can cancel its own waiting turn", async ({ page }) => {
+  const server = chatServer(true);
+  server.ask();
+  await server.attach(page);
+  let stopped = 0;
+  await page.route(`**/api/tasks/${rid}/cancel`, async (route) => {
+    stopped++;
+    server.finish();
+    return route.fulfill({ json: {} });
+  });
+  await page.goto(`/chat?id=${cid}`);
+  await page.getByRole("button", { name: "取消本轮", exact: true }).click();
+  await expect(page.getByText("需要计算哪份数据？", { exact: true })).toHaveCount(0);
+  expect(stopped).toBe(1);
 });

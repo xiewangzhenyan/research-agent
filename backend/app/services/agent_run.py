@@ -2,7 +2,8 @@
 
 import hashlib
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from uuid import uuid5
 
 from app.agents.tool_catalog import PYTHON_TOOL, TOOL_POLICY_VERSION
 from app.core.exceptions import AlreadyExistsError, BadRequestError, NotFoundError, RateLimitError
@@ -128,7 +129,11 @@ class AgentRunService:
         return run
 
     async def resume(self, run_id, data):
+        await self.repo.account_lock(self.user_id)
         run = await self.get(run_id, lock=True)
+        from app.services.work_task import WorkTaskService
+
+        await WorkTaskService(self.db, self.user_id, project_id=self.project_id).validate_run(run)
         payload = data.model_dump()
         if run.resume_input == payload:
             return run
@@ -139,12 +144,45 @@ class AgentRunService:
             or pending["question_id"] != data.question_id
         ):
             raise AlreadyExistsError(message="问题已更新或任务已结束，请刷新任务")
-        calls = pending["calls"]
-        if set(data.answers) != {c["call_id"] for c in calls} or any(
-            len(data.answers[c["call_id"]]) != len(c["questions"]) for c in calls
-        ):
-            raise BadRequestError(message="请回答当前任务的全部问题")
+        from app.services.clarification import answered_items, transcript, validate_answers
+
+        validate_answers(pending, data.answers)
         run.resume_input = payload
         run.status = "queued"
+        if pending.get("policy") or any(
+            q.get("required") is not None for call in pending["calls"] for q in call["questions"]
+        ):
+            items = answered_items(pending, data.answers)
+            if run.conversation_id:
+                from app.db.models.conversation import Message
+
+                assistant = await self.db.get(Message, run.assistant_message_id)
+                if not assistant or assistant.conversation_id != run.conversation_id:
+                    raise NotFoundError(message="会话消息已删除")
+                # Keep this exchange inside its original turn so messages queued
+                # while waiting can still recall the clarification and final answer.
+                # The event below records the actual wall-clock reply time.
+                replied_at = assistant.created_at
+                self.db.add(
+                    Message(
+                        id=uuid5(run.id, "clarification:" + data.question_id),
+                        conversation_id=run.conversation_id,
+                        role="user",
+                        content=transcript(items),
+                        created_at=replied_at,
+                    )
+                )
+                # The pending answer follows its clarification in transcript order.
+                # The original user message and its requirement hash stay unchanged.
+                assistant.created_at = replied_at + timedelta(microseconds=1)
+            await self.repo.event(
+                run,
+                "clarification_answered",
+                {
+                    "message": "用户补充的信息已保存",
+                    "question_id": data.question_id,
+                    "items": items,
+                },
+            )
         await self.repo.event(run, "resumed", {"message": "补充信息已保存，等待继续执行"})
         return run

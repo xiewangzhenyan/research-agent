@@ -8,6 +8,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useChat } from "@/hooks";
+import { WorkTaskPanel } from "./work-task-panel";
 import { ChatControls } from "./chat-controls";
 import { ChatEmptyState } from "./chat-empty-state";
 import { ChatInput } from "./chat-input";
@@ -44,6 +45,7 @@ export function ChatContainer() {
     isProcessing,
     sendMessage,
     stopGeneration,
+    cancelClarification,
     queuedMessages,
     cancelQueued,
     retryQueued,
@@ -128,6 +130,13 @@ export function ChatContainer() {
   return (
     <>
       <ChatUI
+        taskPanel={
+          <WorkTaskPanel
+            conversationId={currentConversationId}
+            disabled={isSubmitting || !isConnected}
+            onSend={(message, selection) => sendMessage(message, undefined, undefined, selection)}
+          />
+        }
         onRatingChange={updateRating}
         messages={messages}
         isConnected={isConnected}
@@ -161,6 +170,7 @@ export function ChatContainer() {
         answerSubmitting={answerSubmitting}
         pendingQuestions={pendingQuestions}
         onAnswerQuestions={sendAskUserResponses}
+        onCancelClarification={cancelClarification}
         onCancelRun={stopGeneration}
         onStop={() => stopGeneration()}
       />
@@ -170,6 +180,7 @@ export function ChatContainer() {
 }
 
 interface ChatUIProps {
+  taskPanel?: React.ReactNode;
   messages: import("@/types").ChatMessage[];
   isConnected: boolean;
   isProcessing: boolean;
@@ -209,11 +220,13 @@ interface ChatUIProps {
   pendingQuestions?: AskUserQuestion[] | null;
   onAnswerQuestions?: (answers: AskUserAnswer[]) => void;
   onStop?: () => void;
+  onCancelClarification?: () => void;
   onRatingChange?: import("@/lib/chat-turns").ChatRatingUpdate;
   onCancelRun?: (id: string) => void;
 }
 
 function ChatUI({
+  taskPanel,
   messages,
   isConnected,
   isProcessing,
@@ -248,6 +261,7 @@ function ChatUI({
   answerSubmitting,
   onAnswerQuestions,
   onStop,
+  onCancelClarification,
   onCancelRun,
   onRatingChange,
 }: ChatUIProps) {
@@ -261,6 +275,7 @@ function ChatUI({
           ref={scrollContainerRef}
           className="chat-message-scroll flex-1 scrollbar-thin overflow-y-auto px-2 py-4 sm:px-4 sm:py-6"
         >
+          {taskPanel}
           {hasOlder && (
             <button
               type="button"
@@ -312,6 +327,7 @@ function ChatUI({
               questions={pendingQuestions}
               disabled={!isConnected || answerSubmitting}
               onComplete={onAnswerQuestions}
+              onCancel={onCancelClarification}
             />
           </div>
         )}

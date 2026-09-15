@@ -18,12 +18,15 @@ from uuid import UUID, uuid4
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Security
+from fastapi.exceptions import RequestValidationError
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 try:
+    from .mcp_gateway import MCPGateway, MCPRequest
     from .files import MAX_INPUT_BYTES, InputFile, input_archive, parse_artifacts, parse_completion
 except ImportError:  # uvicorn on the independent node
+    from mcp_gateway import MCPGateway, MCPRequest
     from files import MAX_INPUT_BYTES, InputFile, input_archive, parse_artifacts, parse_completion
 
 LIMITS = {
@@ -750,6 +753,8 @@ class Manager:
                         await self.engine.remove("agent-stage-" + row["id"])
                         if hasattr(self.engine, "remove_input_volume"):
                             await self.engine.remove_input_volume(row["id"])
+                        if hasattr(self.engine, "remove_output_volume"):
+                            await self.engine.remove_output_volume(row["id"])
                     except Exception:
                         continue
                     if row["created"] < time.time() - 8 * 86400:
@@ -770,6 +775,7 @@ def create_app(manager=None, token=None):
         os.environ.get("SANDBOX_IMAGE", ""),
         Engine(),
     )
+    mcp_gateway = MCPGateway(runner, os.environ.get("SANDBOX_MCP_IMAGE", ""), container_spec)
 
     async def auth(credential: HTTPAuthorizationCredentials = Security(HTTPBearer())):
         if not hmac.compare_digest(credential.credentials, secret):
@@ -825,6 +831,20 @@ def create_app(manager=None, token=None):
 
     app.add_middleware(BoundedBody)
 
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request, exc):
+        from starlette.responses import JSONResponse
+
+        return JSONResponse({"detail": "Invalid or oversized request"}, status_code=422)
+
+    @app.get("/mcp/health")
+    async def mcp_health():
+        return await mcp_gateway.health()
+
+    @app.post("/mcp/exchange")
+    async def mcp_exchange(body: MCPRequest):
+        return {"result": await mcp_gateway.execute(body)}
+
     @app.get("/health")
     async def health():
         try:
@@ -868,7 +888,9 @@ def create_app(manager=None, token=None):
     @app.delete("/runs/{run_id}")
     async def cancel(run_id: UUID):
         try:
-            return await runner.cancel(run_id)
+            result = await runner.cancel(run_id)
+            await mcp_gateway.cancel(run_id)
+            return result
         except Exception:
             raise HTTPException(503, "Unable to confirm execution stopped") from None
 

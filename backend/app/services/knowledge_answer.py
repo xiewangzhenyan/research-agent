@@ -147,6 +147,7 @@ async def grounded_answer(
     *,
     resolved_query: str | None = None,
     configuration: EffectiveGenerationConfig | None = None,
+    validate=None,
 ) -> tuple[str, list[dict], dict]:
     config = configuration or resolve_generation_config({"model": model_name})
     started = time.monotonic()
@@ -175,7 +176,7 @@ async def grounded_answer(
                 },
                 ensure_ascii=False,
             ),
-            capabilities=[ContextBudgetGuard(config)],
+            capabilities=[ContextBudgetGuard(config, validate=validate)],
         )
     output, cited = validate_answer(response.output, sources)
     return (

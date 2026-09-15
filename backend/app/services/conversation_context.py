@@ -310,6 +310,11 @@ async def revalidate(request, context, user_id, project_id):
     from app.db.session import get_worker_db_context
 
     async with get_worker_db_context() as db:
+        from app.services.work_task import WorkTaskService
+
+        current_work = await WorkTaskService(db, user_id, project_id=project_id).context(request)
+        if current_work != context.get("work_context", ""):
+            raise BadRequestError(message="任务引用的来源已变化，请重新发送以读取最新进度")
         source = await source_message(db, request, user_id, project_id)
         checks = context.get("context_checks", [])
         if not checks:
@@ -327,6 +332,23 @@ async def revalidate(request, context, user_id, project_id):
         valid = {str(m.id): digest(m) for m in rows}
         if any(valid.get(c["message_id"]) != c["content_hash"] for c in checks):
             raise BadRequestError(message="任务引用的历史消息已变更，请重新发送以使用最新上下文")
+        clarification_checks = context.get("clarification_checks", [])
+        if clarification_checks:
+            replies = list(
+                await db.scalars(
+                    select(Message).where(
+                        Message.id.in_([UUID(c["message_id"]) for c in clarification_checks]),
+                        Message.conversation_id == source.conversation_id,
+                        Message.role == "user",
+                    )
+                )
+            )
+            valid_replies = {str(m.id): digest(m) for m in replies}
+            if any(
+                valid_replies.get(c["message_id"]) != c["content_hash"]
+                for c in clarification_checks
+            ):
+                raise BadRequestError(message="补充信息已删除或变更，请重新发送")
 
 
 async def read_references(db, user_id, project_id, conversation_id, answer_id):

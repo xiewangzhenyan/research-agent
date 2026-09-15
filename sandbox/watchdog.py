@@ -24,9 +24,14 @@ def reap():
                 stdout=subprocess.DEVNULL,
             )
 
-    volumes = subprocess.check_output(
-        ["docker", "volume", "ls", "-q", "--filter", "label=agent.sandbox=v2-input"], text=True
-    ).split()
+    volumes = []
+    for label in ("v2-input", "v2-output"):
+        volumes.extend(
+            subprocess.check_output(
+                ["docker", "volume", "ls", "-q", "--filter", "label=agent.sandbox=" + label],
+                text=True,
+            ).split()
+        )
     for volume in volumes:
         info = json.loads(
             subprocess.check_output(["docker", "volume", "inspect", volume], text=True)
@@ -38,8 +43,14 @@ def reap():
         except (ValueError, KeyError):
             continue
         if labels.get("agent.sandbox") == "v2-input" and volume == "agent-input-" + job and expired:
-            subprocess.run(["docker", "volume", "rm", volume], check=False, stdout=subprocess.DEVNULL)
-        if labels.get("agent.sandbox") == "v2-output" and volume == "agent-output-" + job and expired:
+            subprocess.run(
+                ["docker", "volume", "rm", volume], check=False, stdout=subprocess.DEVNULL
+            )
+        if (
+            labels.get("agent.sandbox") == "v2-output"
+            and volume == "agent-output-" + job
+            and expired
+        ):
             # No force: a volume still referenced by a container must remain intact.
             subprocess.run(
                 ["docker", "volume", "rm", volume], check=False, stdout=subprocess.DEVNULL

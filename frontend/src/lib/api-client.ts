@@ -73,13 +73,16 @@ class ApiClient {
       url += `?${searchParams.toString()}`;
     }
 
+    const requestScope = projectHeaders();
+    const requestUser = useAuthStore.getState().user?.id;
+
     const doFetch = () =>
       fetch(url, {
         ...fetchOptions,
         headers: {
           "Content-Type": "application/json",
           ...fetchOptions.headers,
-          ...projectHeaders(),
+          ...requestScope,
         },
         body: body ? JSON.stringify(body) : undefined,
       });
@@ -92,6 +95,9 @@ class ApiClient {
     if (response.status === 401 && endpoint !== REFRESH_ENDPOINT) {
       const refreshed = await refreshAccessToken();
       if (refreshed) {
+        if (requestUser && useAuthStore.getState().user?.id !== requestUser) {
+          throw new ApiError(409, "账号已切换，请重新操作");
+        }
         response = await doFetch();
       }
     }

@@ -33,29 +33,35 @@ export function Header() {
   const zh = useLocale() === "zh";
   const t = useTranslations("nav");
   const tc = useTranslations("common");
-  const section = pathname.startsWith("/memory")
-    ? zh
-      ? "项目记忆"
-      : "Project memory"
-    : pathname.startsWith("/tools")
+  const section = pathname.startsWith("/mcp")
+    ? "MCP Servers"
+    : pathname.startsWith("/skills")
       ? zh
-        ? "工具中心"
-        : "Tools"
-      : pathname.startsWith("/models")
+        ? "Skills 中心"
+        : "Skills"
+      : pathname.startsWith("/memory")
         ? zh
-          ? "模型与能力"
-          : "Models and capabilities"
-        : pathname.startsWith("/knowledge")
-          ? t("knowledge")
-          : pathname.startsWith("/chat")
-            ? t("chat")
-            : pathname.startsWith("/settings")
-              ? t("settings")
-              : pathname.startsWith("/admin")
-                ? t("admin")
-                : pathname.startsWith("/profile")
-                  ? t("profile")
-                  : t("dashboard");
+          ? "项目记忆"
+          : "Project memory"
+        : pathname.startsWith("/tools")
+          ? zh
+            ? "工具中心"
+            : "Tools"
+          : pathname.startsWith("/models")
+            ? zh
+              ? "模型与能力"
+              : "Models and capabilities"
+            : pathname.startsWith("/knowledge")
+              ? t("knowledge")
+              : pathname.startsWith("/chat")
+                ? t("chat")
+                : pathname.startsWith("/settings")
+                  ? t("settings")
+                  : pathname.startsWith("/admin")
+                    ? t("admin")
+                    : pathname.startsWith("/profile")
+                      ? t("profile")
+                      : t("dashboard");
 
   const openSearch = () => window.dispatchEvent(new CustomEvent("command-palette:open"));
 

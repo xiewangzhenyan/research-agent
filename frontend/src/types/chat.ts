@@ -237,6 +237,8 @@ export interface ToolApprovalRequiredEvent {
 
 export interface AskUserQuestion {
   question: string;
+  reason?: string;
+  required?: boolean;
   options: string[];
   /** Whether the user may type a free-form answer instead of picking an option. */
   allowCustom: boolean;

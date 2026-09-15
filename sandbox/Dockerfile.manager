@@ -3,4 +3,5 @@ RUN pip install --no-cache-dir fastapi==0.136.3 uvicorn==0.43.0 httpx==0.28.1
 WORKDIR /service
 COPY manager.py /service/manager.py
 COPY files.py /service/files.py
+COPY mcp_gateway.py /service/mcp_gateway.py
 CMD ["uvicorn", "manager:create_app", "--factory", "--host", "0.0.0.0", "--port", "38006", "--workers", "1", "--no-access-log"]

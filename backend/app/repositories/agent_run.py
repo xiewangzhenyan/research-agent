@@ -57,7 +57,15 @@ class AgentRunRepository:
         # Keep turns in one conversation ordered, including across workers and
         # while a previous turn is waiting for human input. Other chats can run.
         blocked = exists().where(
-            earlier.conversation_id == AgentRun.conversation_id,
+            or_(
+                earlier.conversation_id == AgentRun.conversation_id,
+                and_(
+                    earlier.user_id == AgentRun.user_id,
+                    earlier.project_id.is_not_distinct_from(AgentRun.project_id),
+                    earlier.request["work_task"]["id"].astext
+                    == AgentRun.request["work_task"]["id"].astext,
+                ),
+            ),
             earlier.status.in_(ACTIVE),
             or_(
                 earlier.created_at < AgentRun.created_at,
@@ -70,7 +78,6 @@ class AgentRunRepository:
                 .where(AgentRun.status.in_(("queued", "running", "cancelling")))
                 .where(
                     or_(
-                        AgentRun.conversation_id.is_(None),
                         ~blocked,
                         AgentRun.status == "cancelling",
                     )
@@ -81,13 +88,23 @@ class AgentRunRepository:
         )
 
     async def has_predecessor(self, run):
-        if run.conversation_id is None:
-            return False
         return bool(
             await self.db.scalar(
                 select(
                     exists().where(
-                        AgentRun.conversation_id == run.conversation_id,
+                        or_(
+                            AgentRun.conversation_id == run.conversation_id
+                            if run.conversation_id
+                            else False,
+                            and_(
+                                AgentRun.user_id == run.user_id,
+                                AgentRun.project_id == run.project_id,
+                                AgentRun.request["work_task"]["id"].astext
+                                == run.request.get("work_task", {}).get("id"),
+                            )
+                            if run.request.get("work_task")
+                            else False,
+                        ),
                         AgentRun.status.in_(ACTIVE),
                         or_(
                             AgentRun.created_at < run.created_at,
@@ -110,6 +127,10 @@ class AgentRunRepository:
         )
         self.db.add(event)
         await self.db.flush()
+        if run.request.get("work_task"):
+            from app.services.work_task import sync_step
+
+            await sync_step(self.db, run, kind, data)
         return event
 
     async def events(self, run_id, after):

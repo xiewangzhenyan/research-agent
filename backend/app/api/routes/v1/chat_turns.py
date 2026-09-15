@@ -71,3 +71,30 @@ async def context_sources(
 
     response.headers["Cache-Control"] = "private, no-store"
     return await read_references(db, user.id, project_id, conversation_id, answer_id)
+
+
+@router.get("/work-tasks")
+async def work_tasks(
+    response: Response,
+    user: CurrentUser,
+    db: DBSession,
+    project_id: CurrentProject,
+    conversation_id: UUID | None = None,
+):
+    from app.services.work_task import WorkTaskService
+
+    response.headers["Cache-Control"] = "private, no-store"
+    return {
+        "items": await WorkTaskService(db, user.id, project_id=project_id).list(conversation_id)
+    }
+
+
+@router.get("/work-tasks/{task_id}")
+async def work_task(
+    task_id: UUID, response: Response, user: CurrentUser, db: DBSession, project_id: CurrentProject
+):
+    from app.services.work_task import WorkTaskService
+
+    response.headers["Cache-Control"] = "private, no-store"
+    service = WorkTaskService(db, user.id, project_id=project_id)
+    return await service.describe(await service.owned(task_id))

@@ -1,6 +1,6 @@
-# 独立 Python 执行节点
+# 独立 Python 与 MCP 执行节点
 
-状态：接入代码与控制面已实现；当前业务服务器只有 runc，没有独立节点及 runsc，因此线上 Python 工具保持关闭。此目录不能直接作为“已通过 gVisor 实机验收”的证明。
+控制面部署于独立 runsc 节点。Python 与 MCP 使用分别固定的镜像 ID 和独立就绪检查；源码和模拟测试不能代替目标节点实机验收。
 
 本服务只能部署到独立执行服务器，不加入业务数据库、Redis 或模型服务所在网络。只有 manager 持有该节点的 Docker socket；API、任务 worker 和代码容器均不能获取 Docker 调度权限。不要把此 compose 合并到业务服务器的 production compose。
 
@@ -46,7 +46,7 @@ WantedBy=timers.target
 
 - 单次独立工作区；无跨调用 Python 内存/文件状态。协议 1 保留标准库和 stdout/stderr 接口。协议 2 支持只读输入与文件产物（见下）。
 - 非 root、runsc、禁网、只读根、无 capabilities/no-new-privileges，无宿主机挂载和业务凭据。
-- 1 CPU、协议 1 为 256 MiB / 协议 2 为 512 MiB 内存，容器进程上限 64（节点默认并发 1）且禁止额外 swap、32 个进程、16 MiB 工作区和 8 MiB 临时目录。日志最多返回 32 KiB，达到上限终止并标记截断。
+- 1 CPU、协议 1 为 256 MiB / 协议 2 为 512 MiB 内存，容器进程上限 64（节点默认并发 1）且禁止额外 swap、16 MiB 工作区和 8 MiB 临时目录。日志最多返回 32 KiB，达到上限终止并标记截断。
 - 管理器最多同时执行 2 项、排队和执行共 16 项、最多保留 2000 项记录；已存输入与结果超过 256 MiB 后拒绝新提交（并发在途请求最多额外约 112 MiB，SQLite/WAL 及文件系统额外开销仍须磁盘配额控制）；记录保留 8 天。容量到限拒绝新请求。生产为状态卷配置独立磁盘配额和监控。
 - 执行 ID 由业务服务根据 Run ID、协议版本、代码与输入摘要生成。相同任务内相同代码及输入复用结果；不同任务不会共用 ID。idempotency 参数变更返回 409。
 - SQLite 先记录执行，再创建确定性命名容器。控制面重启后检查同名容器，不重新启动已经执行过的代码；已登记 running 但容器丢失时返回失败，拒绝盲目重做。
@@ -76,4 +76,18 @@ WantedBy=timers.target
 
 已构建数据分析 runner 镜像；模拟控制面测试与独立 PostgreSQL 集成测试分别验证协议和业务边界。可信 Docker staging 检查仅创建容器且从不启动，确认只读根目录下向命名卷写入/读回中文输入和 0444 权限。它不证明 gVisor 执行成功。
 
-独立 runsc 节点的实际计算、只读卷写入拒绝、冻结 tmpfs 后产物采集、资源超限和杀死 manager 后的 watchdog 回收，仍须在执行节点验收；当前线上保持关闭，绝不退回业务主机 runc 执行。文件版本节点迁移前先排空旧任务，不混用旧 runner 镜像。
+独立 runsc 节点的实际计算、只读卷写入拒绝、冻结 tmpfs 后产物采集、资源超限和杀死 manager 后的 watchdog 回收，仍须在执行节点验收；不满足就绪校验时保持关闭，不退回业务主机 runc 执行。文件版本节点迁移前先排空旧任务，不混用旧 runner 镜像。
+
+## Stdio MCP 部署
+
+构建 `docker build -t agent-mcp:1 -f Dockerfile.mcp .`，将镜像 ID 写入节点
+`SANDBOX_MCP_IMAGE` 和业务端 `SANDBOX_MCP_IMAGE_ID`，然后升级 manager。
+已提供 `agent-sandbox-watchdog.service` 与 `.timer`，安装到 systemd 后启用 timer；
+默认脚本路径为 `/opt/agent-sandbox/source/watchdog.py`。
+
+`GET /mcp/health` 验证固定镜像并运行真实 MCP 握手；`POST /mcp/exchange` 接受
+run_id、command、args、env、operation、name、arguments，统一 Bearer 认证。
+只支持镜像中已有的 Python 与 MCP SDK，不支持联网、动态安装或跨调用工作区。
+Stdio 和代码运行共享 semaphore；忙碌返回 429，异常返回脱敏错误。环境变量不写入
+SQLite 或审计日志，临时容器删除后清除 Docker 元数据。
+详细配额、生命周期和业务权限见 [能力管理](../docs/user-capabilities.md#隔离-stdio-mcp)。

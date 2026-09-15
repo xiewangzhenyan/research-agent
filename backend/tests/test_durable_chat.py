@@ -197,8 +197,11 @@ def test_durable_clarification_and_worker_recovery():
                 await try_run(turn.id)
             snapshot = await state(a, turn.conversation_id)
             assert snapshot["runs"][0]["status"] == "completed", snapshot["runs"][0]["error"]
-            assert "Markdown" in snapshot["messages"][1].content
-            assert "Markdown" in snapshot["messages"][1].tool_calls[0].result
+            saved_answer = next(
+                m for m in snapshot["messages"] if m.id == turn.assistant_message_id
+            )
+            assert "Markdown" in saved_answer.content
+            assert "Markdown" in saved_answer.tool_calls[0].result
 
     asyncio.run(check())
 

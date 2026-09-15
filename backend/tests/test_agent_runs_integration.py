@@ -31,13 +31,25 @@ pytestmark = pytest.mark.skipif(
 
 
 @asynccontextmanager
-async def users():
+async def users(*, real_readiness=False):
     assert settings.POSTGRES_DB.endswith("_review"), "Refusing to test a non-review database"
     ids = [uuid4(), uuid4()]
     async with get_worker_db_context() as db:
         db.add_all([User(id=i, email=f"task-test-{i}@example.invalid") for i in ids])
     try:
-        yield ids
+        if real_readiness:
+            yield ids
+        else:
+            # These fixtures exercise execution/recovery, not model judgement.
+            # Keep the readiness policy real and replace only its paid classifier.
+            from app.services.task_readiness import ReadinessAssessment
+
+            async def ready(request, context, config, answers, usage, validate):
+                await validate()
+                return ReadinessAssessment(), usage
+
+            with patch("app.services.task_readiness.assess_with_model", side_effect=ready):
+                yield ids
     finally:
         async with get_worker_db_context() as db:
             runs = [r for uid in ids for r in await AgentRunRepository(db).list(uid)]

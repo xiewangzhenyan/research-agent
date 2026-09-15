@@ -10,6 +10,7 @@ import {
   type ChatRun,
   type ChatSnapshot,
   type ChatRatingUpdate,
+  type WorkTaskSelection,
 } from "@/lib/chat-turns";
 import {
   buildAssistantParts,
@@ -142,6 +143,7 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
         queryKey: ["chat-history", userId, projectId, conversationId],
       });
       void client.invalidateQueries({ queryKey: qk.conversations.list() });
+      void client.invalidateQueries({ queryKey: ["work-tasks", userId, projectId] });
     }
     previousVersion.current = runVersion;
   }, [runVersion, client, userId, projectId, conversationId]);
@@ -268,8 +270,10 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
           queryKey: ["chat-runs", userId, projectId, run.conversation_id],
         }),
         client.invalidateQueries({ queryKey: qk.conversations.list() }),
+        client.invalidateQueries({ queryKey: ["work-tasks", userId, projectId] }),
       ]);
     } catch (error) {
+      void client.invalidateQueries({ queryKey: ["work-tasks", userId, projectId] });
       if (
         scopeRef.current === requestedScope &&
         selection === useConversationStore.getState().selectionVersion
@@ -295,28 +299,35 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
     }
   };
 
-  const sendMessage = (content: string, fileIds?: string[], files?: ChatMessageFile[]) => {
+  const sendMessage = (
+    content: string,
+    fileIds?: string[],
+    files?: ChatMessageFile[],
+    workTask?: WorkTaskSelection,
+  ) => {
+    const control = !!workTask && ["pause", "cancel", "complete"].includes(workTask.action);
     if (sending.current || !userId) return false;
-    if (!generationReady) {
+    if (!control && !generationReady) {
       toast.error("请等待本会话设置加载完成后发送。");
       return false;
     }
     const knowledge = useKnowledgeStore.getState();
     if (
-      !knowledge.ready ||
-      knowledge.busy ||
-      knowledge.scopeId !== conversationId ||
-      knowledge.error ||
-      (knowledge.documentIds !== null && !knowledge.documentsReady)
+      !control &&
+      (!knowledge.ready ||
+        knowledge.busy ||
+        knowledge.scopeId !== conversationId ||
+        knowledge.error ||
+        (knowledge.documentIds !== null && !knowledge.documentsReady))
     ) {
       toast.error(knowledge.error || "请等待知识范围同步完成后发送。");
       return false;
     }
-    if (knowledge.ids.length && content.length > 1500) {
+    if (!control && knowledge.ids.length && content.length > 1500) {
       toast.error("知识库问题最多 1500 字。");
       return false;
     }
-    if (knowledge.ids.length && knowledge.strict && fileIds?.length) {
+    if (!control && knowledge.ids.length && knowledge.strict && fileIds?.length) {
       toast.error("请先导入附件，或关闭严格资料模式。");
       return false;
     }
@@ -329,12 +340,17 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
         idempotency_key: id,
         conversation_id: conversationId,
         message: content,
-        file_ids: fileIds ?? [],
-        knowledge_base_ids: knowledge.ids,
-        knowledge_document_ids: knowledge.documentIds,
-        knowledge_strict: knowledge.strict,
-        python_enabled: python.current,
-        generation: { ...generation },
+        ...(workTask ? { work_task: workTask } : {}),
+        ...(!control
+          ? {
+              file_ids: fileIds ?? [],
+              knowledge_base_ids: knowledge.ids,
+              knowledge_document_ids: knowledge.documentIds,
+              knowledge_strict: knowledge.strict,
+              python_enabled: python.current,
+              generation: { ...generation },
+            }
+          : {}),
       },
     };
     setPending((items) => [...items, entry]);
@@ -352,24 +368,26 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
   const stopGeneration = async (id?: string) => {
     const target = active.find((r) => r.status !== "cancelling" && (!id || r.id === id));
     if (!target) return;
+    const requestedScope = scope;
     try {
       await apiClient.post(`/tasks/${target.id}/cancel`, {});
-      await refresh();
+      if (scopeRef.current === requestedScope) await refresh();
     } catch {
-      toast.error("停止请求未确认，请重试。");
+      if (scopeRef.current === requestedScope) toast.error("停止请求未确认，请重试。");
     }
   };
   const sendAskUserResponses = async (answers: AskUserAnswer[]) => {
     const pendingInput = waiting?.pending_input;
     if (!waiting || !pendingInput || answerSubmitting) return;
     setAnswerSubmitting(true);
+    const requestedScope = scope;
     let index = 0;
     const mapped = Object.fromEntries(
       pendingInput.calls.map((call) => [
         call.call_id,
         call.questions.map(() => {
           const answer = answers[index++];
-          return answer?.skipped ? "用户跳过此问题，请按已有信息继续。" : (answer?.answer ?? "");
+          return answer?.skipped ? "__skip_optional_question__" : (answer?.answer ?? "");
         }),
       ]),
     );
@@ -378,9 +396,10 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
         question_id: pendingInput.question_id,
         answers: mapped,
       });
-      await refresh();
-    } catch {
-      toast.error("补充信息未保存，请检查并重试。");
+      if (scopeRef.current === requestedScope) await refresh();
+    } catch (error) {
+      if (scopeRef.current === requestedScope)
+        toast.error(error instanceof ApiError ? error.message : "补充信息未保存，请检查并重试。");
     } finally {
       setAnswerSubmitting(false);
     }
@@ -393,6 +412,7 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
     isSubmitting: submitting,
     sendMessage,
     stopGeneration,
+    cancelClarification: () => waiting && stopGeneration(waiting.id),
     clearMessages: useChatStore.getState().clearMessages,
     queuedMessages: pending,
     retryQueued,
@@ -413,6 +433,9 @@ export function useChat({ conversationId = null, onConversationCreated }: UseCha
       waiting?.pending_input?.calls.flatMap((call) =>
         call.questions.map((q) => ({
           question: q.question,
+          reason: q.reason,
+          details: q.details,
+          required: q.required ?? false,
           options: q.options ?? [],
           allowCustom: q.allow_custom ?? true,
         })),

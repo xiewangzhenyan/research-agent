@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   ArrowUpRight,
   Plus,
+  Plug,
+  BookOpen,
 } from "lucide-react";
 import { useActiveRoute } from "@/lib/active-route";
 import { cn, isAppAdmin } from "@/lib/utils";
@@ -97,6 +99,24 @@ function SidebarContents({
         >
           <Wrench size={18} />
           {zh ? "工具中心" : "Tools"}
+        </Link>
+        <Link
+          href="/mcp"
+          onClick={onNavigate}
+          aria-current={active("/mcp") ? "page" : undefined}
+          className={linkStyle("/mcp")}
+        >
+          <Plug size={18} />
+          MCP Servers
+        </Link>
+        <Link
+          href="/skills"
+          onClick={onNavigate}
+          aria-current={active("/skills") ? "page" : undefined}
+          className={linkStyle("/skills")}
+        >
+          <BookOpen size={18} />
+          {zh ? "Skills 中心" : "Skills"}
         </Link>
         <Link
           href="/models"

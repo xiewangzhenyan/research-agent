@@ -1,0 +1,8 @@
+FROM python:3.12.12-slim-bookworm
+RUN pip install --no-cache-dir mcp==1.30.0
+RUN groupadd -g 65532 runner && useradd -u 65532 -g 65532 -M runner
+COPY mcp_runner.py /opt/agent-mcp-runner.py
+USER 65532:65532
+WORKDIR /work
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENTRYPOINT ["python", "-I", "-B", "/opt/agent-mcp-runner.py"]

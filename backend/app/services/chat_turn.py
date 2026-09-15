@@ -54,8 +54,6 @@ class ChatTurnService:
             ):
                 raise AlreadyExistsError(message="发送标识已用于其他内容，请重新发送")
             return previous
-        if await self.repo.active_count(self.user_id) >= 5:
-            raise RateLimitError(message="最多同时保留 5 条待完成的请求，请等待或停止已有请求")
         conversation = (
             await self.conversations.get_conversation(
                 data.conversation_id, user_id=self.user_id, access="owner"
@@ -63,6 +61,18 @@ class ChatTurnService:
             if data.conversation_id
             else None
         )
+        from app.services.work_task import CONTROLS, WorkTaskService
+
+        work = WorkTaskService(self.db, self.user_id, project_id=self.project_id)
+        selection = await work.select(data, data.conversation_id)
+        if selection and selection["action"] in {*CONTROLS, "clarify"}:
+            return await self.control_turn(data, conversation, selection, digest, work)
+        if (
+            selection
+            and selection["action"] in {"new", "revise", "replace"}
+            and not data.message.strip()
+        ):
+            raise BadRequestError(message="请输入完整任务目标或修改要求")
         bases = data.knowledge_base_ids
         if bases is None:
             bases = [
@@ -146,6 +156,7 @@ class ChatTurnService:
         assistant.created_at = sent_at + timedelta(microseconds=1)
         request = {
             "kind": "chat",
+            "clarification_policy": "clarification-v1",
             "prompt": data.message,
             "file_ids": files,
             "knowledge_base_ids": [str(v) for v in bases],
@@ -158,6 +169,10 @@ class ChatTurnService:
             "conversation_id": str(conversation.id),
             "user_message_id": str(user_message.id),
         }
+        from app.services.capability_assets import CapabilityService
+        from app.services.capability_runtime import snapshot
+
+        request["capabilities"] = await snapshot(CapabilityService(self.db, user, self.project_id))
         if data.python_enabled:
             from app.services import sandbox_client
             from app.services.sandbox_files import load_inputs
@@ -192,6 +207,15 @@ class ChatTurnService:
                 created_at=sent_at,
             )
         )
+        await work.attach(selection, run, user_message)
+        if await self.repo.active_count(self.user_id) > 5:
+            raise RateLimitError(message="最多同时保留 5 条待完成的请求，请等待或停止已有请求")
+        if selection:
+            from app.services.context_budget import envelope
+
+            envelope(
+                {**run.request, "work_context": await work.context(run.request)}, configuration
+            )
         from app.services.memory_extraction import enqueue
 
         await enqueue(
@@ -202,6 +226,65 @@ class ChatTurnService:
             strict_knowledge=bool(bases and strict),
         )
         await self.repo.event(run, "queued", {"message": "消息已保存，关闭页面后仍会继续处理"})
+        return run
+
+    async def control_turn(self, data, conversation, selection, request_hash, work):
+        """Controls do not queue behind HITL, require a model, or consume a run slot."""
+        from app.db.models.work_task import WorkTaskConversation
+        from app.schemas.work_task import WorkTaskControl
+        from app.services.work_task import CONTROL_TEXT
+
+        if data.file_ids:
+            raise BadRequestError(message="暂停、取消和完成操作不接收附件，请单独发送附件")
+        action = selection["action"]
+        task = None
+        if action != "clarify":
+            task = await work.control(
+                selection["task_id"],
+                WorkTaskControl(
+                    operation_id=data.idempotency_key,
+                    expected_revision=selection["expected_revision"],
+                    action=action,
+                ),
+            )
+        if conversation is None:
+            conversation = await self.conversations.create_conversation(
+                ConversationCreate(user_id=self.user_id, title=data.message[:50])
+            )
+        if task and await self.db.get(WorkTaskConversation, (task.id, conversation.id)) is None:
+            self.db.add(WorkTaskConversation(task_id=task.id, conversation_id=conversation.id))
+        text = (
+            CONTROL_TEXT[action]
+            if task
+            else "有多个未结束任务，请展开聊天中的任务卡片，选择要继续或修改的任务。"
+        )
+        sent_at = datetime.now(UTC)
+        message = await self.conversations.add_message(
+            conversation.id, MessageCreate(role="user", content=data.message), user_id=self.user_id
+        )
+        message.created_at = sent_at
+        answer = await self.conversations.add_message(
+            conversation.id, MessageCreate(role="assistant", content=text), user_id=self.user_id
+        )
+        answer.created_at = sent_at + timedelta(microseconds=1)
+        run = await self.repo.add(
+            AgentRun(
+                user_id=self.user_id,
+                project_id=self.project_id,
+                conversation_id=conversation.id,
+                user_message_id=message.id,
+                assistant_message_id=answer.id,
+                idempotency_key=data.idempotency_key,
+                request_hash=request_hash,
+                request={"kind": "work_control", "prompt": data.message, "action": action},
+                effective_config={},
+                status="completed",
+                result={"content": text},
+                created_at=sent_at,
+                finished_at=sent_at,
+            )
+        )
+        await self.repo.event(run, "completed", {"message": text})
         return run
 
     async def state(self, conversation_id, *, before=None, include_messages=True):

@@ -71,3 +71,24 @@ it("proxies only a scoped history disclosure and disables caching", async () => 
     ).status,
   ).toBe(400);
 });
+
+it("forwards task filters within project scope and rejects arbitrary task paths", async () => {
+  const fetch = vi
+    .fn()
+    .mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ items: [] }))));
+  vi.stubGlobal("fetch", fetch);
+  const incoming = new NextRequest(
+    `http://localhost/api/chat/work-tasks?conversation_id=${id}&user_id=someone-else`,
+    {
+      headers: { cookie: "access_token=test-only", "X-Project-ID": project },
+    },
+  );
+  const result = await GET(incoming, { params: Promise.resolve({ path: ["work-tasks"] }) });
+  expect(result.status).toBe(200);
+  expect(fetch.mock.calls[0]![0]).toContain(`conversation_id=${id}`);
+  expect(fetch.mock.calls[0]![0]).not.toContain("user_id");
+  expect(fetch.mock.calls[0]![1].headers["X-Project-ID"]).toBe(project);
+  expect(
+    (await GET(incoming, { params: Promise.resolve({ path: ["work-tasks", "../other"] }) })).status,
+  ).toBe(400);
+});

@@ -89,3 +89,22 @@ because its generated probability-table dictionary can stall collection under
 PEP 669 instrumentation. Application modules are still imported under coverage;
 the measured source and coverage threshold remain unchanged. Python 3.13 can
 run pytest directly.
+
+
+## 工作任务验收
+
+`tests/test_work_tasks.py` 使用独立 PostgreSQL 和离线模型，覆盖跨会话续做、账号／项目及数据库关联隔离、要求修订、中断审批失效、运行中旧结果／文件写入拦截、控制幂等和并发窗口冲突、worker 重启、来源失效及上下文预算。数据库 CI 已纳入该文件。真实 BGE 向量测试仍需要预先缓存本地模型，不把跳过的模型效果测试算作通过。
+
+前端 `e2e/work-tasks.spec.ts` 在桌面和手机视口验证任务卡片、要求修改、跨会话续接以及 HITL 等待期间的暂停。接口使用模拟数据，真实数据库及执行恢复由后端集成测试另测。
+
+本机运行浏览器验收时，前端测试服务与线上端口分开，后端地址指向未使用的本地端口，所有浏览器 API 都由测试拦截。Next.js 15.5.25 在显式绑定 `127.0.0.1` 时可能将中文内部重写误判为跨主机重写；本次使用 `--hostname localhost -p 38010`，并设置 `PLAYWRIGHT_BASE_URL=http://localhost:38010`，不修改线上路由或生产环境。
+
+## 持久化澄清回归
+
+`tests/test_clarification.py` 使用离线结构化模型验证必要信息与偏好的区分、必答校验和工具派发拦截。`tests/test_clarification_integration.py` 已加入数据库 CI；使用 `RUN_TASK_DB_TESTS=1` 和独立数据库运行，包含恢复、隔离、问答幂等、来源失效、证据与协作审校重试上限。浏览器回归在 `frontend/e2e/durable-chat.spec.ts`，覆盖桌面和手机端。行为及限制见 [信息完整性检查与持久化澄清](confidence-clarification.md)。测试不得读取生产密钥或连接生产数据库。
+
+2026-09-15 用户能力管理增加 `tests/test_capability_security.py`（无外部服务）与
+`tests/test_capabilities_integration.py`（仅 `RUN_TASK_DB_TESTS=1` 的一次性 PostgreSQL）。
+后者覆盖真实发布/绑定/权限恢复与 MCP 调用去重，已加入 CI 数据库 job。
+前端对应 `e2e/capabilities.spec.ts`（桌面/手机）和 capabilities API 代理单元测试。
+运行这些测试无需上传真实密钥，禁止把测试数据库指向生产环境。

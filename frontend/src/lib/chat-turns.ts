@@ -19,7 +19,14 @@ export interface ChatRun {
     question_id: string;
     calls: {
       call_id: string;
-      questions: { question: string; options?: string[]; allow_custom?: boolean }[];
+      questions: {
+        question: string;
+        reason?: string;
+        details?: string;
+        required?: boolean;
+        options?: string[];
+        allow_custom?: boolean;
+      }[];
     }[];
   } | null;
 }
@@ -41,3 +48,36 @@ export type ChatRatingUpdate = (
   rating: number | null,
   counts: { likes: number; dislikes: number },
 ) => void;
+
+export interface WorkTaskSelection {
+  action: "new" | "continue" | "revise" | "replace" | "pause" | "cancel" | "complete";
+  task_id?: string;
+  expected_revision?: number;
+}
+export interface WorkTask {
+  id: string;
+  title: string;
+  status: "active" | "paused" | "cancelled" | "completed";
+  revision: number;
+  source_valid: boolean;
+  next_action: string;
+  updated_at: string;
+  requirements: { revision: number; content: string | null; valid: boolean }[];
+  steps: {
+    id: string;
+    run_id: string | null;
+    conversation_id: string | null;
+    revision: number;
+    status: ChatRun["status"];
+    phase: string;
+    historical: boolean;
+  }[];
+  artifacts: {
+    id: string;
+    run_id: string;
+    name: string;
+    size: number;
+    revision: number;
+    historical: boolean;
+  }[];
+}
