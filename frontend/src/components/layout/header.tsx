@@ -2,8 +2,17 @@
 
 import Link from "next/link";
 import { ProjectSwitcher } from "@/components/projects/project-switcher";
-import { useLocale, useTranslations } from "next-intl";
-import { ChevronDown, History, LogOut, Menu, Search, Settings, UserCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
+import {
+  ChevronDown,
+  ChevronRight,
+  History,
+  LogOut,
+  Menu,
+  Search,
+  Settings,
+  UserCircle,
+} from "lucide-react";
 import { LanguageSwitcherIcon } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme";
 import {
@@ -22,6 +31,7 @@ import { useAuth } from "@/hooks";
 import { usePathname } from "next/navigation";
 import { stripLocale } from "@/lib/active-route";
 import { ROUTES } from "@/lib/constants";
+import { activeNavKey } from "@/lib/navigation";
 import { useAuthStore, useSidebarStore, useChatSidebarStore } from "@/stores";
 
 export function Header() {
@@ -30,44 +40,15 @@ export function Header() {
   const { toggle } = useSidebarStore();
   const openHistory = useChatSidebarStore((s) => s.open);
   const pathname = stripLocale(usePathname());
-  const zh = useLocale() === "zh";
   const t = useTranslations("nav");
   const tc = useTranslations("common");
-  const section = pathname.startsWith("/mcp")
-    ? "MCP Servers"
-    : pathname.startsWith("/skills")
-      ? zh
-        ? "Skills 中心"
-        : "Skills"
-      : pathname.startsWith("/memory")
-        ? zh
-          ? "项目记忆"
-          : "Project memory"
-        : pathname.startsWith("/tools")
-          ? zh
-            ? "工具中心"
-            : "Tools"
-          : pathname.startsWith("/models")
-            ? zh
-              ? "模型与能力"
-              : "Models and capabilities"
-            : pathname.startsWith("/knowledge")
-              ? t("knowledge")
-              : pathname.startsWith("/chat")
-                ? t("chat")
-                : pathname.startsWith("/settings")
-                  ? t("settings")
-                  : pathname.startsWith("/admin")
-                    ? t("admin")
-                    : pathname.startsWith("/profile")
-                      ? t("profile")
-                      : t("dashboard");
+  const section = t(activeNavKey(pathname));
 
   const openSearch = () => window.dispatchEvent(new CustomEvent("command-palette:open"));
 
   return (
     <header className="console-topbar">
-      <div className="flex h-16 items-center justify-between gap-2 px-3 sm:px-6">
+      <div className="flex h-14 items-center justify-between gap-2 px-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-1 sm:gap-3">
           <Button variant="ghost" size="sm" className="h-9 w-9 p-0 lg:hidden" onClick={toggle}>
             <Menu className="h-5 w-5" />
@@ -75,8 +56,9 @@ export function Header() {
           </Button>
 
           <ProjectSwitcher />
-          <span className="text-muted-foreground hidden truncate text-sm md:inline">
-            / {section}
+          <span className="text-muted-foreground hidden items-center gap-1.5 truncate text-sm md:inline-flex">
+            <ChevronRight size={14} className="text-subtle" aria-hidden />
+            <span className="text-foreground/80 truncate">{section}</span>
           </span>
         </div>
 
@@ -87,7 +69,7 @@ export function Header() {
               size="icon"
               className="h-9 w-9 lg:hidden"
               onClick={openHistory}
-              aria-label={zh ? "历史对话" : "Chat history"}
+              aria-label={t("chatHistory")}
             >
               <History size={18} />
             </Button>
@@ -113,7 +95,7 @@ export function Header() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  aria-label={zh ? "账号菜单" : "Account menu"}
+                  aria-label={t("accountMenu")}
                   className="hover:bg-accent focus-visible:ring-ring ml-0.5 flex items-center gap-1.5 rounded-full p-0.5 pr-2 transition-colors outline-none focus-visible:ring-1"
                 >
                   <Avatar className="h-7 w-7">
@@ -123,7 +105,7 @@ export function Header() {
                         alt={user.email}
                       />
                     )}
-                    <AvatarFallback className="bg-foreground text-background text-[10px] font-semibold">
+                    <AvatarFallback className="bg-brand text-brand-foreground text-2xs font-semibold">
                       {user?.email?.substring(0, 2).toUpperCase() || "U"}
                     </AvatarFallback>
                   </Avatar>

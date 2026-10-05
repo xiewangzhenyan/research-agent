@@ -9,13 +9,11 @@ import {
   ArrowRight,
   Bell,
   BookOpen,
-  LayoutDashboard,
   LogOut,
   MessageSquare,
   Palette,
   Plus,
   Search,
-  Settings,
   Shield,
   Slash,
   Star,
@@ -26,6 +24,7 @@ import type { LucideIcon } from "lucide-react";
 import { useAuth } from "@/hooks";
 import { apiClient } from "@/lib/api-client";
 import { ROUTES } from "@/lib/constants";
+import { NAV_GROUPS, navItem } from "@/lib/navigation";
 import { isAppAdmin } from "@/lib/utils";
 
 interface ConversationItem {
@@ -77,10 +76,10 @@ export function CommandPalette() {
     <Command.Dialog
       open={open}
       onOpenChange={setOpen}
-      label="Command palette"
+      label={t("commandPalette")}
       shouldFilter
-      overlayClassName="bg-background/50 fixed inset-0 z-[60] backdrop-blur-sm"
-      contentClassName="border-foreground/15 bg-card text-foreground fixed left-1/2 top-[12vh] z-[61] w-[min(92vw,640px)] -translate-x-1/2 overflow-hidden rounded-2xl border shadow-2xl"
+      overlayClassName="bg-background/60 animate-in fade-in-0 fixed inset-0 z-[60] backdrop-blur-sm"
+      contentClassName="bg-popover text-popover-foreground animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 fixed left-1/2 top-[12vh] z-[61] w-[min(92vw,640px)] -translate-x-1/2 overflow-hidden rounded-2xl border shadow-[var(--shadow-overlay)]"
     >
       <div className="border-foreground/10 flex items-center gap-3 border-b px-4 py-3">
         <Search className="text-foreground/45 h-4 w-4" />
@@ -88,7 +87,7 @@ export function CommandPalette() {
           autoFocus
           value={search}
           onValueChange={setSearch}
-          placeholder="Search or jump to…"
+          placeholder={t("searchPlaceholder")}
           className="text-foreground placeholder:text-foreground/45 flex-1 bg-transparent text-sm outline-none"
         />
         <kbd className="border-foreground/15 text-foreground/55 hidden rounded-md border px-1.5 py-0.5 font-mono text-[10px] sm:inline-block">
@@ -98,40 +97,50 @@ export function CommandPalette() {
 
       <Command.List className="max-h-[60vh] overflow-y-auto px-2 py-2">
         <Command.Empty className="text-foreground/55 px-4 py-10 text-center text-sm">
-          No matches.
+          {t("noMatches")}
         </Command.Empty>
 
-        <Group heading="Quick actions">
-          <PaletteItem
-            icon={Plus}
-            label="Start new chat"
-            onSelect={() => go(ROUTES.CHAT)}
-            shortcut="⌘N"
-          />
+        <Group heading={t("quickActions")}>
+          <PaletteItem icon={Plus} label={t("startNewChat")} onSelect={() => go("/chat?new=1")} />
         </Group>
 
         {conversations.length > 0 && (
-          <Group heading="Recent conversations">
+          <Group heading={t("recentConversations")}>
             {conversations.slice(0, 8).map((c) => (
               <PaletteItem
                 key={c.id}
                 icon={MessageSquare}
-                label={c.title?.trim() || "Untitled conversation"}
+                label={c.title?.trim() || t("untitledConversation")}
                 onSelect={() => go(`${ROUTES.CHAT}?id=${c.id}`)}
               />
             ))}
           </Group>
         )}
 
+        {NAV_GROUPS.map((group) => (
+          <Group key={group.labelKey} heading={t(group.labelKey)}>
+            {group.items.map((item) => (
+              <PaletteItem
+                key={item.key}
+                icon={item.icon}
+                label={t(item.key)}
+                onSelect={() => go(item.href)}
+              />
+            ))}
+          </Group>
+        ))}
+
         <Group heading={t("navigate")}>
           <PaletteItem
-            icon={LayoutDashboard}
-            label={t("dashboard")}
-            onSelect={() => go(ROUTES.DASHBOARD)}
+            icon={navItem("profile").icon}
+            label={t("profile")}
+            onSelect={() => go(ROUTES.PROFILE)}
           />
-          <PaletteItem icon={MessageSquare} label={t("chat")} onSelect={() => go(ROUTES.CHAT)} />
-          <PaletteItem icon={UserCircle} label={t("profile")} onSelect={() => go(ROUTES.PROFILE)} />
-          <PaletteItem icon={Settings} label={t("settings")} onSelect={() => go(ROUTES.SETTINGS)} />
+          <PaletteItem
+            icon={navItem("settings").icon}
+            label={t("settings")}
+            onSelect={() => go(ROUTES.SETTINGS)}
+          />
           <PaletteItem
             icon={BookOpen}
             label={t("apiDocs")}
@@ -199,11 +208,11 @@ export function CommandPalette() {
       <div className="border-foreground/10 text-foreground/45 flex items-center justify-between border-t px-4 py-2 font-mono text-[10px] tracking-wider uppercase">
         <span className="inline-flex items-center gap-1.5">
           <kbd className="border-foreground/15 rounded border px-1 py-0.5">↑↓</kbd>
-          Navigate
+          {t("paletteMove")}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <kbd className="border-foreground/15 rounded border px-1 py-0.5">↵</kbd>
-          Open
+          {t("paletteOpen")}
         </span>
       </div>
     </Command.Dialog>
@@ -235,16 +244,16 @@ function PaletteItem({
   return (
     <Command.Item
       onSelect={onSelect}
-      className="text-foreground/85 hover:bg-foreground/5 data-[selected=true]:bg-foreground/8 data-[selected=true]:text-foreground flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+      className="group text-foreground/85 hover:bg-foreground/5 data-[selected=true]:bg-brand/10 data-[selected=true]:text-foreground flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
     >
-      <Icon className="h-4 w-4 shrink-0 opacity-70" />
+      <Icon className="group-data-[selected=true]:text-brand h-4 w-4 shrink-0 opacity-80" />
       <span className="flex-1 truncate">{label}</span>
       {shortcut ? (
         <kbd className="border-foreground/15 text-foreground/55 rounded border px-1.5 py-0.5 font-mono text-[10px]">
           {shortcut}
         </kbd>
       ) : (
-        <ArrowRight className="text-foreground/30 h-3.5 w-3.5 opacity-0 transition-opacity data-[selected=true]:opacity-100" />
+        <ArrowRight className="text-foreground/40 h-3.5 w-3.5 opacity-0 transition-opacity group-data-[selected=true]:opacity-100" />
       )}
     </Command.Item>
   );

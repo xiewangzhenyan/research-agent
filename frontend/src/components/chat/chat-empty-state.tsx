@@ -1,39 +1,22 @@
 "use client";
 
-import { BookOpen, Code2, FileSearch, Sparkles } from "lucide-react";
-import { useLocale } from "next-intl";
+import { BookOpenText, FileSearch, GitCompareArrows, ScrollText } from "lucide-react";
+import { useTranslations } from "next-intl";
 
+import { ResearchMark } from "@/components/brand/research-mark";
 import { useAuth } from "@/hooks";
 
-const PROMPTS_EN = [
-  {
-    icon: FileSearch,
-    title: "Summarize my docs",
-    prompt: "Summarize the key points from my latest indexed documents.",
-  },
-  {
-    icon: BookOpen,
-    title: "Explain a concept",
-    prompt: "Explain how vector search and RAG work together — keep it under 200 words.",
-  },
-  {
-    icon: Code2,
-    title: "Write some code",
-    prompt: "Write a Python function that hashes a password with bcrypt and verifies it.",
-  },
-  {
-    icon: Sparkles,
-    title: "Brainstorm",
-    prompt: "Give me 5 ideas for an onboarding email sequence for a developer tool.",
-  },
-];
+import { RoleStrip } from "./role-strip";
 
-const PROMPTS_ZH = [
-  { icon: FileSearch, title: "总结文档", prompt: "请总结我最近上传文档中的重点内容。" },
-  { icon: BookOpen, title: "解释概念", prompt: "请用通俗语言解释向量搜索与 RAG 如何协同工作。" },
-  { icon: Code2, title: "编写代码", prompt: "请编写一个清晰、安全并附带说明的 Python 示例。" },
-  { icon: Sparkles, title: "头脑风暴", prompt: "请围绕我的目标给出 5 个可执行的创意。" },
-];
+/** Research-shaped starters. "compare" and "review" use the wording that lets the
+ *  backend route a question to the four-role workflow when a knowledge base is
+ *  connected in strict mode; nothing here forces that route. */
+const PROMPTS = [
+  { key: "summary", icon: FileSearch, role: "write" },
+  { key: "compare", icon: GitCompareArrows, role: "research" },
+  { key: "explain", icon: BookOpenText, role: "plan" },
+  { key: "review", icon: ScrollText, role: "review" },
+] as const;
 
 interface ChatEmptyStateProps {
   onPick: (prompt: string) => void;
@@ -41,46 +24,50 @@ interface ChatEmptyStateProps {
 
 export function ChatEmptyState({ onPick }: ChatEmptyStateProps) {
   const { user } = useAuth();
-  const isZh = useLocale() === "zh";
-  const prompts = isZh ? PROMPTS_ZH : PROMPTS_EN;
+  const t = useTranslations("chat.empty");
   const firstName = user?.full_name?.split(" ")[0] || user?.email?.split("@")[0];
 
   return (
     <div className="chat-welcome mx-auto w-full max-w-2xl px-4 py-6 md:py-10">
-      <div className="text-center">
-        <div className="bg-brand/10 text-brand mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl">
-          <Sparkles className="h-5 w-5" />
-        </div>
+      <div className="stagger flex flex-col items-center text-center">
+        <span className="relative mb-5 inline-grid place-items-center">
+          <span
+            aria-hidden
+            className="bg-brand/25 absolute inset-0 rounded-[20px] blur-xl motion-safe:animate-[breathe_3.6s_ease-in-out_infinite]"
+          />
+          <ResearchMark size={52} animated className="relative" />
+        </span>
         <h2 className="text-foreground font-display text-2xl font-semibold tracking-tight md:text-3xl">
-          {isZh
-            ? firstName
-              ? `${firstName}，今天想从哪里开始？`
-              : "今天想从哪里开始？"
-            : firstName
-              ? `How can I help, ${firstName}?`
-              : "How can I help today?"}
+          {firstName ? t("greetingNamed", { name: firstName }) : t("greeting")}
         </h2>
         <p className="text-muted-foreground mx-auto mt-2 max-w-md text-sm leading-relaxed">
-          {isZh
-            ? "连接知识库，让回答有据可查。"
-            : "Connect your knowledge base for answers with source citations."}
+          {t("subtitle")}
+        </p>
+        <RoleStrip label={t("team")} className="mt-5" />
+        <p className="text-subtle mx-auto mt-2.5 max-w-md text-xs leading-relaxed text-pretty">
+          {t("teamHint")}
         </p>
       </div>
 
-      <div className="chat-prompt-shortcuts mt-6 flex flex-wrap justify-center gap-2">
-        {prompts.map((p) => (
+      <div className="chat-prompt-shortcuts stagger mt-7 grid gap-2.5 sm:grid-cols-2">
+        {PROMPTS.map((p) => (
           <button
-            key={p.title}
+            key={p.key}
             type="button"
-            onClick={() => onPick(p.prompt)}
-            className="group border-border bg-card hover:border-brand/40 hover:bg-accent flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors"
+            onClick={() => onPick(t(`${p.key}Prompt`))}
+            className={`group role-${p.role} panel panel-interactive flex items-center gap-3 px-3.5 py-3 text-left`}
           >
-            <span className="text-muted-foreground group-hover:text-brand flex shrink-0 items-center justify-center transition-colors">
+            <span className="icon-chip h-9 w-9">
               <p.icon className="h-4 w-4" />
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-foreground text-sm font-medium">{p.title}</p>
-            </div>
+            <span className="min-w-0 flex-1">
+              <span className="text-foreground block text-sm font-medium">
+                {t(`${p.key}Title`)}
+              </span>
+              <span className="text-muted-foreground block truncate text-xs">
+                {t(`${p.key}Hint`)}
+              </span>
+            </span>
           </button>
         ))}
       </div>

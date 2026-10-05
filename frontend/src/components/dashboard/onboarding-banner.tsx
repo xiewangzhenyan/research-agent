@@ -25,8 +25,8 @@ export function OnboardingBanner() {
   if (!show) return null;
 
   return (
-    <div className="border-border bg-card flex items-center gap-4 rounded-xl border p-4">
-      <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+    <div className="panel relative flex items-center gap-4 overflow-hidden bg-[radial-gradient(420px_160px_at_0%_0%,color-mix(in_srgb,var(--color-brand)_12%,transparent),transparent)] p-4">
+      <div className="icon-chip h-10 w-10">
         <Sparkles className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
@@ -38,7 +38,7 @@ export function OnboardingBanner() {
       <div className="flex shrink-0 items-center gap-1.5">
         <Link
           href={ROUTES.ONBOARDING}
-          className="bg-foreground text-background hover:bg-foreground/90 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors"
+          className="bg-brand text-brand-foreground hover:bg-brand-hover inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors"
         >
           {t("continue")}
           <ArrowRight className="h-3.5 w-3.5" />

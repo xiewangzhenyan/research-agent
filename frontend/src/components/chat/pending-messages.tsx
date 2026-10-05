@@ -16,7 +16,7 @@ export function PendingMessages({ messages, onCancel, onRetry }: PendingMessages
   if (messages.length === 0) return null;
 
   return (
-    <div className="border-border bg-card mb-2 rounded-2xl border px-3 py-2">
+    <div className="bg-muted/70 step-reveal mx-4 rounded-t-xl border border-b-0 px-3 py-2">
       <div className="text-foreground/55 mb-1.5 flex items-center gap-1.5 font-mono text-[10px] tracking-wider uppercase">
         <Clock className="h-3 w-3" />
         等待服务器确认

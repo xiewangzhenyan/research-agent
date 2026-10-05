@@ -74,13 +74,14 @@ export default function DashboardPage() {
       />
 
       <div
-        className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        className="stagger grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
         aria-label={zh ? "工作空间统计" : "Workspace statistics"}
       >
         <StatCard
           label={zh ? "知识库" : "Knowledge bases"}
           value={allBases?.length ?? "—"}
           icon={Database}
+          tone="write"
           footer={zh ? "当前账号的知识空间" : "Your knowledge spaces"}
           loading={bases.isLoading}
         />
@@ -88,6 +89,7 @@ export default function DashboardPage() {
           label={zh ? "资料总数" : "Documents"}
           value={metric("document_count")}
           icon={FileText}
+          tone="research"
           footer={zh ? "文件、知识条目与 FAQ" : "Files, articles and FAQs"}
           loading={bases.isLoading}
         />
@@ -95,6 +97,7 @@ export default function DashboardPage() {
           label={zh ? "知识分块" : "Knowledge chunks"}
           value={metric("chunk_count")}
           icon={Layers}
+          tone="plan"
           footer={zh ? "已生成的内容片段" : "Generated content passages"}
           loading={bases.isLoading}
         />
@@ -102,6 +105,7 @@ export default function DashboardPage() {
           label={t("conversations")}
           value={conversations.isError ? "—" : (conversations.data?.total?.toLocaleString() ?? "—")}
           icon={MessageSquare}
+          tone="review"
           footer={t("acrossAllChats")}
           loading={conversations.isLoading}
         />
@@ -122,9 +126,9 @@ export default function DashboardPage() {
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+      <div className="stagger grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <RecentActivity />
-        <section className="border-border bg-card min-w-0 rounded-xl border p-5 lg:p-6">
+        <section className="panel min-w-0 p-5 lg:p-6">
           <div className="mb-5 flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">{zh ? "我的知识库" : "My knowledge bases"}</h2>
             <Link
@@ -230,7 +234,7 @@ function AdminTile({
   return (
     <Link
       href={href}
-      className="border-border hover:border-foreground/30 bg-card hover:bg-accent flex items-center gap-3 rounded-xl border p-4 transition-colors"
+      className="panel panel-interactive flex items-center gap-3 p-4"
     >
       <span className="bg-foreground/8 text-foreground flex h-9 w-9 items-center justify-center rounded-full">
         <Icon className="h-4 w-4" />

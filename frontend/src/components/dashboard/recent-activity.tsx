@@ -69,7 +69,7 @@ export function RecentActivity({ limit = 6 }: { limit?: number }) {
   }, [limit]);
 
   return (
-    <div className="border-border bg-card flex h-full min-w-0 flex-col rounded-xl border p-5 lg:p-6">
+    <div className="panel flex h-full min-w-0 flex-col p-5 lg:p-6">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="font-display text-foreground text-base font-semibold">
           {t("recentActivity")}

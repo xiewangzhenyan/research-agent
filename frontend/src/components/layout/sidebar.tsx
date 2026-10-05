@@ -1,40 +1,70 @@
 "use client";
 
 import Link from "next/link";
-import { useProject } from "@/components/projects/project-provider";
 import dynamic from "next/dynamic";
-import { useLocale, useTranslations } from "next-intl";
-import {
-  Brain,
-  Cpu,
-  Wrench,
-  Database,
-  LayoutDashboard,
-  MessageSquare,
-  Settings,
-  ShieldCheck,
-  ArrowUpRight,
-  Plus,
-  Plug,
-  BookOpen,
-} from "lucide-react";
-import { useActiveRoute } from "@/lib/active-route";
-import { cn, isAppAdmin } from "@/lib/utils";
-import { APP_BRAND, APP_NAME, ROUTES } from "@/lib/constants";
+import { usePathname } from "next/navigation";
+import { useLayoutEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { ArrowUpRight, Plus } from "lucide-react";
+
 import { ResearchMark } from "@/components/brand/research-mark";
-import { useSidebarStore, useAuthStore } from "@/stores";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui";
+import { useProject } from "@/components/projects/project-provider";
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle } from "@/components/ui";
+import { useActiveRoute } from "@/lib/active-route";
+import { APP_BRAND, APP_NAME } from "@/lib/constants";
+import { NAV_FOOTER, NAV_GROUPS, type NavItem } from "@/lib/navigation";
+import { cn, isAppAdmin } from "@/lib/utils";
+import { useAuthStore, useSidebarStore } from "@/stores";
 
 const ConversationSidebar = dynamic(
   () => import("@/components/chat/conversation-sidebar").then((m) => m.ConversationSidebar),
   { ssr: false },
 );
 
-const navigation = [
-  { nameKey: "dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard },
-  { nameKey: "knowledge", href: "/knowledge", icon: Database },
-  { nameKey: "chat", href: ROUTES.CHAT, icon: MessageSquare },
-];
+/** Positions the sliding highlight under the active link of `navRef`. */
+function useNavIndicator(navRef: React.RefObject<HTMLElement | null>) {
+  const pathname = usePathname();
+  const [box, setBox] = useState<{ y: number; h: number } | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const measure = () => {
+      const link = nav.querySelector<HTMLElement>(".console-nav-link.is-active");
+      setBox(link ? { y: link.offsetTop, h: link.offsetHeight } : null);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(nav);
+    // First placement is instant; later route changes slide.
+    const frame = requestAnimationFrame(() => setReady(true));
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [navRef, pathname]);
+
+  return { box, ready };
+}
+
+function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
+  const active = useActiveRoute();
+  const t = useTranslations("nav");
+  const isActive = active(item.href);
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      aria-current={isActive ? "page" : undefined}
+      className={cn("console-nav-link", isActive && "is-active")}
+    >
+      <item.icon size={18} strokeWidth={1.9} />
+      {t(item.key)}
+    </Link>
+  );
+}
+
 function SidebarContents({
   onNavigate,
   history = false,
@@ -46,126 +76,66 @@ function SidebarContents({
   const workspace = useProject();
   const user = useAuthStore((s) => s.user);
   const t = useTranslations("nav");
-  const zh = useLocale() === "zh";
-  const linkStyle = (href: string) => cn("console-nav-link", active(href) && "is-active");
+  const navRef = useRef<HTMLElement>(null);
+  const { box, ready } = useNavIndicator(navRef);
+
   return (
     <>
-      <Link href={ROUTES.DASHBOARD} onClick={onNavigate} className="console-brand">
-        <ResearchMark size={35} className="shrink-0" />
+      <Link href="/dashboard" onClick={onNavigate} className="console-brand">
+        <ResearchMark size={32} className="shrink-0" />
         <span>
           {APP_NAME}
           <small>
-            {APP_BRAND} · {zh ? "科研工作空间" : "Research workspace"}
+            {APP_BRAND} · {t("brandSubtitle")}
           </small>
         </span>
       </Link>
-      <div className="px-4 pt-2">
+      <div className="px-3">
         <Link href="/chat?new=1" onClick={onNavigate} className="workspace-new-chat">
-          <Plus size={18} />
-          {zh ? "开始对话" : "Start a conversation"}
+          <Plus size={18} strokeWidth={2.2} />
+          {t("newChat")}
         </Link>
       </div>
-      <div className="px-4 pt-6">
-        <p className="console-nav-caption">{zh ? "工作空间" : "WORKSPACE"}</p>
-      </div>
-      <nav aria-label={zh ? "工作台导航" : "Workspace navigation"} className="space-y-1 px-3 pt-3">
-        {navigation.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            aria-current={active(item.href) ? "page" : undefined}
-            className={linkStyle(item.href)}
-          >
-            <item.icon size={18} />
-            {t(item.nameKey)}
-          </Link>
+      <nav
+        ref={navRef}
+        aria-label={t("workspaceNav")}
+        className={cn("console-nav space-y-5 px-3 pt-6", box && "has-indicator")}
+      >
+        {box && (
+          <span
+            aria-hidden
+            data-ready={ready || undefined}
+            className="console-nav-indicator"
+            style={{ transform: `translateY(${box.y}px)`, height: box.h }}
+          />
+        )}
+        {NAV_GROUPS.map((group) => (
+          <div key={group.labelKey} className="space-y-0.5">
+            <p className="console-nav-caption pb-1.5">{t(group.labelKey)}</p>
+            {group.items.map((item) => (
+              <NavLink key={item.key} item={item} onNavigate={onNavigate} />
+            ))}
+          </div>
         ))}
-        <Link
-          href="/memory"
-          onClick={onNavigate}
-          aria-current={active("/memory") ? "page" : undefined}
-          className={linkStyle("/memory")}
-        >
-          <Brain size={18} />
-          {zh ? "项目记忆" : "Project memory"}
-        </Link>
-        <p className="console-nav-caption pt-6 pb-2">{zh ? "管理" : "MANAGE"}</p>
-        <Link
-          href="/tools"
-          onClick={onNavigate}
-          aria-current={active("/tools") ? "page" : undefined}
-          className={linkStyle("/tools")}
-        >
-          <Wrench size={18} />
-          {zh ? "工具中心" : "Tools"}
-        </Link>
-        <Link
-          href="/mcp"
-          onClick={onNavigate}
-          aria-current={active("/mcp") ? "page" : undefined}
-          className={linkStyle("/mcp")}
-        >
-          <Plug size={18} />
-          MCP Servers
-        </Link>
-        <Link
-          href="/skills"
-          onClick={onNavigate}
-          aria-current={active("/skills") ? "page" : undefined}
-          className={linkStyle("/skills")}
-        >
-          <BookOpen size={18} />
-          {zh ? "Skills 中心" : "Skills"}
-        </Link>
-        <Link
-          href="/models"
-          onClick={onNavigate}
-          aria-current={active("/models") ? "page" : undefined}
-          className={linkStyle("/models")}
-        >
-          <Cpu size={18} />
-          {zh ? "模型与能力" : "Models and capabilities"}
-        </Link>
       </nav>
       {workspace?.ready && history && active("/chat") && <ConversationSidebar embedded />}
-      <div className="mt-auto space-y-1 p-3">
-        {isAppAdmin(user) && (
-          <Link
-            href={ROUTES.ADMIN}
-            onClick={onNavigate}
-            className={linkStyle(ROUTES.ADMIN)}
-            aria-current={active(ROUTES.ADMIN) ? "page" : undefined}
-          >
-            <ShieldCheck size={18} />
-            {t("admin")}
-          </Link>
-        )}
-        <Link
-          href={ROUTES.SETTINGS}
-          onClick={onNavigate}
-          className={linkStyle(ROUTES.SETTINGS)}
-          aria-current={active(ROUTES.SETTINGS) ? "page" : undefined}
-        >
-          <Settings size={18} />
-          {t("settings")}
-        </Link>
-        <div className="console-sidebar-note">
-          <Database size={16} />
-          <span>{zh ? "知识驱动每一次对话" : "Your own knowledge space"}</span>
-        </div>
+      <div className="mt-auto space-y-0.5 border-t p-3">
+        {NAV_FOOTER.filter((item) => !item.adminOnly || isAppAdmin(user)).map((item) => (
+          <NavLink key={item.key} item={item} onNavigate={onNavigate} />
+        ))}
         <Link
           href="/"
           onClick={onNavigate}
-          className="text-muted-foreground flex items-center justify-between px-3 py-2 text-xs"
+          className="text-muted-foreground hover:text-foreground flex items-center justify-between rounded-md px-3 py-2 text-xs transition-colors"
         >
-          {zh ? "返回网站首页" : "Visit website"}
+          {t("visitWebsite")}
           <ArrowUpRight size={13} />
         </Link>
       </div>
     </>
   );
 }
+
 export function Sidebar() {
   const { isOpen, close } = useSidebarStore();
   return (
@@ -179,11 +149,11 @@ export function Sidebar() {
           if (!open) close();
         }}
       >
-        <SheetContent side="left" className="console-mobile-sidebar flex w-72 flex-col gap-0 p-0">
+        <SheetContent side="left" className="console-mobile-sidebar bg-sidebar flex w-72 flex-col gap-0 p-0">
           <SheetHeader className="sr-only">
             <SheetTitle>{APP_NAME}</SheetTitle>
           </SheetHeader>
-          <SheetClose onClick={close} className="absolute top-2 right-2" />
+          <SheetClose onClick={close} className="absolute top-3 right-2" />
           <SidebarContents onNavigate={close} />
         </SheetContent>
       </Sheet>

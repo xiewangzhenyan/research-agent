@@ -11,7 +11,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <AuthGuard>
       <GenerationConfigWarmup />
       <ProjectProvider>
-        <div className="cosmic-workspace console-shell">
+        <div className="console-shell">
           <Header />
           <Sidebar />
           <main id="main" tabIndex={-1} className="console-main">

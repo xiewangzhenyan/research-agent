@@ -4,7 +4,20 @@ import { useEffect, useState } from "react";
 import { useLocale } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { X } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  Clock3,
+  ListTree,
+  MessageCircleQuestion,
+  PenLine,
+  Search,
+  ShieldCheck,
+  Wrench,
+  X,
+  XCircle,
+  type LucideIcon,
+} from "lucide-react";
 import { Button, Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui";
 import { useProject } from "@/components/projects/project-provider";
 import { ArtifactPanel } from "@/components/tasks/artifact-panel";
@@ -23,6 +36,32 @@ import { setUrlParam } from "@/lib/utils";
 import { useAuthStore, useConversationStore } from "@/stores";
 
 type Snapshot = { run: Execution; events: ExecutionEvent[]; cursor: number; truncated: boolean };
+
+const ROLE_STEP: Record<string, [string, LucideIcon]> = {
+  planner: ["plan", ListTree],
+  researcher: ["research", Search],
+  writer: ["write", PenLine],
+  critic: ["review", ShieldCheck],
+};
+
+/** Icon, role tint and state for one row of the execution timeline. */
+function stepVisual(event: ExecutionEvent): { icon: LucideIcon; role?: string; state: string } {
+  const role = typeof event.data.role === "string" ? ROLE_STEP[event.data.role] : undefined;
+  if (role) return { icon: role[1], role: role[0], state: "done" };
+  if (event.kind === "failed") return { icon: XCircle, state: "error" };
+  if (event.kind === "completed") return { icon: CheckCircle2, role: "write", state: "done" };
+  if (event.kind === "queued") return { icon: Clock3, state: "done" };
+  if (event.kind.includes("clarification") || event.kind === "waiting_input")
+    return { icon: MessageCircleQuestion, role: "review", state: "done" };
+  if (event.kind.startsWith("retrieval")) return { icon: Search, role: "research", state: "done" };
+  if (
+    event.kind.startsWith("tool") ||
+    event.kind.startsWith("python") ||
+    event.kind.startsWith("document")
+  )
+    return { icon: Wrench, state: "done" };
+  return { icon: Circle, state: "done" };
+}
 const accessDenied = (error: unknown) =>
   error instanceof ApiError && [401, 403, 404].includes(error.status);
 
@@ -295,18 +334,30 @@ function ExecutionContent({ runId, close }: { runId: string; close: () => void }
             {t("仅展示最近 1000 条步骤。", "Showing the most recent 1,000 steps.")}
           </p>
         )}
-        <ol className="mt-4 space-y-4">
-          {events.map((event) => (
-            <li key={event.seq} className="min-w-0">
-              <p className="leading-6 break-words">
-                {event.data.message || event.data.tool || t("状态已更新", "Status updated")}
-              </p>
-              {event.kind === "python_result" && <CodeExecutionPanel result={event.data} zh={zh} />}
-              <time className="text-muted-foreground text-xs">
-                {new Date(event.created_at).toLocaleTimeString(zh ? "zh-CN" : "en-US")}
-              </time>
-            </li>
-          ))}
+        <ol className="trace mt-4">
+          {events.map((event) => {
+            const visual = stepVisual(event);
+            return (
+              <li
+                key={event.seq}
+                data-state={visual.state}
+                className={`trace-row min-w-0 ${visual.role ? `role-${visual.role}` : ""}`}
+              >
+                <span className="trace-icon" aria-hidden>
+                  <visual.icon className="h-3 w-3" />
+                </span>
+                <p className="trace-title leading-6 break-words">
+                  {event.data.message || event.data.tool || t("状态已更新", "Status updated")}
+                </p>
+                {event.kind === "python_result" && (
+                  <CodeExecutionPanel result={event.data} zh={zh} />
+                )}
+                <time className="trace-detail">
+                  {new Date(event.created_at).toLocaleTimeString(zh ? "zh-CN" : "en-US")}
+                </time>
+              </li>
+            );
+          })}
         </ol>
       </details>
       {!!run.request.knowledge_base_ids?.length && (

@@ -1,37 +1,44 @@
 import type { Metadata, Viewport } from "next";
-import { Bricolage_Grotesque, Geist_Mono, Inter, Noto_Sans_SC } from "next/font/google";
+import { Geist, Geist_Mono, Inter, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import { defaultLocale } from "@/i18n";
 import { BRAND_ASSETS } from "@/lib/brand-assets";
 import { SITE } from "@/lib/seo";
 
+// next/font self-hosts every family at build time. The variables are only raw
+// family names; globals.css composes them into --font-sans/-display/-mono with
+// Noto Sans SC as the shared CJK fallback.
 const cjk = Noto_Sans_SC({
-  variable: "--font-cjk",
+  variable: "--nf-cjk",
   weight: ["400", "500", "600", "700"],
   display: "swap",
   preload: false,
 });
 
-const display = Bricolage_Grotesque({
+const display = Geist({
   subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["700", "800"],
+  variable: "--nf-display",
+  weight: ["500", "600", "700"],
   display: "swap",
 });
 
 const body = Inter({
   subsets: ["latin"],
-  variable: "--font-body",
+  variable: "--nf-body",
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
 const mono = Geist_Mono({
   subsets: ["latin"],
-  variable: "--font-mono",
+  variable: "--nf-mono",
   weight: ["400", "500"],
   display: "swap",
 });
+
+// Applies the persisted theme (zustand `theme-storage`, default dark) before the
+// first paint so the workspace never flashes the wrong palette.
+const THEME_INIT = `(function(){try{var t=(JSON.parse(localStorage.getItem("theme-storage")||"{}").state||{}).theme||"dark";if(t==="system"){t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}var r=document.documentElement;r.classList.add(t);r.style.colorScheme=t}catch(e){document.documentElement.classList.add("dark")}})()`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
@@ -85,7 +92,7 @@ export const viewport: Viewport = {
   // used by the mobile bottom tab bar.
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#F5F2E8" },
+    { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
     { media: "(prefers-color-scheme: dark)", color: SITE.themeColor },
   ],
 };
@@ -101,6 +108,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${display.variable} ${body.variable} ${mono.variable} ${cjk.variable}`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+      </head>
       <body className="font-body">{children}</body>
     </html>
   );

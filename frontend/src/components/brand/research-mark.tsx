@@ -1,5 +1,14 @@
-/** LSPRAI resonance peak and connected knowledge nodes; no motion or external assets. */
-export function ResearchMark({ size = 32, className }: { size?: number; className?: string }) {
+import { cn } from "@/lib/utils";
+
+interface ResearchMarkProps {
+  size?: number;
+  className?: string;
+  /** Draw the resonance curve in and let the peak node breathe (empty/loading states). */
+  animated?: boolean;
+}
+
+/** LSPRAI resonance peak and connected knowledge nodes; no external assets. */
+export function ResearchMark({ size = 32, className, animated = false }: ResearchMarkProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -7,7 +16,7 @@ export function ResearchMark({ size = 32, className }: { size?: number; classNam
       height={size}
       viewBox="0 0 64 64"
       fill="none"
-      className={className}
+      className={cn(animated && "research-mark-animated", className)}
       aria-hidden="true"
       focusable="false"
     >
@@ -26,16 +35,20 @@ export function ResearchMark({ size = 32, className }: { size?: number; classNam
         stroke="#4C9A82"
         strokeWidth="2.5"
         strokeLinecap="round"
+        pathLength={1}
+        className="mark-curve"
       />
       <path
         d="M12 41C23 41 22 19 32 19S41 41 52 41"
         stroke="#A3F0CE"
         strokeWidth="4.5"
         strokeLinecap="round"
+        pathLength={1}
+        className="mark-curve"
       />
       <circle cx="12" cy="41" r="3.5" fill="#A3F0CE" />
       <circle cx="52" cy="41" r="3.5" fill="#A3F0CE" />
-      <circle cx="32" cy="19" r="5" fill="#D9FFED" />
+      <circle cx="32" cy="19" r="5" fill="#D9FFED" className="mark-peak" />
       <circle cx="32" cy="19" r="2" fill="#0D2421" />
     </svg>
   );

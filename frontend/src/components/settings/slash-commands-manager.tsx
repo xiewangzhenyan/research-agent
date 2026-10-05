@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import {
   Button,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -51,6 +52,7 @@ export function SlashCommandsManager() {
   const [draftPrompt, setDraftPrompt] = useState("");
   const [draftEnabled, setDraftEnabled] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<UserSlashCommandRecord | null>(null);
 
   const openCreate = () => {
     setEditingId("new");
@@ -75,7 +77,11 @@ export function SlashCommandsManager() {
     const name = draftName.trim().toLowerCase();
     const prompt = draftPrompt.trim();
     if (!NAME_PATTERN.test(name)) {
-      toast.error(isZh ? "名称只能包含小写字母、数字和连字符，最多 32 个字符。" : "Name must be lowercase letters, digits, and hyphens (max 32 chars).");
+      toast.error(
+        isZh
+          ? "名称只能包含小写字母、数字和连字符，最多 32 个字符。"
+          : "Name must be lowercase letters, digits, and hyphens (max 32 chars).",
+      );
       return;
     }
     if (!prompt) {
@@ -98,7 +104,9 @@ export function SlashCommandsManager() {
           ? e.message
           : e instanceof Error
             ? e.message
-            : isZh ? "保存命令失败" : "Failed to save command";
+            : isZh
+              ? "保存命令失败"
+              : "Failed to save command";
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -122,7 +130,6 @@ export function SlashCommandsManager() {
   };
 
   const handleDelete = async (record: UserSlashCommandRecord) => {
-    if (!confirm(isZh ? `确定删除 /${record.name}？` : `Delete /${record.name}?`)) return;
     try {
       await remove(record.id);
       toast.success(isZh ? `/${record.name} 已删除。` : `/${record.name} deleted.`);
@@ -133,6 +140,27 @@ export function SlashCommandsManager() {
 
   return (
     <div className="space-y-8">
+      <ConfirmDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+        title={
+          pendingDelete
+            ? isZh
+              ? `确定删除 /${pendingDelete.name}？`
+              : `Delete /${pendingDelete.name}?`
+            : ""
+        }
+        description={isZh ? "删除后无法恢复。" : "This cannot be undone."}
+        confirmLabel={isZh ? "删除" : "Delete"}
+        cancelLabel={isZh ? "取消" : "Cancel"}
+        destructive
+        onConfirm={async () => {
+          if (pendingDelete) await handleDelete(pendingDelete);
+          setPendingDelete(null);
+        }}
+      />
       {error && (
         <div className="border-destructive/30 bg-destructive/5 text-destructive flex items-center justify-between rounded-xl border px-4 py-3 text-sm">
           <span>{error}</span>
@@ -145,9 +173,13 @@ export function SlashCommandsManager() {
       <section className="space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <div>
-            <h3 className="text-foreground text-sm font-semibold">{isZh ? "内置命令" : "Built-in commands"}</h3>
+            <h3 className="text-foreground text-sm font-semibold">
+              {isZh ? "内置命令" : "Built-in commands"}
+            </h3>
             <p className="text-foreground/55 mt-0.5 text-xs">
-              {isZh ? "可以停用不需要显示在命令面板中的命令。" : "Disable any command you don't want to see in the palette."}
+              {isZh
+                ? "可以停用不需要显示在命令面板中的命令。"
+                : "Disable any command you don't want to see in the palette."}
             </p>
           </div>
         </div>
@@ -167,7 +199,9 @@ export function SlashCommandsManager() {
                       </span>
                     )}
                   </div>
-                  <p className="text-foreground/65 mt-1 text-xs">{isZh ? (builtinDescriptions[cmd.name] ?? cmd.description) : cmd.description}</p>
+                  <p className="text-foreground/65 mt-1 text-xs">
+                    {isZh ? (builtinDescriptions[cmd.name] ?? cmd.description) : cmd.description}
+                  </p>
                 </div>
                 <Switch
                   checked={enabled}
@@ -184,9 +218,20 @@ export function SlashCommandsManager() {
       <section className="space-y-3">
         <div className="flex items-baseline justify-between gap-3">
           <div>
-            <h3 className="text-foreground text-sm font-semibold">{isZh ? "自定义命令" : "Your custom commands"}</h3>
+            <h3 className="text-foreground text-sm font-semibold">
+              {isZh ? "自定义命令" : "Your custom commands"}
+            </h3>
             <p className="text-foreground/55 mt-0.5 text-xs">
-              {isZh ? <>为常用提示词创建快捷命令，在聊天中输入 <code>/名称</code> 即可发送。</> : <>Slash shortcuts for prompts you type often. Typing <code>/name</code> in chat sends the stored prompt.</>}
+              {isZh ? (
+                <>
+                  为常用提示词创建快捷命令，在聊天中输入 <code>/名称</code> 即可发送。
+                </>
+              ) : (
+                <>
+                  Slash shortcuts for prompts you type often. Typing <code>/name</code> in chat
+                  sends the stored prompt.
+                </>
+              )}
             </p>
           </div>
           <Button size="sm" onClick={openCreate}>
@@ -198,7 +243,11 @@ export function SlashCommandsManager() {
         {customs.length === 0 ? (
           <EmptyState
             title={isZh ? "还没有自定义命令" : "No custom commands yet"}
-            description={isZh ? "创建命令后，只需输入几个字符即可发送常用提示词。" : "Create one to send a long prompt with a few keystrokes."}
+            description={
+              isZh
+                ? "创建命令后，只需输入几个字符即可发送常用提示词。"
+                : "Create one to send a long prompt with a few keystrokes."
+            }
           />
         ) : (
           <ul className="border-foreground/10 divide-foreground/8 divide-y rounded-xl border">
@@ -228,7 +277,7 @@ export function SlashCommandsManager() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleDelete(record)}
+                  onClick={() => setPendingDelete(record)}
                   className="text-foreground/55 hover:bg-destructive/10 hover:text-destructive inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
                   title={isZh ? "删除" : "Delete"}
                   aria-label={isZh ? "删除" : "Delete"}
@@ -245,7 +294,13 @@ export function SlashCommandsManager() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {editingId === "new" ? (isZh ? "新建自定义命令" : "New custom command") : (isZh ? `编辑 /${draftName}` : `Edit /${draftName}`)}
+              {editingId === "new"
+                ? isZh
+                  ? "新建自定义命令"
+                  : "New custom command"
+                : isZh
+                  ? `编辑 /${draftName}`
+                  : `Edit /${draftName}`}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -263,7 +318,9 @@ export function SlashCommandsManager() {
                 />
               </div>
               <p className="text-foreground/45 mt-1 text-[11px]">
-                {isZh ? "支持小写字母、数字和连字符，最多 32 个字符。" : "Lowercase letters, digits, hyphens. Max 32 chars."}
+                {isZh
+                  ? "支持小写字母、数字和连字符，最多 32 个字符。"
+                  : "Lowercase letters, digits, hyphens. Max 32 chars."}
               </p>
             </div>
             <div>
@@ -272,13 +329,26 @@ export function SlashCommandsManager() {
                 id="cmd-prompt"
                 value={draftPrompt}
                 onChange={(e) => setDraftPrompt(e.target.value)}
-                placeholder={isZh ? "将当前对话总结为待办事项清单。" : "Summarize the conversation as a checklist of action items."}
+                placeholder={
+                  isZh
+                    ? "将当前对话总结为待办事项清单。"
+                    : "Summarize the conversation as a checklist of action items."
+                }
                 rows={6}
                 maxLength={10_000}
                 className="mt-1.5 font-mono text-sm"
               />
               <p className="text-foreground/45 mt-1 text-[11px]">
-                {isZh ? <>输入 <code>/{draftName || "名称"}</code> 时，会作为普通用户消息发送。</> : <>Sent as a regular user message when you type <code>/{draftName || "name"}</code>.</>}
+                {isZh ? (
+                  <>
+                    输入 <code>/{draftName || "名称"}</code> 时，会作为普通用户消息发送。
+                  </>
+                ) : (
+                  <>
+                    Sent as a regular user message when you type <code>/{draftName || "name"}</code>
+                    .
+                  </>
+                )}
               </p>
             </div>
             {editingId !== "new" && (
@@ -295,7 +365,17 @@ export function SlashCommandsManager() {
               {isZh ? "取消" : "Cancel"}
             </Button>
             <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? (isZh ? "保存中…" : "Saving…") : editingId === "new" ? (isZh ? "创建" : "Create") : (isZh ? "保存" : "Save")}
+              {submitting
+                ? isZh
+                  ? "保存中…"
+                  : "Saving…"
+                : editingId === "new"
+                  ? isZh
+                    ? "创建"
+                    : "Create"
+                  : isZh
+                    ? "保存"
+                    : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

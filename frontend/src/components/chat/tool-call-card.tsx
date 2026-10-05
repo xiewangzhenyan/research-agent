@@ -1,7 +1,7 @@
 "use client";
 import { useLocale } from "next-intl";
 import { useState, type MouseEvent } from "react";
-import { Card, CardContent, Button } from "@/components/ui";
+import { Button } from "@/components/ui";
 import type { ToolCall } from "@/types";
 import {
   Wrench,
@@ -18,8 +18,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toolCaption, toolDisplayName } from "@/lib/agent-step-captions";
+import { summarizeRetrieval } from "@/lib/run-summary";
 import { DateTimeResult } from "./tool-results/datetime";
-import { RAGSearchResults } from "./tool-results/rag";
+import { RAGSearchResults, parseRAGResults } from "./tool-results/rag";
 import { WebSearchResults, parseWebSearch } from "./tool-results/web-search";
 import { AskUserResult } from "./tool-results/ask-user";
 import { GenericToolResult, RawToolView } from "./tool-results/generic";
@@ -68,7 +69,6 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
   const isWebSearch = webResults !== null;
   const isAskUser = toolCall.name === "ask_user";
 
-  const hasSpecialRenderer = isDateTime || isRAGSearch || isWebSearch || isAskUser;
   const friendlyName = isDateTime
     ? zh
       ? "当前日期与时间"
@@ -126,13 +126,20 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
   const liveCaption =
     toolCall.name === "create_document" && zh ? "正在生成文档" : toolCaption(toolCall.name);
 
+  const retrieval = isRAGSearch ? summarizeRetrieval(parseRAGResults(resultText)) : null;
+  const detail = retrieval
+    ? zh
+      ? `找到 ${retrieval.passages} 个片段，来自 ${retrieval.documents} 份资料`
+      : `${retrieval.passages} passages from ${retrieval.documents} documents`
+    : null;
+
+  // One row of the agent trace (pattern from WeKnora's AgentStreamDisplay): node icon,
+  // title and query, a muted result line, and the formatted result on demand.
   return (
-    <Card
-      className={cn(
-        "bg-muted/50 step-card-in",
-        isRunning && "border-brand/50 relative overflow-hidden",
-      )}
-    >
+    <div className="trace-row" data-state={isRunning ? "running" : isError ? "error" : "done"}>
+      <span className="trace-icon" aria-hidden>
+        <ToolIcon className={cn("h-3 w-3", isRunning && "animate-pulse")} />
+      </span>
       <div
         role="button"
         tabIndex={0}
@@ -144,53 +151,49 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
             toggleExpanded();
           }
         }}
-        className="hover:bg-foreground/[0.03] flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left transition-colors"
+        className="trace-title hover:text-foreground flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md text-left transition-colors"
       >
-        <div className="flex min-w-0 items-center gap-2">
-          <ToolIcon
-            className={cn(
-              "h-4 w-4 shrink-0",
-              isRunning
-                ? "text-brand animate-pulse"
-                : hasSpecialRenderer
-                  ? "text-primary"
-                  : "text-muted-foreground",
-            )}
-          />
-          {isRunning ? (
-            <span className="text-foreground/80 flex min-w-0 items-center gap-1.5 text-sm font-medium">
-              <span className="truncate">{liveCaption}</span>
-              <span className="flex shrink-0 gap-0.5" aria-hidden="true">
-                <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-full [animation-delay:0ms]" />
-                <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-full [animation-delay:150ms]" />
-                <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-full [animation-delay:300ms]" />
-              </span>
+        {isRunning ? (
+          <span className="text-foreground/80 flex min-w-0 items-center gap-1.5 font-medium">
+            <span className="truncate">{liveCaption}</span>
+            <span className="flex shrink-0 gap-0.5" aria-hidden="true">
+              <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-full [animation-delay:0ms]" />
+              <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-full [animation-delay:150ms]" />
+              <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-full [animation-delay:300ms]" />
             </span>
-          ) : (
-            <span className="truncate text-sm font-medium">{friendlyName}</span>
-          )}
-          {inputHint && !isRunning ? (
-            <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs italic">
-              {inputHint}
-            </span>
-          ) : null}
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
+          </span>
+        ) : (
+          <span className="shrink-0 font-medium">{friendlyName}</span>
+        )}
+        {inputHint && !isRunning ? (
+          <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
+            「{inputHint}」
+          </span>
+        ) : (
+          <span className="flex-1" />
+        )}
+        <span className="flex shrink-0 items-center gap-1">
           {isRunning ? (
-            <Loader2 className="text-brand h-4 w-4 animate-spin" aria-label="Running" />
+            <Loader2 className="text-brand h-3.5 w-3.5 animate-spin" aria-label="Running" />
           ) : (
             <>
               {isError ? (
-                <XCircle className="text-destructive pop-in h-4 w-4 shrink-0" aria-label="Failed" />
+                <XCircle
+                  className="text-destructive pop-in h-3.5 w-3.5 shrink-0"
+                  aria-label="Failed"
+                />
               ) : (
-                <CheckCircle2 className="text-brand pop-in h-4 w-4 shrink-0" aria-label="Done" />
+                <CheckCircle2
+                  className="text-brand pop-in h-3.5 w-3.5 shrink-0"
+                  aria-label="Done"
+                />
               )}
               <Button
                 variant="ghost"
                 size="icon"
                 className={cn(
                   "text-muted-foreground hover:bg-foreground/10 hover:text-foreground h-6 w-6 transition-colors",
-                  showRaw && "text-primary",
+                  showRaw && "text-brand",
                 )}
                 onClick={toggleRaw}
                 title={showRaw ? "Show formatted view" : "Show arguments + raw output"}
@@ -199,22 +202,21 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
                 <Code2 className="h-3.5 w-3.5" />
               </Button>
               {expanded ? (
-                <ChevronUp className="text-muted-foreground h-4 w-4" />
+                <ChevronUp className="text-muted-foreground h-3.5 w-3.5" />
               ) : (
-                <ChevronDown className="text-muted-foreground h-4 w-4" />
+                <ChevronDown className="text-muted-foreground h-3.5 w-3.5" />
               )}
             </>
           )}
-        </div>
+        </span>
       </div>
+      {detail && <p className="trace-detail">{detail}</p>}
 
       {/* Live progress shimmer — only while the step is in flight. */}
-      {isRunning && (
-        <div className="step-progress pointer-events-none absolute inset-x-0 bottom-0 h-0.5" />
-      )}
+      {isRunning && <div className="step-progress mt-1.5 h-px rounded-full" />}
 
       {expanded && (
-        <CardContent className="px-3 pt-0 pb-3">
+        <div className="panel-inset step-reveal mt-2 p-3">
           {showRaw ? (
             <RawToolView toolCall={toolCall} resultText={resultText} />
           ) : toolCall.status === "completed" && isDateTime ? (
@@ -228,8 +230,8 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
           ) : (
             <GenericToolResult toolCall={toolCall} resultText={resultText} />
           )}
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   );
 }

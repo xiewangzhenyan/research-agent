@@ -338,7 +338,8 @@ function KnowledgeWorkspace({ userId }: { userId: string }) {
                 )}
               </div>
               <TabsList
-                className="workspace-tabs mb-5 w-full justify-start"
+                variant="underline"
+                className="mb-5 w-full justify-start"
                 aria-label="知识库功能"
               >
                 <TabsTrigger value="files" className="flex-1 sm:flex-none">
@@ -491,7 +492,7 @@ function KnowledgeWorkspace({ userId }: { userId: string }) {
                             </span>
                           </div>
                           {d.error && (
-                            <p role="alert" className="mt-2 text-xs leading-5 text-red-300">
+                            <p role="alert" className="mt-2 text-xs leading-5 text-destructive">
                               {d.error}
                             </p>
                           )}
@@ -516,7 +517,7 @@ function KnowledgeWorkspace({ userId }: { userId: string }) {
                                 (current.chunking_config?.chunk_size ?? 450) ||
                               d.chunking_config.chunk_overlap !==
                                 (current.chunking_config?.chunk_overlap ?? 65)) && (
-                              <p className="mt-2 text-xs text-amber-200">
+                              <p className="mt-2 text-xs text-warning">
                                 与当前分块设置不同，重新处理后生效。
                               </p>
                             )}

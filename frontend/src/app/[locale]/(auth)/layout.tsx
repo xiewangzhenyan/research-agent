@@ -1,8 +1,11 @@
 import Link from "next/link";
-import { ArrowLeft, Database, FileText, MessageSquare, Quote } from "lucide-react";
+import { ArrowLeft, Database, Quote, Users } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
-import { APP_BRAND, APP_NAME } from "@/lib/constants";
+
+import { AuthBackdrop } from "@/components/auth/auth-backdrop";
+import { AuthShowcase } from "@/components/auth/auth-showcase";
 import { ResearchMark } from "@/components/brand/research-mark";
+import { APP_BRAND, APP_NAME } from "@/lib/constants";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   const t = await getTranslations("auth.shell");
@@ -10,9 +13,10 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   const home = locale === "zh" ? "/" : `/${locale}`;
   return (
     <div className="auth-shell">
+      <AuthBackdrop />
       <header className="auth-header">
         <Link href={home} className="auth-brand">
-          <ResearchMark size={40} className="shrink-0" />
+          <ResearchMark size={38} className="shrink-0" />
           <span>
             {APP_NAME}
             <small>
@@ -36,32 +40,14 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
             <span>{t("headingAccent")}</span>
           </h2>
           <p className="auth-story-description">{t("description")}</p>
-          <div className="auth-orbit" aria-hidden>
-            <div className="auth-orbit-ring" />
-            <div className="auth-orbit-ring auth-orbit-ring-inner" />
-            <div className="auth-orbit-center">
-              <ResearchMark size={48} />
-            </div>
-            <div className="auth-orbit-node auth-orbit-doc">
-              <FileText size={19} />
-              <span>{t("documents")}</span>
-            </div>
-            <div className="auth-orbit-node auth-orbit-kb">
-              <Database size={19} />
-              <span>{t("knowledge")}</span>
-            </div>
-            <div className="auth-orbit-node auth-orbit-chat">
-              <MessageSquare size={19} />
-              <span>{t("answers")}</span>
-            </div>
-          </div>
+          <AuthShowcase />
           <ul className="auth-features">
             <li>
               <Database size={15} />
               {t("feature1")}
             </li>
             <li>
-              <MessageSquare size={15} />
+              <Users size={15} />
               {t("feature2")}
             </li>
             <li>

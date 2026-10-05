@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useConversations } from "@/hooks";
 import { Button, Skeleton } from "@/components/ui";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from "@/components/ui";
+import { groupByRecency, type RecencyGroupKey } from "@/lib/conversation-groups";
 import { cn } from "@/lib/utils";
 import { useChatSidebarStore } from "@/stores";
 import { Archive, ChevronLeft, ChevronRight, MessageSquare, SquarePen } from "lucide-react";
@@ -13,6 +14,14 @@ import { ShareDialog } from "./share-dialog";
 import { ConversationItem, type ConversationItemProps } from "./conversation-item";
 
 type ConversationView = "active" | "archived";
+
+const GROUP_LABEL_KEY: Record<RecencyGroupKey, string> = {
+  today: "groupToday",
+  yesterday: "groupYesterday",
+  week: "groupWeek",
+  month: "groupMonth",
+  earlier: "groupEarlier",
+};
 
 interface ConversationListProps {
   conversations: Conversation[];
@@ -26,6 +35,8 @@ interface ConversationListProps {
   onNewChat: () => void;
   onNavigate?: () => void;
   onLoadMore?: () => void;
+  /** The sidebar already offers "开始对话", so the embedded list hides its own new-chat row. */
+  showNewChat?: boolean;
 }
 
 function ConversationList({
@@ -40,6 +51,7 @@ function ConversationList({
   onNewChat,
   onNavigate,
   onLoadMore,
+  showNewChat = true,
 }: ConversationListProps) {
   const t = useTranslations("chat");
   const [view, setView] = useState<ConversationView>("active");
@@ -64,16 +76,18 @@ function ConversationList({
 
   return (
     <>
-      <div className="px-3 pt-3 pb-2">
-        <button
-          type="button"
-          onClick={handleNewChat}
-          className="text-muted-foreground hover:text-foreground hover:bg-secondary flex h-9 w-full items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors"
-        >
-          <SquarePen className="h-4 w-4 shrink-0" />
-          {t("newChat")}
-        </button>
-      </div>
+      {showNewChat && (
+        <div className="px-3 pt-3 pb-2">
+          <button
+            type="button"
+            onClick={handleNewChat}
+            className="text-muted-foreground hover:text-foreground hover:bg-secondary flex h-9 w-full items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors"
+          >
+            <SquarePen className="h-4 w-4 shrink-0" />
+            {t("newChat")}
+          </button>
+        </div>
+      )}
 
       <div className="px-3 pb-2">
         <div className="bg-secondary/50 flex rounded-lg p-0.5">
@@ -127,21 +141,24 @@ function ConversationList({
             </p>
           </div>
         ) : (
-          <div className="space-y-1">
-            {visible.map((conversation) => (
-              <ConversationItem
-                key={conversation.id}
-                conversation={conversation}
-                isActive={conversation.id === currentConversationId}
-                onSelect={() => handleSelect(conversation.id)}
-                onDelete={() => onDelete(conversation.id)}
-                onArchive={() => onArchive(conversation.id)}
-                onUnarchive={() => onUnarchive(conversation.id)}
-                onRename={(title) => onRename(conversation.id, title)}
-                onShare={() => setShareConversationId(conversation.id)}
-              />
-            ))}
-          </div>
+          groupByRecency(visible).map((group) => (
+            <div key={group.key} className="space-y-0.5">
+              <p className="conversation-group-label">{t(GROUP_LABEL_KEY[group.key])}</p>
+              {group.items.map((conversation) => (
+                <ConversationItem
+                  key={conversation.id}
+                  conversation={conversation}
+                  isActive={conversation.id === currentConversationId}
+                  onSelect={() => handleSelect(conversation.id)}
+                  onDelete={() => onDelete(conversation.id)}
+                  onArchive={() => onArchive(conversation.id)}
+                  onUnarchive={() => onUnarchive(conversation.id)}
+                  onRename={(title) => onRename(conversation.id, title)}
+                  onShare={() => setShareConversationId(conversation.id)}
+                />
+              ))}
+            </div>
+          ))
         )}
       </div>
       {shareConversationId && (
@@ -233,13 +250,27 @@ export function ConversationSidebar({ className, embedded = false }: Conversatio
       ) : (
         <aside
           className={cn(
-            "console-conversation-sidebar hidden w-56 shrink-0 flex-col border-r md:flex",
-            embedded && "conversation-sidebar-embedded",
+            embedded
+              ? "conversation-sidebar-embedded flex min-h-0 flex-col"
+              : "console-conversation-sidebar hidden w-56 shrink-0 flex-col border-r md:flex",
             className,
           )}
         >
-          <div className="flex h-12 items-center justify-between border-b px-4 py-3">
-            <h2 className="text-sm font-semibold">{t("conversations")}</h2>
+          <div
+            className={cn(
+              "flex items-center justify-between",
+              embedded ? "h-9 px-6" : "h-12 border-b px-4 py-3",
+            )}
+          >
+            <h2
+              className={cn(
+                embedded
+                  ? "text-subtle text-2xs font-sans font-medium tracking-wide"
+                  : "text-sm font-semibold",
+              )}
+            >
+              {t("conversations")}
+            </h2>
             <Button
               variant="ghost"
               size="sm"
@@ -251,7 +282,7 @@ export function ConversationSidebar({ className, embedded = false }: Conversatio
               <ChevronLeft className="h-4 w-4" aria-hidden />
             </Button>
           </div>
-          <ConversationList {...listProps} />
+          <ConversationList {...listProps} showNewChat={!embedded} />
         </aside>
       )}
 

@@ -44,7 +44,7 @@ export function LoginForm() {
   return (
     <div className="space-y-8">
       <div className="space-y-2">
-        <span className="eyebrow text-foreground/55">{t("welcomeBack")}</span>
+        <span className="eyebrow text-brand">{t("welcomeBack")}</span>
         <h1 className="text-foreground">{t("loginHeading")}</h1>
         <p className="text-foreground/65 text-sm">
           {t("noAccount")}{" "}
@@ -61,7 +61,7 @@ export function LoginForm() {
         <div className="space-y-1.5">
           <Label
             htmlFor="email"
-            className="text-foreground/80 text-xs font-medium tracking-wider uppercase"
+            className="text-foreground/80 text-md font-medium"
           >
             {t("email")}
           </Label>
@@ -75,7 +75,7 @@ export function LoginForm() {
             required
             disabled={isLoading}
             autoComplete="email"
-            className={`h-12 rounded-xl ${emailTouched && email && !emailValid ? "border-destructive" : ""}`}
+            className={`h-11 rounded-lg ${emailTouched && email && !emailValid ? "border-destructive" : ""}`}
           />
           {emailTouched && email && !emailValid && (
             <p className="text-destructive text-xs">{t("emailInvalid")}</p>
@@ -86,7 +86,7 @@ export function LoginForm() {
           <div className="flex items-center justify-between">
             <Label
               htmlFor="password"
-              className="text-foreground/80 text-xs font-medium tracking-wider uppercase"
+              className="text-foreground/80 text-md font-medium"
             >
               {t("password")}
             </Label>
@@ -107,14 +107,14 @@ export function LoginForm() {
               required
               disabled={isLoading}
               autoComplete="current-password"
-              className="h-12 rounded-xl pr-12"
+              className="h-11 rounded-lg pr-12"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={t(showPassword ? "hidePassword" : "showPassword")}
               aria-pressed={showPassword}
-              className="text-muted-foreground hover:text-foreground absolute top-0 right-0 flex h-12 w-12 items-center justify-center rounded-r-xl"
+              className="text-muted-foreground hover:text-foreground absolute top-0 right-0 flex h-11 w-11 items-center justify-center rounded-r-lg"
               disabled={isLoading}
             >
               {showPassword ? <EyeOff size={18} aria-hidden /> : <Eye size={18} aria-hidden />}
@@ -134,7 +134,7 @@ export function LoginForm() {
         <Button
           type="submit"
           disabled={isLoading}
-          className="bg-foreground text-background hover:bg-foreground/90 h-12 w-full rounded-full text-base font-medium"
+          className="bg-brand text-brand-foreground hover:bg-brand-hover h-11 w-full rounded-lg text-sm font-semibold shadow-none transition-[background-color,box-shadow] hover:shadow-[var(--glow-brand)]"
         >
           {isLoading ? (
             t("loggingIn")

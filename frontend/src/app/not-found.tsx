@@ -1,28 +1,35 @@
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { ResearchMark } from "@/components/brand/research-mark";
 import { NotFoundBackButton } from "@/components/layout/not-found-back-button";
 import { ROUTES } from "@/lib/constants";
 
+// Rendered outside the [locale] tree (no message catalog), so copy is bilingual.
 export default function NotFound() {
   return (
-    <div className="bg-background flex min-h-screen flex-col items-center justify-center px-4 text-center">
-      <p className="text-brand text-sm font-semibold tracking-wider uppercase">404</p>
-      <h1 className="text-foreground mt-2 text-4xl font-bold tracking-tight sm:text-5xl">
-        Page not found
-      </h1>
-      <p className="text-muted-foreground mt-4">
-        The page you&apos;re looking for doesn&apos;t exist or has been moved.
-      </p>
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-        <Button asChild>
-          <Link href={ROUTES.HOME}>Go home</Link>
-        </Button>
-        <NotFoundBackButton />
-        <Button variant="secondary" asChild>
-          <Link href={ROUTES.DASHBOARD}>Dashboard</Link>
-        </Button>
+    <main
+      id="main"
+      className="site dark flex min-h-dvh flex-col items-center justify-center px-6 text-center"
+    >
+      <div className="hero-copy flex flex-col items-center">
+        <ResearchMark size={56} animated />
+        <p className="site-eyebrow mt-8">404</p>
+        <h1 className="doc-title">页面不存在</h1>
+        <p className="doc-lede mx-auto">
+          你要找的页面不存在或已被移动。
+          <br />
+          The page you&apos;re looking for doesn&apos;t exist or has been moved.
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <Link href={ROUTES.HOME} className="btn-brand">
+            返回首页 · Home
+          </Link>
+          <NotFoundBackButton />
+          <Link href={ROUTES.DASHBOARD} className="btn-ghost">
+            工作台 · Workspace
+          </Link>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

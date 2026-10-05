@@ -270,7 +270,7 @@ function ChatUI({
     <div
       className={`quiet-chat flex h-full w-full ${messages.length === 0 && !isLoadingConversation ? "chat-is-empty" : ""}`}
     >
-      <div className="mx-auto flex h-full max-w-5xl min-w-0 flex-1 flex-col">
+      <div className="mx-auto flex h-full max-w-[860px] min-w-0 flex-1 flex-col">
         <div
           ref={scrollContainerRef}
           className="chat-message-scroll flex-1 scrollbar-thin overflow-y-auto px-2 py-4 sm:px-4 sm:py-6"

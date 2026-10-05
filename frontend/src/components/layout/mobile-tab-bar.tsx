@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Database, LayoutDashboard, MessageSquare, Search, Settings } from "lucide-react";
+import { Search } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { stripLocale } from "@/lib/active-route";
-import { ROUTES } from "@/lib/constants";
+import { isRouteActive, stripLocale } from "@/lib/active-route";
+import { MOBILE_TAB_KEYS, navItem } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 interface TabItem {
@@ -26,56 +26,43 @@ export function MobileTabBar() {
 
   const stripped = stripLocale(pathname);
 
+  const settings = navItem("settings");
   const items: TabItem[] = [
-    { label: t("knowledge"), href: "/knowledge", icon: Database },
-    { label: t("chat"), href: ROUTES.CHAT, icon: MessageSquare, startsWith: true },
-    {
-      label: t("dashboard"),
-      href: ROUTES.DASHBOARD,
-      icon: LayoutDashboard,
-    },
+    ...MOBILE_TAB_KEYS.map((key) => {
+      const item = navItem(key);
+      return { label: t(key), href: item.href, icon: item.icon, startsWith: key !== "dashboard" };
+    }),
     {
       label: t("search"),
       icon: Search,
-      onClick: () => {
-        // Trigger global ⌘K command palette via synthetic keyboard event.
-        const event = new KeyboardEvent("keydown", {
-          key: "k",
-          metaKey: true,
-          bubbles: true,
-        });
-        document.dispatchEvent(event);
-      },
+      onClick: () => window.dispatchEvent(new CustomEvent("command-palette:open")),
     },
-    { label: t("settings"), href: ROUTES.SETTINGS, icon: Settings, startsWith: true },
+    { label: t("settings"), href: settings.href, icon: settings.icon, startsWith: true },
   ];
 
-  const isActive = (item: TabItem) => {
-    if (!item.href) return false;
-    if (item.startsWith) return stripped === item.href || stripped.startsWith(item.href + "/");
-    return stripped === item.href;
-  };
+  const isActive = (item: TabItem) =>
+    !!item.href && isRouteActive(stripped, item.href, !item.startsWith);
 
   return (
     <nav
       role="navigation"
-      aria-label="Primary"
-      className="border-foreground/10 bg-background/95 supports-[backdrop-filter]:bg-background/85 fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+      aria-label={t("mobileNav")}
+      className="bg-background/90 supports-[backdrop-filter]:bg-background/75 fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-around border-t pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden"
     >
       {items.map((item) => {
         const active = isActive(item);
         const className = cn(
-          "flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium uppercase tracking-wider transition-colors min-h-[56px]",
-          active ? "text-foreground" : "text-foreground/55 hover:text-foreground",
+          "flex min-h-[56px] flex-1 flex-col items-center justify-center gap-1 py-2 text-2xs font-medium transition-colors",
+          active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
         );
         const inner = (
           <>
             <item.icon
-              className={cn("h-5 w-5 transition-transform", active && "text-foreground scale-110")}
+              className={cn("h-5 w-5 transition-transform", active && "text-brand -translate-y-px")}
             />
             <span>{item.label}</span>
             {active && (
-              <span aria-hidden className="bg-brand absolute top-0 h-0.5 w-8 rounded-full" />
+              <span aria-hidden className="bg-brand pop-in absolute top-0 h-0.5 w-8 rounded-full" />
             )}
           </>
         );

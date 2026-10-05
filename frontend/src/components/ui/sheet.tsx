@@ -29,7 +29,7 @@ export function SheetContent({ children, className, side = "left" }: SheetConten
   const opener = React.useRef<HTMLElement | null>(null);
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50" />
+      <DialogPrimitive.Overlay className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 fixed inset-0 z-50 bg-black/50 backdrop-blur-[2px]" />
       <DialogPrimitive.Content
         aria-describedby={undefined}
         onOpenAutoFocus={() => {
@@ -41,8 +41,10 @@ export function SheetContent({ children, className, side = "left" }: SheetConten
           if (opener.current?.isConnected) opener.current.focus();
         }}
         className={cn(
-          "bg-background fixed inset-y-0 z-50 flex w-72 max-w-[90vw] flex-col shadow-lg outline-none",
-          side === "left" ? "left-0" : "right-0",
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed inset-y-0 z-50 flex w-72 max-w-[90vw] flex-col shadow-[var(--shadow-overlay)] outline-none duration-300",
+          side === "left"
+            ? "data-[state=open]:slide-in-from-left-full data-[state=closed]:slide-out-to-left-full left-0 border-r"
+            : "data-[state=open]:slide-in-from-right-full data-[state=closed]:slide-out-to-right-full right-0 border-l",
           className,
         )}
       >

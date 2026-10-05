@@ -66,7 +66,7 @@ export function RegisterForm() {
   return (
     <div className="space-y-8">
       <div className="space-y-2">
-        <span className="eyebrow text-foreground/55">{t("getStarted")}</span>
+        <span className="eyebrow text-brand">{t("getStarted")}</span>
         <h1 className="text-foreground">{t("registerHeading")}</h1>
         <p className="text-foreground/65 text-sm">
           {t("hasAccount")}{" "}
@@ -83,7 +83,7 @@ export function RegisterForm() {
         <div className="space-y-1.5">
           <Label
             htmlFor="name"
-            className="text-foreground/80 text-xs font-medium tracking-wider uppercase"
+            className="text-foreground/80 text-md font-medium"
           >
             {t("nameOptional")}
           </Label>
@@ -95,14 +95,14 @@ export function RegisterForm() {
             onChange={(e) => setName(e.target.value)}
             disabled={isLoading}
             autoComplete="name"
-            className="h-12 rounded-xl"
+            className="h-11 rounded-lg"
           />
         </div>
 
         <div className="space-y-1.5">
           <Label
             htmlFor="email"
-            className="text-foreground/80 text-xs font-medium tracking-wider uppercase"
+            className="text-foreground/80 text-md font-medium"
           >
             {t("email")}
           </Label>
@@ -116,7 +116,7 @@ export function RegisterForm() {
             required
             disabled={isLoading}
             autoComplete="email"
-            className={`h-12 rounded-xl ${emailTouched && email && !emailValid ? "border-destructive" : ""}`}
+            className={`h-11 rounded-lg ${emailTouched && email && !emailValid ? "border-destructive" : ""}`}
           />
           {emailTouched && email && !emailValid && (
             <p className="text-destructive text-xs">{t("emailInvalid")}</p>
@@ -126,7 +126,7 @@ export function RegisterForm() {
         <div className="space-y-1.5">
           <Label
             htmlFor="password"
-            className="text-foreground/80 text-xs font-medium tracking-wider uppercase"
+            className="text-foreground/80 text-md font-medium"
           >
             {t("password")}
           </Label>
@@ -139,7 +139,7 @@ export function RegisterForm() {
             required
             disabled={isLoading}
             autoComplete="new-password"
-            className={`h-12 rounded-xl ${password && !passwordLongEnough ? "border-destructive" : ""}`}
+            className={`h-11 rounded-lg ${password && !passwordLongEnough ? "border-destructive" : ""}`}
           />
           {password && (
             <div className="space-y-1.5 pt-1">
@@ -180,7 +180,7 @@ export function RegisterForm() {
         <div className="space-y-1.5">
           <Label
             htmlFor="confirmPassword"
-            className="text-foreground/80 text-xs font-medium tracking-wider uppercase"
+            className="text-foreground/80 text-md font-medium"
           >
             {t("confirmPassword")}
           </Label>
@@ -193,7 +193,7 @@ export function RegisterForm() {
             required
             disabled={isLoading}
             autoComplete="new-password"
-            className={`h-12 rounded-xl ${confirmPassword && !passwordsMatch ? "border-destructive" : ""}`}
+            className={`h-11 rounded-lg ${confirmPassword && !passwordsMatch ? "border-destructive" : ""}`}
           />
           {confirmPassword && !passwordsMatch && (
             <p className="text-destructive inline-flex items-center gap-1 text-xs">
@@ -215,7 +215,7 @@ export function RegisterForm() {
         <Button
           type="submit"
           disabled={isLoading}
-          className="bg-foreground text-background hover:bg-foreground/90 h-12 w-full rounded-full text-base font-medium"
+          className="bg-brand text-brand-foreground hover:bg-brand-hover h-11 w-full rounded-lg text-sm font-semibold shadow-none transition-[background-color,box-shadow] hover:shadow-[var(--glow-brand)]"
         >
           {isLoading ? (
             t("creatingAccount")

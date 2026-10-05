@@ -180,7 +180,8 @@ export default function ModelsPage() {
       {data && (
         <Tabs value={tab} onValueChange={setTab} className="space-y-6">
           <TabsList
-            className="workspace-tabs w-full justify-start"
+            variant="underline"
+            className="w-full justify-start"
             aria-label={zh ? "模型分类" : "Model categories"}
           >
             <TabsTrigger value="generation">{zh ? "对话模型" : "Chat models"}</TabsTrigger>

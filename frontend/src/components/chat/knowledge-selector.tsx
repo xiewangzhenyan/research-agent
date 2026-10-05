@@ -3,7 +3,8 @@ import { currentProject, projectFetch } from "@/lib/project-scope";
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Database } from "lucide-react";
+import { ChevronDown, Database } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useAuthStore, useConversationStore } from "@/stores";
 import { useKnowledgeStore } from "@/stores/knowledge-store";
 import { knowledgeRequest, type KnowledgeBase, type KnowledgeDocument } from "@/lib/knowledge";
@@ -143,18 +144,31 @@ export function KnowledgeSelector() {
     }
   }
   return (
-    <details className="border-border border-b px-4 py-3 text-xs" open={!!error}>
-      <summary className="text-muted-foreground cursor-pointer">
-        <Database className="text-brand mr-2 inline h-4 w-4" />
-        {busy
-          ? "正在同步知识范围…"
-          : ids.length
-            ? `${documentIds !== null ? `仅使用 ${documentIds.length} 条资料` : `已连接 ${ids.length} 个知识库`} · ${strict ? "严格资料问答" : "辅助问答"}`
-            : "连接知识库 · 让回答有据可查"}
+    <details className="group/kb px-3 pt-3 text-xs sm:px-4" open={!!error}>
+      <summary
+        className={cn(
+          "inline-flex max-w-full cursor-pointer list-none items-center gap-2 rounded-full border px-2.5 py-1 transition-colors [&::-webkit-details-marker]:hidden",
+          ids.length
+            ? "border-brand/35 bg-brand/10 text-brand"
+            : "text-muted-foreground hover:text-foreground hover:border-border-strong",
+        )}
+      >
+        <Database className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        <span className="truncate">
+          {busy
+            ? "正在同步知识范围…"
+            : ids.length
+              ? `${documentIds !== null ? `仅使用 ${documentIds.length} 条资料` : `已连接 ${ids.length} 个知识库`} · ${strict ? "严格资料问答" : "辅助问答"}`
+              : "连接知识库 · 让回答有据可查"}
+        </span>
+        <ChevronDown
+          aria-hidden
+          className="h-3 w-3 shrink-0 opacity-60 transition-transform group-open/kb:rotate-180"
+        />
       </summary>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {error && (
-          <span role="alert" className="w-full text-amber-400">
+          <span role="alert" className="text-warning w-full">
             {error}
           </span>
         )}

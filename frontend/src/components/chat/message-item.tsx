@@ -1,9 +1,12 @@
 "use client";
 
 import { useId, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { cn, setUrlParam } from "@/lib/utils";
-import type { ChatMessage, ChatMessageFile } from "@/types";
+import type { ChatMessage, ChatMessageFile, MessagePart } from "@/types";
+import { ResearchMark } from "@/components/brand/research-mark";
+import { toolCallsOf } from "@/lib/run-summary";
+import { RoleStrip } from "./role-strip";
 import { ToolCallCard } from "./tool-call-card";
 import { MarkdownContent } from "./markdown-content";
 import { RememberMessage } from "@/components/memory/memory-editor";
@@ -16,7 +19,18 @@ import { MessageArtifacts } from "./message-artifacts";
 import { RatingButtons } from "./rating-buttons";
 import { useChatStore, useFilePreviewStore } from "@/stores";
 import { useSourcesPanelStore } from "@/stores/sources-panel-store";
-import { Bot, ChevronRight, FileText, Globe, Paperclip, RefreshCw, User } from "lucide-react";
+import {
+  ChevronRight,
+  Clock3,
+  FileText,
+  Globe,
+  ListTree,
+  Loader2,
+  Paperclip,
+  RefreshCw,
+  User,
+  Wrench,
+} from "lucide-react";
 import Image from "next/image";
 import { useAuthStore } from "@/stores";
 import { getFileUrl } from "@/lib/file-api";
@@ -75,7 +89,9 @@ function TextBubble({
     <div
       className={cn(
         "relative min-w-0",
-        isUser ? "bg-muted text-foreground rounded-3xl px-4 py-3" : "py-1",
+        isUser
+          ? "bg-card text-foreground rounded-2xl rounded-tr-md border px-4 py-2.5 shadow-[var(--shadow-panel)]"
+          : "py-1",
       )}
     >
       {isUser ? (
@@ -83,9 +99,7 @@ function TextBubble({
       ) : (
         <div className="chat-answer max-w-none">
           <MarkdownContent content={text} onCiteClick={onCiteClick} isStreaming={showCursor} />
-          {showCursor && (
-            <span className="ml-1 inline-block h-4 w-1.5 animate-pulse rounded-full bg-current" />
-          )}
+          {showCursor && <span className="answer-caret ml-1" aria-hidden />}
         </div>
       )}
     </div>
@@ -101,7 +115,7 @@ function SourcesButton({ sources, onClick }: { sources: SourceItem[]; onClick: (
     <button
       type="button"
       onClick={onClick}
-      className="border-foreground/15 bg-background hover:border-foreground/30 hover:bg-foreground/5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors"
+      className="bg-card hover:border-brand/40 hover:bg-brand/5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors"
     >
       <span className="flex -space-x-1">
         {ragCount > 0 && (
@@ -115,7 +129,7 @@ function SourcesButton({ sources, onClick }: { sources: SourceItem[]; onClick: (
           </span>
         )}
       </span>
-      <span className="text-foreground/60 text-[11px] font-medium">
+      <span className="text-foreground/70 text-2xs font-medium">
         {zh
           ? `${sources.length} 条原文依据`
           : `${sources.length} source${sources.length !== 1 ? "s" : ""}`}
@@ -123,6 +137,28 @@ function SourcesButton({ sources, onClick }: { sources: SourceItem[]; onClick: (
     </button>
   );
 }
+
+/** Consecutive tool parts share one trace so their rows connect into a timeline. */
+function groupParts(parts: MessagePart[]): (MessagePart | MessagePart[])[] {
+  const out: (MessagePart | MessagePart[])[] = [];
+  for (const part of parts) {
+    const last = out[out.length - 1];
+    if (part.type === "tool" && part.toolCall) {
+      if (Array.isArray(last)) last.push(part);
+      else out.push([part]);
+    } else {
+      out.push(part);
+    }
+  }
+  return out;
+}
+
+const RUN_STATUS_ICON: Record<string, typeof Clock3> = {
+  queued: Clock3,
+  running: Loader2,
+  waiting_input: Clock3,
+  cancelling: Loader2,
+};
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -140,6 +176,7 @@ export function MessageItem({
   onRatingChange,
 }: MessageItemProps) {
   const zh = useLocale() === "zh";
+  const t = useTranslations("chat.agents");
   const workspace = useProject();
   const isUser = message.role === "user";
   const updateMessage = useChatStore((state) => state.updateMessage);
@@ -151,6 +188,10 @@ export function MessageItem({
   const sources = !isUser ? extractSources(message) : [];
   const hasSources = sources.length > 0 && !message.isStreaming;
   const onCiteClick = hasSources ? (index: number) => openSources(sources, index) : undefined;
+  const toolCount = !isUser && !message.isStreaming ? toolCallsOf(message).length : 0;
+  const runActive =
+    !!message.execution &&
+    ["queued", "running", "waiting_input", "cancelling"].includes(message.execution.status);
 
   return (
     <div
@@ -175,8 +216,8 @@ export function MessageItem({
       )}
       <div
         className={cn(
-          "z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden rounded-full sm:h-9 sm:w-9",
-          isUser ? "bg-foreground text-background" : "bg-muted text-foreground",
+          "z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden sm:h-9 sm:w-9",
+          isUser ? "bg-brand/15 text-brand rounded-full" : "rounded-[10px]",
           isGrouped && !isUser && "ring-background ring-2",
         )}
       >
@@ -192,7 +233,7 @@ export function MessageItem({
         ) : isUser ? (
           <User className="h-4 w-4" />
         ) : (
-          <Bot className="h-4 w-4 sm:h-5 sm:w-5" />
+          <ResearchMark size={36} animated={runActive} className="h-full w-full" />
         )}
       </div>
       <div
@@ -217,7 +258,7 @@ export function MessageItem({
                       type="button"
                       key={att.file.id}
                       onClick={() => openPreview(att.file)}
-                      className="hover:ring-foreground/30 block overflow-hidden rounded-xl border ring-2 ring-transparent transition-all"
+                      className="hover:ring-foreground/30 block overflow-hidden rounded-xl border ring-2 ring-transparent transition-shadow"
                       title={`Open ${att.file.filename}`}
                     >
                       <Image
@@ -262,8 +303,22 @@ export function MessageItem({
               {!isUser && message.execution && message.execution.status !== "completed" && (
                 <div
                   role="status"
-                  className={`mb-2 rounded-xl border px-3 py-2 text-xs leading-6 ${message.execution.status === "failed" ? "text-destructive" : "text-muted-foreground"}`}
+                  className={cn(
+                    "panel-inset relative mb-2 flex flex-wrap items-center gap-x-2 overflow-hidden px-3 py-2 text-xs leading-6",
+                    message.execution.status === "failed"
+                      ? "text-destructive"
+                      : "text-muted-foreground",
+                  )}
                 >
+                  {(() => {
+                    const Icon = RUN_STATUS_ICON[message.execution.status];
+                    return Icon ? (
+                      <Icon
+                        aria-hidden
+                        className={cn("text-brand h-3.5 w-3.5", Icon === Loader2 && "animate-spin")}
+                      />
+                    ) : null;
+                  })()}
                   {
                     (
                       {
@@ -276,36 +331,49 @@ export function MessageItem({
                       } as Record<string, string>
                     )[message.execution.status]
                   }
-                  {message.execution.error && <p>{message.execution.error}</p>}
+                  {message.execution.error && <p className="w-full">{message.execution.error}</p>}
                   {onCancel &&
                     ["queued", "running", "waiting_input"].includes(message.execution.status) && (
-                      <button type="button" onClick={onCancel} className="ml-3 underline">
+                      <button
+                        type="button"
+                        onClick={onCancel}
+                        className="hover:text-foreground ml-auto rounded-md px-1.5 underline-offset-4 hover:underline"
+                      >
                         停止此条
                       </button>
                     )}
+                  {["queued", "running"].includes(message.execution.status) && (
+                    <span aria-hidden className="step-progress absolute inset-x-0 bottom-0 h-px" />
+                  )}
                 </div>
               )}
               {!isUser && message.execution && (
-                <button
-                  type="button"
-                  aria-haspopup="dialog"
-                  onClick={() => setUrlParam("run", message.execution!.id)}
-                  className="text-muted-foreground mb-2 inline-block min-h-9 text-xs underline"
-                >
-                  {zh ? "执行详情与文件" : "Execution details and files"}
-                </button>
-              )}
-              {!isUser && message.execution?.collaborative && (
-                <p className="text-brand mb-2 text-xs" title={message.execution.reason}>
-                  已自动启用资料协作 · 规划、研究、撰写与审校
-                </p>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  {message.execution.collaborative && (
+                    <span title={message.execution.reason}>
+                      <RoleStrip
+                        running={runActive}
+                        label={runActive ? t("running") : t("strip")}
+                      />
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    onClick={() => setUrlParam("run", message.execution!.id)}
+                    className="text-muted-foreground hover:text-foreground hover:border-border-strong bg-card inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors"
+                  >
+                    <ListTree aria-hidden className="h-3.5 w-3.5" />
+                    {zh ? "执行详情与文件" : "Execution details and files"}
+                  </button>
+                </div>
               )}
               {showPlaceholder && (
                 <div className="flex items-center gap-2 py-2.5" role="status" aria-live="polite">
                   <div className="flex gap-1" aria-hidden="true">
-                    <span className="bg-muted-foreground/40 h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:0ms]" />
-                    <span className="bg-muted-foreground/40 h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:150ms]" />
-                    <span className="bg-muted-foreground/40 h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:300ms]" />
+                    <span className="bg-role-plan h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:0ms]" />
+                    <span className="bg-role-research h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:150ms]" />
+                    <span className="bg-role-write h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:300ms]" />
                   </div>
                   <span className="text-muted-foreground text-xs">
                     {zh ? "正在思考…" : "Thinking…"}
@@ -314,8 +382,20 @@ export function MessageItem({
               )}
 
               {useParts ? (
-                /* Ordered timeline: render each part in arrival order. */
-                parts.map((part, i) => {
+                /* Ordered timeline: render each part in arrival order; runs of tool
+                   calls are drawn as one connected trace. */
+                groupParts(parts).map((entry) => {
+                  if (Array.isArray(entry)) {
+                    return (
+                      <div key={entry[0]!.id} className="trace w-full py-1">
+                        {entry.map((part) => (
+                          <ToolCallCard key={part.id} toolCall={part.toolCall!} />
+                        ))}
+                      </div>
+                    );
+                  }
+                  const part = entry;
+                  const i = parts.indexOf(part);
                   if (part.type === "thinking" && part.content) {
                     return (
                       <ThinkingBlock
@@ -324,13 +404,6 @@ export function MessageItem({
                         open={Boolean(message.isStreaming) && i === parts.length - 1}
                         isStreaming={Boolean(message.isStreaming)}
                       />
-                    );
-                  }
-                  if (part.type === "tool" && part.toolCall) {
-                    return (
-                      <div key={part.id} className="w-full">
-                        <ToolCallCard toolCall={part.toolCall} />
-                      </div>
                     );
                   }
                   if (part.type === "text" && part.content) {
@@ -365,7 +438,7 @@ export function MessageItem({
                     />
                   )}
                   {message.toolCalls && message.toolCalls.length > 0 && (
-                    <div className="w-full space-y-2">
+                    <div className="trace w-full py-1">
                       {message.toolCalls.map((toolCall) => (
                         <ToolCallCard key={toolCall.id} toolCall={toolCall} />
                       ))}
@@ -438,16 +511,31 @@ export function MessageItem({
           </>
         )}
 
-        {hasSources && !isUser && (
-          <div className="mt-1">
-            <SourcesButton sources={sources} onClick={() => openSources(sources, null)} />
+        {!isUser && (hasSources || toolCount > 0) && (
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            {toolCount > 0 && (
+              <span className="text-muted-foreground text-2xs inline-flex items-center gap-1.5">
+                <Wrench aria-hidden className="h-3 w-3" />
+                {t("toolCount", { count: toolCount })}
+              </span>
+            )}
+            {hasSources && (
+              <SourcesButton sources={sources} onClick={() => openSources(sources, null)} />
+            )}
           </div>
         )}
 
         {!message.isStreaming && message.content && (
-          <div className={cn("flex items-center gap-2", isUser && "flex-row-reverse")}>
+          <div
+            className={cn(
+              "flex items-center gap-2 transition-opacity",
+              isUser && "flex-row-reverse",
+              !onRegenerate &&
+                "group-hover:opacity-100 focus-within:opacity-100 [@media(hover:hover)]:opacity-0",
+            )}
+          >
             {message.timestamp && (
-              <span className="text-muted-foreground text-[10px]">
+              <span className="text-muted-foreground text-2xs tabular-nums">
                 {new Date(message.timestamp).toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",

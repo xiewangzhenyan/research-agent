@@ -4,7 +4,7 @@ export function ParseReport({ report, snapshot = false }: { report: PDFParseRepo
   const incomplete = report.empty_text_pages.length > 0 || report.suspected_scan_pages.length > 0;
   return (
     <details className="mt-3 rounded-lg border p-3 text-xs leading-6">
-      <summary className={`cursor-pointer ${incomplete ? "text-amber-200" : "text-muted-foreground"}`}>
+      <summary className={`cursor-pointer ${incomplete ? "text-warning" : "text-muted-foreground"}`}>
         {snapshot ? "回答时的文字提取情况" : "文字提取情况"}：{report.text_pages} / {report.total_pages} 页有文字
         {incomplete && " · 部分页面需检查"}
       </summary>

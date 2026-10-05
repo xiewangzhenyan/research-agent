@@ -33,6 +33,8 @@ interface StatCardProps {
   spark?: number[];
   /** Top-right icon. */
   icon?: LucideIcon;
+  /** Agent-role hue used for the icon chip (see `.role-*` in globals.css). */
+  tone?: "plan" | "research" | "write" | "review";
   className?: string;
   loading?: boolean;
 }
@@ -48,6 +50,7 @@ export function StatCard({
   footer,
   spark,
   icon: Icon,
+  tone = "write",
   className,
   loading,
 }: StatCardProps) {
@@ -55,7 +58,7 @@ export function StatCard({
     return (
       <div
         className={cn(
-          "border-border bg-card relative animate-pulse space-y-3 overflow-hidden rounded-xl border p-5",
+          "panel relative animate-pulse space-y-3 overflow-hidden p-5",
           className,
         )}
       >
@@ -70,14 +73,18 @@ export function StatCard({
   const id = sparkId(label);
 
   return (
-    <div className={cn("border-border bg-card flex flex-col rounded-xl border p-5", className)}>
+    <div className={cn("panel panel-interactive flex flex-col p-5", `role-${tone}`, className)}>
       <div className="flex items-center justify-between">
         <p className="text-muted-foreground text-xs font-medium">{label}</p>
-        {Icon && <Icon className="text-muted-foreground/70 h-4 w-4" />}
+        {Icon && (
+          <span className="icon-chip h-8 w-8">
+            <Icon className="h-4 w-4" />
+          </span>
+        )}
       </div>
 
       <div className="mt-2.5 flex items-baseline gap-1.5">
-        <span className="text-foreground font-display text-2xl font-semibold tracking-tight tabular-nums">
+        <span className="text-foreground font-display text-3xl font-semibold tracking-tight tabular-nums">
           {value}
         </span>
         {unit && <span className="text-muted-foreground text-sm">{unit}</span>}

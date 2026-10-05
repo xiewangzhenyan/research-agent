@@ -100,7 +100,7 @@ function RAGSourceRow({ item, highlighted }: { item: SourceItem; highlighted: bo
           {!!data?.quotes?.length && data.state !== "deleted" && <p className="text-brand mt-3 text-xs">高亮为本次回答采用的原句</p>}
           {content && (
             <p className="text-foreground/60 mt-2 pl-5 text-sm leading-7 whitespace-pre-wrap">
-              {evidenceSegments(content, data?.quotes).map((part, i) => part.highlighted ? <mark key={i} className="rounded-sm bg-emerald-300/15 px-0.5 text-emerald-200">{part.text}</mark> : <span key={i}>{part.text}</span>)}
+              {evidenceSegments(content, data?.quotes).map((part, i) => part.highlighted ? <mark key={i} className="bg-brand/15 text-foreground rounded-sm px-0.5">{part.text}</mark> : <span key={i}>{part.text}</span>)}
             </p>
           )}
           {item.citationId && data?.state === "current" && <div className="mt-3 pl-5">

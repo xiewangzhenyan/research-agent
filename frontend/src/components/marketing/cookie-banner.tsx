@@ -17,7 +17,7 @@ export function CookieBanner() {
   return (
     <aside
       aria-label={zh ? "Cookie 说明" : "Cookie notice"}
-      className="bg-card fixed bottom-4 left-4 z-50 max-w-sm rounded-2xl border p-5 shadow-xl"
+      className="bg-popover text-popover-foreground animate-in fade-in-0 slide-in-from-bottom-2 fixed bottom-4 left-4 z-50 max-w-sm rounded-2xl border p-5 shadow-[var(--shadow-overlay)]"
     >
       <p className="text-sm leading-relaxed">
         {zh
@@ -28,7 +28,7 @@ export function CookieBanner() {
         </Link>
       </p>
       <button
-        className="mt-3 rounded-full border px-4 py-2 text-sm"
+        className="bg-brand text-brand-foreground hover:bg-brand-hover mt-3 rounded-full px-4 py-2 text-sm font-medium transition-colors"
         onClick={() => {
           try {
             localStorage.setItem("cookie.notice.read", "1");
