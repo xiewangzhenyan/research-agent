@@ -20,13 +20,13 @@ export function StepData() {
     >
       <p className="rounded-xl border p-6 leading-relaxed">
         {zh
-          ? "知识库索引和云盘同步暂未开放。本引导不会上传文件，也不会把文件加入知识库。"
-          : "Knowledge indexing and cloud storage sync are not available. This guide does not upload or index files."}
+          ? "聊天附件只用于当次对话。需要跨对话检索时，请在知识库上传资料，再在对话中连接知识库。云盘同步暂未开放。"
+          : "Chat attachments are used only in that conversation. To search across conversations, upload documents to a knowledge base and connect it in chat. Cloud sync is not enabled."}
       </p>
       <div className="mt-8 flex gap-4">
         <Link
           className="bg-foreground text-background rounded-full px-6 py-3"
-          href={`${prefix}/onboarding/team`}
+          href={`${prefix}/onboarding/done`}
         >
           {zh ? "继续" : "Continue"}
         </Link>

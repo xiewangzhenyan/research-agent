@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { AuthGuard } from "@/components/layout/auth-guard";
 import { StepAgent } from "@/components/onboarding/step-agent";
 import { StepData } from "@/components/onboarding/step-data";
 import { StepDone } from "@/components/onboarding/step-done";
-import { StepTeam } from "@/components/onboarding/step-team";
 import { StepWelcome } from "@/components/onboarding/step-welcome";
 import { ONBOARDING_STEPS, type OnboardingStep } from "@/components/onboarding/onboarding-state";
 import type { Locale } from "@/i18n";
@@ -33,11 +32,13 @@ export async function generateMetadata({
 }
 
 interface PageProps {
-  params: Promise<{ step: string }>;
+  params: Promise<{ locale: Locale; step: string }>;
 }
 
 export default async function OnboardingStepPage({ params }: PageProps) {
-  const { step } = await params;
+  const { locale, step } = await params;
+  // Old links to the retired team step continue at the finish screen.
+  if (step === "team") redirect(`${locale === "zh" ? "" : `/${locale}`}/onboarding/done`);
   if (!ONBOARDING_STEPS.includes(step as OnboardingStep)) {
     notFound();
   }
@@ -47,7 +48,6 @@ export default async function OnboardingStepPage({ params }: PageProps) {
       {step === "welcome" && <StepWelcome />}
       {step === "agent" && <StepAgent />}
       {step === "data" && <StepData />}
-      {step === "team" && <StepTeam />}
       {step === "done" && <StepDone />}
     </AuthGuard>
   );

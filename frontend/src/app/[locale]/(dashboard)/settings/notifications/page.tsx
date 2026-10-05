@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "next-intl";
-import { CreditCard, MessageSquare, Sparkles, Users } from "lucide-react";
+import { CreditCard, MessageSquare, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -24,13 +24,6 @@ const CATEGORIES: NotificationCategory[] = [
     label: "Billing",
     description: "Subscription renewals, payment failures, low credit warnings.",
     icon: CreditCard,
-    defaults: { email: true, inApp: true },
-  },
-  {
-    key: "members",
-    label: "Team activity",
-    description: "Invitations accepted, members joining or leaving your workspace.",
-    icon: Users,
     defaults: { email: true, inApp: true },
   },
   {
@@ -80,7 +73,6 @@ export default function NotificationsSettingsPage() {
   const categoryCopy: Record<string, { label: string; description: string }> = isZh
     ? {
         billing: { label: "账单", description: "订阅续费、付款失败和积分不足提醒。" },
-        members: { label: "团队动态", description: "邀请接受、成员加入或离开工作区。" },
         security: { label: "安全提醒", description: "新设备登录、密码更改和可疑活动。" },
         product: { label: "产品更新", description: "新功能、版本更新和使用技巧。" },
       }

@@ -31,7 +31,6 @@ const STEP_LABELS: Record<OnboardingStep, string> = {
   welcome: "Welcome",
   agent: "Chat model",
   data: "Attachments",
-  team: "Team status",
   done: "Done",
 };
 

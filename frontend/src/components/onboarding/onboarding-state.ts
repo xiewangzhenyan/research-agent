@@ -5,7 +5,8 @@ const STORAGE_KEY = "onboarding.completed_at";
 /** Furthest step the user has reached — drives resume-from-last-step. */
 const PROGRESS_KEY = "onboarding.furthest_step";
 
-export const ONBOARDING_STEPS = ["welcome", "agent", "data", "team", "done"] as const;
+// Team invitations are not offered, so the former "team" step was removed.
+export const ONBOARDING_STEPS = ["welcome", "agent", "data", "done"] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 /**
