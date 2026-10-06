@@ -125,7 +125,7 @@ function DemoToggle({ conv, onToggle }: { conv: Conversation; onToggle: (id: str
         onClick={toggle}
         title={conv.is_demo ? "Remove from demos" : "Add to demos"}
         className={cn(
-          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium transition-colors",
+          "inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-[11px] font-medium transition-colors",
           conv.is_demo
             ? "bg-brand/10 text-brand hover:bg-brand/20"
             : "bg-muted text-muted-foreground hover:bg-muted/70",

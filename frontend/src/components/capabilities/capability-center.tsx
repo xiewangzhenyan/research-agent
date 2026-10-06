@@ -22,11 +22,15 @@ import {
   capabilityError,
   capabilityFetch,
   statusLabel,
-  type Availability,
-  type Bindings,
   type Capability,
   type CapabilityKind,
 } from "@/lib/capabilities";
+import {
+  capabilityAssetsQuery,
+  capabilityAvailabilityQuery,
+  capabilityBindingsQuery,
+  capabilityScope,
+} from "@/lib/workspace-queries";
 import { CapabilityEditor } from "./capability-editor";
 
 export function CapabilityCenter({ kind }: { kind: CapabilityKind }) {
@@ -38,25 +42,16 @@ function Center({ kind }: { kind: CapabilityKind }) {
   const userId = useAuthStore((s) => s.user?.id);
   const project = useProject();
   const cache = useQueryClient();
-  const key = ["capabilities", userId, project?.project?.id ?? "default"];
+  const key = capabilityScope(userId, project?.project?.id);
   const assets = useQuery({
-    queryKey: [...key, kind],
-    queryFn: () => apiClient.get<Capability[]>(`/capabilities/${kind}`),
+    ...capabilityAssetsQuery(key, kind),
     enabled: !!userId && !!project?.ready,
-    staleTime: 30000,
   });
   const bindings = useQuery({
-    queryKey: [...key, "bindings"],
-    queryFn: () => apiClient.get<Bindings>("/capabilities/bindings"),
+    ...capabilityBindingsQuery(key),
     enabled: !!userId && !!project?.ready,
-    staleTime: 30000,
   });
-  const availability = useQuery({
-    queryKey: [...key, "availability"],
-    queryFn: () => apiClient.get<Availability>("/capabilities/availability"),
-    enabled: !!userId,
-    staleTime: 60000,
-  });
+  const availability = useQuery({ ...capabilityAvailabilityQuery(key), enabled: !!userId });
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState("all");
   const [editor, setEditor] = useState<Capability | "new" | null>(null);

@@ -48,11 +48,15 @@ export default function ProfileSettingsPage() {
       toast.success(isZh ? "个人资料已更新" : "Profile updated");
     } catch (err) {
       toast.error(
-        err instanceof ApiError
-          ? err.message
-          : isZh
-            ? "更新个人资料失败"
-            : "Failed to update profile",
+        err instanceof ApiError && err.status === 409
+          ? isZh
+            ? "该邮箱已被其他账号使用"
+            : "That email is already used by another account"
+          : err instanceof ApiError
+            ? err.message
+            : isZh
+              ? "更新个人资料失败"
+              : "Failed to update profile",
       );
     } finally {
       setSaving(false);
@@ -175,8 +179,8 @@ export default function ProfileSettingsPage() {
         title={isZh ? "个人信息" : "Personal info"}
         description={
           isZh
-            ? "这些信息会向同一工作区的成员显示。"
-            : "Visible to teammates in shared organizations."
+            ? "显示名称用于工作台的问候语；邮箱同时是登录账号。"
+            : "Your display name greets you in the workspace; the email is also your sign-in."
         }
         action={
           <Button onClick={handleSaveProfile} disabled={saving} size="sm">
@@ -197,7 +201,7 @@ export default function ProfileSettingsPage() {
             label={isZh ? "邮箱" : "Email"}
             htmlFor="profile-email"
             description={
-              isZh ? "更改邮箱后可能需要重新验证。" : "Changing email may require re-verification."
+              isZh ? "修改后请用新邮箱登录。" : "Sign in with the new address after changing it."
             }
           >
             <Input

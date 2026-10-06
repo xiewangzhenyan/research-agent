@@ -34,10 +34,10 @@ export function LoadingState({
             key={i}
             className="border-border bg-card flex items-center gap-3 rounded-xl border p-4"
           >
-            <div className="bg-foreground/10 h-9 w-9 animate-pulse rounded-full" />
+            <div className="bg-foreground/10 h-9 w-9 animate-pulse rounded-sm" />
             <div className="flex-1 space-y-2">
-              <div className="bg-foreground/10 h-3 w-1/3 animate-pulse rounded-full" />
-              <div className="bg-foreground/8 h-3 w-2/3 animate-pulse rounded-full" />
+              <div className="bg-foreground/10 h-3 w-1/3 animate-pulse rounded-sm" />
+              <div className="bg-foreground/8 h-3 w-2/3 animate-pulse rounded-sm" />
             </div>
           </div>
         ))}
@@ -53,10 +53,10 @@ export function LoadingState({
           className,
         )}
       >
-        <div className="bg-foreground/10 h-3 w-1/4 rounded-full" />
+        <div className="bg-foreground/10 h-3 w-1/4 rounded-sm" />
         <div className="bg-foreground/15 h-8 w-1/2 rounded-md" />
-        <div className="bg-foreground/8 h-2.5 w-full rounded-full" />
-        <div className="bg-foreground/8 h-2.5 w-4/5 rounded-full" />
+        <div className="bg-foreground/8 h-2.5 w-full rounded-sm" />
+        <div className="bg-foreground/8 h-2.5 w-4/5 rounded-sm" />
       </div>
     );
   }
@@ -79,7 +79,7 @@ export function LoadingState({
             key={i}
             className="border-border bg-card animate-pulse space-y-3 rounded-xl border p-5"
           >
-            <div className="bg-foreground/10 h-3 w-2/5 rounded-full" />
+            <div className="bg-foreground/10 h-3 w-2/5 rounded-sm" />
             <div className="bg-foreground/15 h-8 w-1/2 rounded-md" />
             <div className="bg-foreground/8 h-10 w-full rounded-md" />
           </div>
@@ -97,7 +97,7 @@ function DotPulse() {
       {[0, 1, 2].map((i) => (
         <span
           key={i}
-          className="bg-foreground/60 h-1.5 w-1.5 rounded-full"
+          className="bg-foreground/60 h-1.5 w-1.5 rounded-sm"
           style={{
             animation: "dot-pulse 1.2s ease-in-out infinite",
             animationDelay: `${i * 160}ms`,

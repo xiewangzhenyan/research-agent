@@ -10,9 +10,10 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MemoryManagement, MemoryHistory } from "@/components/memory/memory-management";
 import { MemoryEditor } from "@/components/memory/memory-editor";
 import { apiClient } from "@/lib/api-client";
-import { kindLabel, memoryError, memoryKey, type MemoryItem, type MemoryList } from "@/lib/memory";
+import { kindLabel, memoryError, type MemoryItem } from "@/lib/memory";
 import { useProject } from "@/components/projects/project-provider";
 import { useAuthStore } from "@/stores";
+import { memoryQuery } from "@/lib/workspace-queries";
 
 export default function MemoryPage() {
   const userId = useAuthStore((s) => s.user?.id);
@@ -37,8 +38,7 @@ function MemoryWorkspace() {
   const workspace = useProject();
   const userId = useAuthStore((s) => s.user?.id);
   const list = useQuery({
-    queryKey: memoryKey(),
-    queryFn: () => apiClient.get<MemoryList>("/memory"),
+    ...memoryQuery(),
     enabled: !!userId,
     staleTime: 0,
     refetchInterval: (query) =>

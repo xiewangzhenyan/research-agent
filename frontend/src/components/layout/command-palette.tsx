@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useQuery } from "@tanstack/react-query";
 import { Command } from "cmdk";
 import {
   Activity,
   ArrowRight,
-  Bell,
-  BookOpen,
+  LifeBuoy,
   LogOut,
   MessageSquare,
   Palette,
@@ -22,16 +22,10 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { useAuth } from "@/hooks";
-import { apiClient } from "@/lib/api-client";
+import { conversationListQuery } from "@/hooks/use-conversations";
 import { ROUTES } from "@/lib/constants";
-import { NAV_GROUPS, navItem } from "@/lib/navigation";
+import { NAV_GROUPS } from "@/lib/navigation";
 import { isAppAdmin } from "@/lib/utils";
-
-interface ConversationItem {
-  id: string;
-  title: string | null;
-  updated_at?: string | null;
-}
 
 export function CommandPalette() {
   const router = useRouter();
@@ -39,7 +33,9 @@ export function CommandPalette() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  // Same cache entry as the conversation sidebar, so chats started this session show up.
+  const recent = useQuery({ ...conversationListQuery(), enabled: open && !!user });
+  const conversations = (recent.data ?? []).filter((c) => !c.is_archived);
 
   // Global ⌘K / Ctrl+K shortcut + a custom event so UI buttons can open it.
   useEffect(() => {
@@ -57,15 +53,6 @@ export function CommandPalette() {
       window.removeEventListener("command-palette:open", openHandler);
     };
   }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    if (conversations.length > 0) return;
-    apiClient
-      .get<{ items: ConversationItem[] }>("/conversations?limit=10")
-      .then((d) => setConversations(d.items))
-      .catch(() => setConversations([]));
-  }, [open, conversations.length]);
 
   const go = (href: string) => {
     setOpen(false);
@@ -102,6 +89,14 @@ export function CommandPalette() {
 
         <Group heading={t("quickActions")}>
           <PaletteItem icon={Plus} label={t("startNewChat")} onSelect={() => go("/chat?new=1")} />
+          <PaletteItem
+            icon={LifeBuoy}
+            label={t("help")}
+            onSelect={() => {
+              setOpen(false);
+              window.open(ROUTES.HELP, "_blank", "noopener");
+            }}
+          />
         </Group>
 
         {conversations.length > 0 && (
@@ -130,27 +125,6 @@ export function CommandPalette() {
           </Group>
         ))}
 
-        <Group heading={t("navigate")}>
-          <PaletteItem
-            icon={navItem("profile").icon}
-            label={t("profile")}
-            onSelect={() => go(ROUTES.PROFILE)}
-          />
-          <PaletteItem
-            icon={navItem("settings").icon}
-            label={t("settings")}
-            onSelect={() => go(ROUTES.SETTINGS)}
-          />
-          <PaletteItem
-            icon={BookOpen}
-            label={t("apiDocs")}
-            onSelect={() => {
-              setOpen(false);
-              window.open("/docs", "_blank");
-            }}
-          />
-        </Group>
-
         <Group heading={t("settingsSection")}>
           <PaletteItem
             icon={UserCircle}
@@ -166,11 +140,6 @@ export function CommandPalette() {
             icon={Palette}
             label={t("appearance")}
             onSelect={() => go(ROUTES.SETTINGS_APPEARANCE)}
-          />
-          <PaletteItem
-            icon={Bell}
-            label={t("notifications")}
-            onSelect={() => go(ROUTES.SETTINGS_NOTIFICATIONS)}
           />
           <PaletteItem
             icon={Slash}

@@ -117,7 +117,7 @@ export function LanguageSwitcherCompact() {
         aria-expanded={open}
         className={cn(
           "border-foreground/15 hover:border-foreground/40 hover:bg-foreground/[0.04]",
-          "text-foreground/85 inline-flex items-center gap-1.5 rounded-full border bg-transparent",
+          "text-foreground/85 inline-flex items-center gap-1.5 rounded-sm border bg-transparent",
           "px-3 py-1.5 text-xs font-medium tracking-wider uppercase transition-colors",
           "focus-visible:ring-brand/50 focus-visible:ring-2 focus-visible:outline-none",
         )}

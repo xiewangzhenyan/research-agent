@@ -273,7 +273,7 @@ export function ChatInput({
                   <button
                     type="button"
                     onClick={() => removeFile(file.id)}
-                    className="bg-destructive text-destructive-foreground absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full opacity-0 transition-opacity group-hover:opacity-100"
+                    className="bg-destructive text-destructive-foreground absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover:opacity-100"
                   >
                     <X className="h-3 w-3" />
                   </button>

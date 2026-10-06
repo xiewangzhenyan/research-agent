@@ -24,7 +24,7 @@ import {
 } from "@/components/ui";
 import { useProject } from "./project-provider";
 import { apiClient } from "@/lib/api-client";
-import { knowledgeRequest, type KnowledgeBase } from "@/lib/knowledge";
+import { knowledgeBasesQuery } from "@/lib/workspace-queries";
 import { type Project } from "@/lib/project-scope";
 import { useAuthStore } from "@/stores";
 
@@ -38,11 +38,7 @@ export function ProjectSwitcher() {
   const [ids, setIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const bases = useQuery({
-    queryKey: ["knowledge-bases", userId],
-    queryFn: () => knowledgeRequest<{ items: KnowledgeBase[] }>("bases"),
-    enabled: !!mode && !!userId,
-  });
+  const bases = useQuery({ ...knowledgeBasesQuery(userId), enabled: !!mode && !!userId });
   if (!workspace) return null;
   const { project, projects, reload, switchProject } = workspace;
   const t = (cn: string, en: string) => (zh ? cn : en);

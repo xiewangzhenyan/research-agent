@@ -14,18 +14,13 @@ import {
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui";
 import { useAuthStore } from "@/stores";
-import { fetchTools } from "@/lib/tool-catalog";
+import { toolsQuery } from "@/lib/workspace-queries";
 
 export default function ToolsPage() {
   const zh = useLocale() === "zh";
   const t = (cn: string, en: string) => (zh ? cn : en);
   const user = useAuthStore((s) => s.user);
-  const query = useQuery({
-    queryKey: ["tools", user?.id],
-    queryFn: ({ signal }) => fetchTools(signal),
-    enabled: !!user,
-    staleTime: 15000,
-  });
+  const query = useQuery(toolsQuery(user?.id));
   const labels: Record<string, string> = {
     current_datetime: t("当前时间", "Current time"),
     ask_user: t("用户澄清", "Ask user"),

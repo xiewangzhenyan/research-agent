@@ -7,19 +7,15 @@ import { ChevronDown, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore, useConversationStore } from "@/stores";
 import { useKnowledgeStore } from "@/stores/knowledge-store";
-import { knowledgeRequest, type KnowledgeBase, type KnowledgeDocument } from "@/lib/knowledge";
+import { knowledgeRequest, type KnowledgeDocument } from "@/lib/knowledge";
+import { knowledgeBasesQuery } from "@/lib/workspace-queries";
 
 export function KnowledgeSelector() {
   const generation = useRef(0);
   const userId = useAuthStore((s) => s.user?.id);
   const conversationId = useConversationStore((s) => s.currentConversationId);
   const { ids, documentIds, strict, ready, busy, error } = useKnowledgeStore();
-  const { data, isError } = useQuery({
-    queryKey: ["knowledge-bases", userId],
-    queryFn: () => knowledgeRequest<{ items: KnowledgeBase[] }>("bases"),
-    enabled: !!userId,
-    staleTime: 0,
-  });
+  const { data, isError } = useQuery({ ...knowledgeBasesQuery(userId), staleTime: 0 });
   const documents = useQuery({
     queryKey: ["knowledge-scope-documents", userId, ...ids],
     queryFn: async () =>
@@ -147,7 +143,7 @@ export function KnowledgeSelector() {
     <details className="group/kb px-3 pt-3 text-xs sm:px-4" open={!!error}>
       <summary
         className={cn(
-          "inline-flex max-w-full cursor-pointer list-none items-center gap-2 rounded-full border px-2.5 py-1 transition-colors [&::-webkit-details-marker]:hidden",
+          "inline-flex max-w-full cursor-pointer list-none items-center gap-2 rounded-sm border px-2.5 py-1 transition-colors [&::-webkit-details-marker]:hidden",
           ids.length
             ? "border-brand/35 bg-brand/10 text-brand"
             : "text-muted-foreground hover:text-foreground hover:border-border-strong",

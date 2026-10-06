@@ -87,8 +87,8 @@ function DurableFigure() {
         >
           <span
             className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5",
-              i === steps.length - 1 && "border-brand/40 text-brand",
+              "inline-flex items-center gap-1 border px-2 py-0.5 font-mono text-[11px]",
+              i === steps.length - 1 && "border-brand/50 text-brand",
             )}
           >
             {key === "durableResumed" && <History size={11} aria-hidden />}
@@ -162,6 +162,10 @@ export function AuthShowcase() {
             className={cn("auth-slide", i === index && "is-active")}
             aria-hidden={i !== index}
           >
+            <p className="auth-slide-index" aria-hidden>
+              <span>CH{i + 1}</span>
+              {String(i + 1).padStart(2, "0")} / {String(SLIDES.length).padStart(2, "0")}
+            </p>
             <h3>{t(`slide${slide}Title`)}</h3>
             <p>{t(`slide${slide}Desc`)}</p>
             {i === index && (
@@ -175,7 +179,7 @@ export function AuthShowcase() {
       <div className="auth-dots items-center">
         <button
           type="button"
-          className="text-muted-foreground hover:text-foreground mr-1 grid h-5 w-5 place-items-center rounded-full"
+          className="auth-play"
           aria-label={stopped ? t("playSlides") : t("pauseSlides")}
           onClick={() => setStopped((v) => !v)}
         >

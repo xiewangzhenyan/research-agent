@@ -62,7 +62,7 @@ export function StatCard({
           className,
         )}
       >
-        <div className="bg-foreground/10 h-3 w-1/3 rounded-full" />
+        <div className="bg-foreground/10 h-3 w-1/3 rounded-sm" />
         <div className="bg-foreground/15 h-7 w-1/2 rounded-md" />
         <div className="bg-foreground/[0.06] h-8 w-full rounded-md" />
       </div>
@@ -75,7 +75,9 @@ export function StatCard({
   return (
     <div className={cn("panel panel-interactive flex flex-col p-5", `role-${tone}`, className)}>
       <div className="flex items-center justify-between">
-        <p className="text-muted-foreground text-xs font-medium">{label}</p>
+        <p className="text-muted-foreground font-mono text-[11px] font-medium tracking-wider uppercase">
+          {label}
+        </p>
         {Icon && (
           <span className="icon-chip h-8 w-8">
             <Icon className="h-4 w-4" />
@@ -84,7 +86,7 @@ export function StatCard({
       </div>
 
       <div className="mt-2.5 flex items-baseline gap-1.5">
-        <span className="text-foreground font-display text-3xl font-semibold tracking-tight tabular-nums">
+        <span className="text-foreground font-mono text-3xl font-medium tracking-tight tabular-nums">
           {value}
         </span>
         {unit && <span className="text-muted-foreground text-sm">{unit}</span>}

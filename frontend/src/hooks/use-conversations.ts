@@ -5,7 +5,7 @@ import { useKnowledgeStore } from "@/stores/knowledge-store";
 import { lastChatKey } from "@/lib/chat-turns";
 import { currentProject } from "@/lib/project-scope";
 import { useCallback, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { qk } from "@/lib/query-keys";
@@ -23,6 +23,17 @@ interface CreateConversationResponse {
 }
 
 const PAGE_SIZE = 30;
+
+const fetchFirstPage = async () =>
+  (
+    await apiClient.get<ConversationListResponse>(
+      `/conversations?limit=${PAGE_SIZE}&include_archived=true`,
+    )
+  ).items;
+
+/** First page of the conversation list (active and archived), shared by the sidebar and palette. */
+export const conversationListQuery = () =>
+  queryOptions({ queryKey: qk.conversations.list(), queryFn: fetchFirstPage });
 
 export function useConversations() {
   const zh = useLocale() === "zh";
@@ -44,13 +55,11 @@ export function useConversations() {
   // Both active and archived are fetched in one call so the sidebar tabs can
   // partition them client-side. Mutations patch the cache directly.
   const { data: conversations = [], isLoading: listLoading } = useQuery({
-    queryKey: qk.conversations.list(),
+    ...conversationListQuery(),
     queryFn: async () => {
-      const response = await apiClient.get<ConversationListResponse>(
-        `/conversations?limit=${PAGE_SIZE}&include_archived=true`,
-      );
-      hasMoreRef.current = response.items.length >= PAGE_SIZE;
-      return response.items;
+      const items = await fetchFirstPage();
+      hasMoreRef.current = items.length >= PAGE_SIZE;
+      return items;
     },
   });
 

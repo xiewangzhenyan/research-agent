@@ -1,41 +1,36 @@
-/** Decorative pipeline lines and pulsing nodes behind the auth pages. */
-const LINES = [
-  { d: "M-40 640 C 220 560 360 700 620 600 S 980 420 1480 500", role: "write" },
-  { d: "M-40 300 C 260 240 420 380 700 320 S 1100 160 1480 220", role: "research" },
-  { d: "M120 960 C 300 760 560 820 760 700 S 1120 640 1480 760", role: "plan" },
+/** Graticule and four faint channel traces drifting along the bottom of the auth pages. */
+const TRACES = [
+  { role: "plan", y: 70, d: (x: number) => `L${x} 70L${x} 58L${x + 40} 58L${x + 40} 70` },
+  {
+    role: "research",
+    y: 100,
+    d: (x: number) => `L${x + 18} 100L${x + 22} 80L${x + 26} 108L${x + 30} 100`,
+  },
+  {
+    role: "write",
+    y: 130,
+    d: (x: number) =>
+      Array.from(
+        { length: 9 },
+        (_, i) => `L${x + i * 10} ${(130 - 9 * Math.sin((i / 8) * Math.PI * 2)).toFixed(1)}`,
+      ).join(""),
+  },
+  {
+    role: "review",
+    y: 160,
+    d: (x: number) => `L${x + 52} 160L${x + 52} 146L${x + 60} 146L${x + 60} 160`,
+  },
 ] as const;
 
-const NODES = [
-  { cx: 620, cy: 600, role: "write" },
-  { cx: 1035, cy: 455, role: "write" },
-  { cx: 700, cy: 320, role: "research" },
-  { cx: 290, cy: 268, role: "research" },
-  { cx: 760, cy: 700, role: "plan" },
-  { cx: 1210, cy: 690, role: "review" },
-] as const;
+const path = (trace: (typeof TRACES)[number]) =>
+  `M0 ${trace.y}${Array.from({ length: 36 }, (_, i) => trace.d(i * 80)).join("")}L2880 ${trace.y}`;
 
 export function AuthBackdrop() {
   return (
     <div className="auth-bg" aria-hidden>
-      <svg viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
-        {LINES.map((line) => (
-          <path
-            key={line.d}
-            d={line.d}
-            className={`auth-line role-${line.role}`}
-            fill="none"
-            strokeWidth="1.2"
-          />
-        ))}
-        {NODES.map((node, i) => (
-          <circle
-            key={`${node.cx}-${node.cy}`}
-            cx={node.cx}
-            cy={node.cy}
-            r="4"
-            className={`auth-node role-${node.role}`}
-            style={{ animationDelay: `${i * 0.7}s` }}
-          />
+      <svg viewBox="0 0 2880 200" preserveAspectRatio="none">
+        {TRACES.map((trace) => (
+          <path key={trace.role} d={path(trace)} className={`auth-line role-${trace.role}`} />
         ))}
       </svg>
     </div>

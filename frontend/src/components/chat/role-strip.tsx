@@ -14,14 +14,17 @@ interface RoleStripProps {
   className?: string;
 }
 
-/** The four collaboration roles as one strip, in their fixed order. */
+/** The four collaboration roles as one strip of scope channels, in their fixed order. */
 export function RoleStrip({ running = false, label, className }: RoleStripProps) {
   const t = useTranslations("chat.agents");
   return (
     <span className={cn("role-strip", className)} data-running={running || undefined}>
       {label && <span className="text-muted-foreground px-2 text-xs">{label}</span>}
-      {AGENT_ROLES.map((role) => (
+      {AGENT_ROLES.map((role, i) => (
         <span key={role} className={cn("role-pill", `role-${role}`)}>
+          <span className="role-ch" aria-hidden>
+            CH{i + 1}
+          </span>
           {t(role)}
         </span>
       ))}

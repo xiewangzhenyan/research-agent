@@ -64,7 +64,7 @@ const RULES: Rule[] = [
   },
   {
     name: "css-radius-literal",
-    why: "Use var(--radius-xs|sm|md|lg|xl|2xl|3xl|pill) (4/6/8/10/12/16/24/999px).",
+    why: "Use var(--radius-xs|sm|md|lg|xl|2xl|3xl|pill) (1/2/2/3/4/5/6/999px).",
     files: /\.css$/,
     pattern: /border-radius:\s*\d+(?:\.\d+)?px/g,
     baseline: 0,

@@ -31,9 +31,9 @@ export function ReasoningControl({
   return (
     <div className={unavailable ? "opacity-45" : ""}>
       <div className="relative mx-3 flex h-9 items-center">
-        <div className="bg-muted h-1 w-full rounded-full" />
+        <div className="bg-muted h-1 w-full rounded-sm" />
         <div
-          className="reasoning-thumb bg-foreground pointer-events-none absolute h-4 w-4 -translate-x-1/2 rounded-full shadow-sm"
+          className="reasoning-thumb bg-foreground pointer-events-none absolute h-4 w-4 -translate-x-1/2 rounded-sm shadow-sm"
           style={{ left: `${levels.length > 1 ? (index / (levels.length - 1)) * 100 : 0}%` }}
         />
         <input

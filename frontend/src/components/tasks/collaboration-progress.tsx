@@ -109,7 +109,7 @@ export function CollaborationProgress({
                 </span>
                 <span
                   className={cx(
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs",
+                    "inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs",
                     STATE_PILL[state],
                   )}
                 >
@@ -130,7 +130,7 @@ export function CollaborationProgress({
               </div>
               {!!latest?.data.round && (
                 <p className="mt-3">
-                  <span className="border-border text-muted-foreground text-2xs inline-flex rounded-full border px-2 py-0.5">
+                  <span className="border-border text-muted-foreground text-2xs inline-flex rounded-sm border px-2 py-0.5">
                     {t("修订轮次", "Revision")} {latest.data.round}
                   </span>
                 </p>

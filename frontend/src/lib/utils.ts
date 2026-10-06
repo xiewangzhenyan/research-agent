@@ -77,18 +77,6 @@ export function timeAgo(dateStr: string, locale = "en"): string {
   return new Date(dateStr).toLocaleDateString(locale === "pl" ? "pl-PL" : "en-US", { month: "short", day: "numeric" });
 }
 
-export function formatCurrency(
-  amountCents: number,
-  currency = "USD",
-  minimumFractionDigits = 0,
-): string {
-  return (amountCents / 100).toLocaleString("en-US", {
-    style: "currency",
-    currency: currency.toUpperCase(),
-    minimumFractionDigits,
-  });
-}
-
 export function formatDate(date: Date | string | null | undefined, locale = "en"): string {
   if (!date) return "—";
   const d = typeof date === "string" ? new Date(date) : date;

@@ -30,14 +30,11 @@ export function ChatEmptyState({ onPick }: ChatEmptyStateProps) {
   return (
     <div className="chat-welcome mx-auto w-full max-w-2xl px-4 py-6 md:py-10">
       <div className="stagger flex flex-col items-center text-center">
-        <span className="relative mb-5 inline-grid place-items-center">
-          <span
-            aria-hidden
-            className="bg-brand/25 absolute inset-0 rounded-[20px] blur-xl motion-safe:animate-[breathe_3.6s_ease-in-out_infinite]"
-          />
-          <ResearchMark size={52} animated className="relative" />
-        </span>
-        <h2 className="text-foreground font-display text-2xl font-semibold tracking-tight md:text-3xl">
+        <ResearchMark size={52} animated className="mb-4" />
+        <p className="mono-label mb-3" aria-hidden>
+          READY · CH1–CH4
+        </p>
+        <h2 className="text-foreground font-display text-2xl font-bold tracking-tight md:text-3xl">
           {firstName ? t("greetingNamed", { name: firstName }) : t("greeting")}
         </h2>
         <p className="text-muted-foreground mx-auto mt-2 max-w-md text-sm leading-relaxed">
@@ -50,7 +47,7 @@ export function ChatEmptyState({ onPick }: ChatEmptyStateProps) {
       </div>
 
       <div className="chat-prompt-shortcuts stagger mt-7 grid gap-2.5 sm:grid-cols-2">
-        {PROMPTS.map((p) => (
+        {PROMPTS.map((p, i) => (
           <button
             key={p.key}
             type="button"
@@ -67,6 +64,12 @@ export function ChatEmptyState({ onPick }: ChatEmptyStateProps) {
               <span className="text-muted-foreground block truncate text-xs">
                 {t(`${p.key}Hint`)}
               </span>
+            </span>
+            <span
+              aria-hidden
+              className="text-subtle group-hover:text-brand self-start font-mono text-[10px] tracking-wider transition-colors"
+            >
+              P{i + 1}
             </span>
           </button>
         ))}

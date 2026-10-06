@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
-import { getMessages, getTranslations } from "next-intl/server";
+import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 
 import { CookieBanner } from "@/components/marketing/cookie-banner";
@@ -52,6 +52,9 @@ export default async function LocaleLayout({
   if (!locales.includes(locale as Locale)) {
     notFound();
   }
+  // Without this next-intl reads the locale from request headers, which makes every
+  // page dynamic: prefetches come back empty and each click re-renders on the server.
+  setRequestLocale(locale);
 
   const messages = await getMessages();
   const t = await getTranslations("common");

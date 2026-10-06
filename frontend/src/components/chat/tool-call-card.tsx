@@ -157,9 +157,9 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
           <span className="text-foreground/80 flex min-w-0 items-center gap-1.5 font-medium">
             <span className="truncate">{liveCaption}</span>
             <span className="flex shrink-0 gap-0.5" aria-hidden="true">
-              <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-full [animation-delay:0ms]" />
-              <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-full [animation-delay:150ms]" />
-              <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-full [animation-delay:300ms]" />
+              <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-sm [animation-delay:0ms]" />
+              <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-sm [animation-delay:150ms]" />
+              <span className="bg-brand/70 h-1 w-1 animate-bounce rounded-sm [animation-delay:300ms]" />
             </span>
           </span>
         ) : (
@@ -213,7 +213,7 @@ export function ToolCallCard({ toolCall, defaultExpanded = false }: ToolCallCard
       {detail && <p className="trace-detail">{detail}</p>}
 
       {/* Live progress shimmer — only while the step is in flight. */}
-      {isRunning && <div className="step-progress mt-1.5 h-px rounded-full" />}
+      {isRunning && <div className="step-progress mt-1.5 h-px rounded-sm" />}
 
       {expanded && (
         <div className="panel-inset step-reveal mt-2 p-3">

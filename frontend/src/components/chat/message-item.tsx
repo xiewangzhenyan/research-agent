@@ -90,7 +90,7 @@ function TextBubble({
       className={cn(
         "relative min-w-0",
         isUser
-          ? "bg-card text-foreground rounded-2xl rounded-tr-md border px-4 py-2.5 shadow-[var(--shadow-panel)]"
+          ? "bg-card text-foreground rounded-xl rounded-tr-none border px-4 py-2.5 shadow-[var(--shadow-panel)]"
           : "py-1",
       )}
     >
@@ -115,16 +115,16 @@ function SourcesButton({ sources, onClick }: { sources: SourceItem[]; onClick: (
     <button
       type="button"
       onClick={onClick}
-      className="bg-card hover:border-brand/40 hover:bg-brand/5 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors"
+      className="bg-card hover:border-brand/40 hover:bg-brand/5 inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 transition-colors"
     >
       <span className="flex -space-x-1">
         {ragCount > 0 && (
-          <span className="bg-muted border-background inline-flex h-4 w-4 items-center justify-center rounded-full border">
+          <span className="bg-muted border-background inline-flex h-4 w-4 items-center justify-center rounded-sm border">
             <FileText className="text-foreground/60 h-2.5 w-2.5" />
           </span>
         )}
         {webCount > 0 && (
-          <span className="bg-muted border-background inline-flex h-4 w-4 items-center justify-center rounded-full border">
+          <span className="bg-muted border-background inline-flex h-4 w-4 items-center justify-center rounded-sm border">
             <Globe className="text-foreground/60 h-2.5 w-2.5" />
           </span>
         )}
@@ -217,7 +217,7 @@ export function MessageItem({
       <div
         className={cn(
           "z-10 flex h-8 w-8 flex-shrink-0 items-center justify-center overflow-hidden sm:h-9 sm:w-9",
-          isUser ? "bg-brand/15 text-brand rounded-full" : "rounded-[10px]",
+          isUser ? "bg-brand/15 text-brand border-brand/30 rounded-sm border" : "rounded-sm",
           isGrouped && !isUser && "ring-background ring-2",
         )}
       >
@@ -361,7 +361,7 @@ export function MessageItem({
                     type="button"
                     aria-haspopup="dialog"
                     onClick={() => setUrlParam("run", message.execution!.id)}
-                    className="text-muted-foreground hover:text-foreground hover:border-border-strong bg-card inline-flex min-h-8 items-center gap-1.5 rounded-full border px-3 text-xs transition-colors"
+                    className="text-muted-foreground hover:text-foreground hover:border-border-strong bg-card inline-flex min-h-8 items-center gap-1.5 rounded-sm border px-3 text-xs transition-colors"
                   >
                     <ListTree aria-hidden className="h-3.5 w-3.5" />
                     {zh ? "执行详情与文件" : "Execution details and files"}
@@ -371,9 +371,9 @@ export function MessageItem({
               {showPlaceholder && (
                 <div className="flex items-center gap-2 py-2.5" role="status" aria-live="polite">
                   <div className="flex gap-1" aria-hidden="true">
-                    <span className="bg-role-plan h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:0ms]" />
-                    <span className="bg-role-research h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:150ms]" />
-                    <span className="bg-role-write h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:300ms]" />
+                    <span className="bg-role-plan h-1.5 w-1.5 animate-bounce rounded-sm [animation-delay:0ms]" />
+                    <span className="bg-role-research h-1.5 w-1.5 animate-bounce rounded-sm [animation-delay:150ms]" />
+                    <span className="bg-role-write h-1.5 w-1.5 animate-bounce rounded-sm [animation-delay:300ms]" />
                   </div>
                   <span className="text-muted-foreground text-xs">
                     {zh ? "正在思考…" : "Thinking…"}

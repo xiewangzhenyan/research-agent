@@ -302,12 +302,12 @@ export default function ModelsPage() {
                     </div>
                     <div className="text-muted-foreground flex shrink-0 flex-wrap gap-2 text-xs">
                       {model.temperature && (
-                        <span className="bg-accent rounded-full px-3 py-1">
+                        <span className="bg-accent rounded-sm px-3 py-1">
                           {zh ? "温度可调" : "Temperature"}
                         </span>
                       )}
                       {!!model.thinking_efforts.length && (
-                        <span className="bg-accent rounded-full px-3 py-1">
+                        <span className="bg-accent rounded-sm px-3 py-1">
                           {zh ? "推理强度可调" : "Reasoning effort"}
                         </span>
                       )}

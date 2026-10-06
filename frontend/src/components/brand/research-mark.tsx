@@ -3,11 +3,15 @@ import { cn } from "@/lib/utils";
 interface ResearchMarkProps {
   size?: number;
   className?: string;
-  /** Draw the resonance curve in and let the peak node breathe (empty/loading states). */
+  /** Draw the peak in and blink the marker (empty and loading states). */
   animated?: boolean;
 }
 
-/** LSPRAI resonance peak and connected knowledge nodes; no external assets. */
+// Lorentzian line shape sampled at integer x: baseline 45.3, apex (32, 15), half width 5.2.
+const PEAK =
+  "M10 45.3L13 44.8L16 43.9L18 43.1L20 41.9L22 40.2L24 37.5L25 35.6L26 33.3L27 30.4L28 26.9L29 23L30 19.1L31 16.1L32 15L33 16.1L34 19.1L35 23L36 26.9L37 30.4L38 33.3L39 35.6L40 37.5L42 40.2L44 41.9L46 43.1L48 43.9L51 44.8L54 45.3";
+
+/** LSPRAI mark: a resonance peak on an instrument screen, with a measurement marker. */
 export function ResearchMark({ size = 32, className, animated = false }: ResearchMarkProps) {
   return (
     <svg
@@ -20,36 +24,28 @@ export function ResearchMark({ size = 32, className, animated = false }: Researc
       aria-hidden="true"
       focusable="false"
     >
+      <rect width="64" height="64" rx="4" fill="#0B0B0C" />
+      <path d="M21.5 4V60M42.5 4V60M4 21.5H60M4 32.5H60" stroke="#1C1C20" strokeWidth="1" />
       <rect
-        x="1"
-        y="1"
-        width="62"
-        height="62"
-        rx="17"
-        fill="#0D2421"
-        stroke="#326456"
-        strokeWidth="2"
+        x="0.75"
+        y="0.75"
+        width="62.5"
+        height="62.5"
+        rx="3.5"
+        stroke="#2A2A2F"
+        strokeWidth="1.5"
       />
+      <path d="M10 52.5H54M16 52.5V56M32 52.5V56M48 52.5V56" stroke="#4A4A50" strokeWidth="2" />
       <path
-        d="M12 47C25 47 26 34 35 34S44 47 52 47"
-        stroke="#4C9A82"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        pathLength={1}
-        className="mark-curve"
-      />
-      <path
-        d="M12 41C23 41 22 19 32 19S41 41 52 41"
-        stroke="#A3F0CE"
+        d={PEAK}
+        stroke="#FF5A1F"
         strokeWidth="4.5"
         strokeLinecap="round"
+        strokeLinejoin="round"
         pathLength={1}
         className="mark-curve"
       />
-      <circle cx="12" cy="41" r="3.5" fill="#A3F0CE" />
-      <circle cx="52" cy="41" r="3.5" fill="#A3F0CE" />
-      <circle cx="32" cy="19" r="5" fill="#D9FFED" className="mark-peak" />
-      <circle cx="32" cy="19" r="2" fill="#0D2421" />
+      <path d="M27.5 5.5H36.5L32 10.5Z" fill="#EDEDEA" className="mark-peak" />
     </svg>
   );
 }

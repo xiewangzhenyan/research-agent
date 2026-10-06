@@ -104,12 +104,12 @@ export default function AdminRatingsPage() {
       header: "Rating",
       cell: (r) =>
         r.rating === 1 ? (
-          <span className="bg-muted text-foreground inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider uppercase">
+          <span className="bg-muted text-foreground inline-flex items-center gap-1 rounded-sm px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider uppercase">
             <ThumbsUp className="h-3 w-3" />
             Like
           </span>
         ) : (
-          <span className="bg-muted text-foreground inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider uppercase">
+          <span className="bg-muted text-foreground inline-flex items-center gap-1 rounded-sm px-2.5 py-0.5 font-mono text-[10px] font-semibold tracking-wider uppercase">
             <ThumbsDown className="h-3 w-3" />
             Dislike
           </span>
@@ -218,13 +218,13 @@ export default function AdminRatingsPage() {
           </div>
           <div className="mt-3 flex items-center gap-5">
             <span className="flex items-center gap-1.5">
-              <span className="bg-foreground/75 h-2.5 w-2.5 rounded-full" />
+              <span className="bg-foreground/75 h-2.5 w-2.5 rounded-sm" />
               <span className="text-muted-foreground font-mono text-[10px] tracking-wider uppercase">
                 Likes
               </span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="bg-foreground/30 h-2.5 w-2.5 rounded-full" />
+              <span className="bg-foreground/30 h-2.5 w-2.5 rounded-sm" />
               <span className="text-muted-foreground font-mono text-[10px] tracking-wider uppercase">
                 Dislikes
               </span>

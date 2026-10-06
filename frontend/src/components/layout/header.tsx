@@ -14,6 +14,7 @@ import {
   UserCircle,
 } from "lucide-react";
 import { LanguageSwitcherIcon } from "@/components/language-switcher";
+import { LinkMeter } from "@/components/layout/link-meter";
 import { ThemeToggle } from "@/components/theme";
 import {
   Avatar,
@@ -48,7 +49,7 @@ export function Header() {
 
   return (
     <header className="console-topbar">
-      <div className="flex h-14 items-center justify-between gap-2 px-3 sm:px-6">
+      <div className="flex h-[52px] items-center justify-between gap-2 px-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-1 sm:gap-3">
           <Button variant="ghost" size="sm" className="h-9 w-9 p-0 lg:hidden" onClick={toggle}>
             <Menu className="h-5 w-5" />
@@ -56,13 +57,16 @@ export function Header() {
           </Button>
 
           <ProjectSwitcher />
-          <span className="text-muted-foreground hidden items-center gap-1.5 truncate text-sm md:inline-flex">
+          <span className="text-muted-foreground hidden items-center gap-1.5 truncate font-mono text-xs tracking-wide md:inline-flex">
             <ChevronRight size={14} className="text-subtle" aria-hidden />
-            <span className="text-foreground/80 truncate">{section}</span>
+            <span className="text-foreground/85 truncate">{section}</span>
           </span>
         </div>
 
         <div className="flex items-center gap-1">
+          <div className="mr-1 hidden xl:block">
+            <LinkMeter />
+          </div>
           {pathname.startsWith("/chat") && (
             <Button
               variant="ghost"
@@ -87,7 +91,7 @@ export function Header() {
           <div className="ml-0.5 hidden items-center sm:flex">
             <LanguageSwitcherIcon />
           </div>
-          <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-accent h-9 w-9 rounded-lg [&_svg]:size-[1.1rem]" />
+          <ThemeToggle className="text-muted-foreground hover:text-foreground hover:bg-accent h-9 w-9 rounded-sm [&_svg]:size-[1.1rem]" />
 
           {isAuthenticated && <div className="bg-border mx-1.5 hidden h-5 w-px sm:block" />}
 
@@ -96,16 +100,16 @@ export function Header() {
               <DropdownMenuTrigger asChild>
                 <button
                   aria-label={t("accountMenu")}
-                  className="hover:bg-accent focus-visible:ring-ring ml-0.5 flex items-center gap-1.5 rounded-full p-0.5 pr-2 transition-colors outline-none focus-visible:ring-1"
+                  className="hover:bg-accent focus-visible:ring-ring ml-0.5 flex items-center gap-1.5 rounded-sm p-0.5 pr-2 transition-colors outline-none focus-visible:ring-1"
                 >
-                  <Avatar className="h-7 w-7">
+                  <Avatar className="h-7 w-7 rounded-sm">
                     {user?.avatar_url && (
                       <AvatarImage
                         src={`/api/users/avatar/${user.id}?v=${avatarVersion}`}
                         alt={user.email}
                       />
                     )}
-                    <AvatarFallback className="bg-brand text-brand-foreground text-2xs font-semibold">
+                    <AvatarFallback className="bg-brand text-brand-foreground text-2xs rounded-sm font-mono font-semibold">
                       {user?.email?.substring(0, 2).toUpperCase() || "U"}
                     </AvatarFallback>
                   </Avatar>
@@ -123,13 +127,13 @@ export function Header() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href={ROUTES.PROFILE}>
+                  <Link href={ROUTES.SETTINGS_PROFILE}>
                     <UserCircle className="mr-2 h-4 w-4" />
                     {t("profile")}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href={ROUTES.SETTINGS}>
+                  <Link href={ROUTES.SETTINGS_ACCOUNT}>
                     <Settings className="mr-2 h-4 w-4" />
                     {t("settings")}
                   </Link>

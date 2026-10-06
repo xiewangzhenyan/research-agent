@@ -22,7 +22,7 @@ export function ErrorState({
         className,
       )}
     >
-      <div className="bg-destructive/10 text-destructive mb-4 flex h-11 w-11 items-center justify-center rounded-full">
+      <div className="bg-destructive/10 text-destructive mb-4 flex h-11 w-11 items-center justify-center rounded-sm">
         <AlertCircle className="h-5 w-5" />
       </div>
       <h3 className="font-display text-foreground text-base font-semibold">{title}</h3>
@@ -31,7 +31,7 @@ export function ErrorState({
         <button
           type="button"
           onClick={cta.onClick}
-          className="border-foreground/20 hover:border-foreground/40 text-foreground mt-5 inline-flex items-center justify-center rounded-full border px-5 py-2 text-sm font-medium transition-colors"
+          className="border-foreground/20 hover:border-foreground/40 text-foreground mt-5 inline-flex items-center justify-center rounded-sm border px-5 py-2 text-sm font-medium transition-colors"
         >
           {cta.label}
         </button>

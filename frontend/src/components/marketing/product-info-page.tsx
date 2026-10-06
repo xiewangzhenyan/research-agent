@@ -69,6 +69,11 @@ const copy: Record<"zh" | "en", Record<string, InfoCopy>> = {
       lede: "按时间记录面向用户的主要变化。",
       entries: [
         {
+          date: "2026-10-06",
+          title: "仪器界面与更快的页面切换",
+          body: "整站改为精密仪器风格：首页加入可交互的波动场模拟与 LSPR 光谱示意，四个角色以示波器通道呈现，新的 Logo 与图标。工作台各页面改为静态预渲染并在空闲时预取数据，切换功能页不再每次等待服务器；设置中只在本机生效的“通知”页已下线。",
+        },
+        {
           date: "2026-10-05",
           title: "共振界面改版",
           body: "首页、登录页与工作台统一为深墨光谱设计：四角色协作演示、原文引用示例、按日期分组的对话历史、滑动导航高亮与智能体执行时间线，并完整支持深浅色与减少动态效果。",
@@ -135,6 +140,11 @@ const copy: Record<"zh" | "en", Record<string, InfoCopy>> = {
       lede: "Notable user-facing changes, newest first.",
       entries: [
         {
+          date: "2026-10-06",
+          title: "Instrument interface and faster navigation",
+          body: "The whole site now follows a precision-instrument design: an interactive wave-field simulation and an LSPR spectrum sketch on the landing page, the four roles shown as oscilloscope channels, and a new logo and icons. Workspace pages are prerendered and their data is prefetched while idle, so switching sections no longer waits on the server each time; the browser-only notification settings page was retired.",
+        },
+        {
           date: "2026-10-05",
           title: "Resonance interface",
           body: "The landing page, sign-in and workspace now share one deep-ink design: a four-role collaboration preview, citation examples, date-grouped chat history, a sliding navigation highlight and an agent execution timeline, with full light/dark and reduced-motion support.",
@@ -163,7 +173,7 @@ export async function ProductInfoPage({ kind }: { kind: ProductInfoKind }) {
       <div className="doc-body">
         {page.paragraphs?.map((text) => <p key={text}>{text}</p>)}
         {page.entries && (
-          <ol className="grid gap-4">
+          <ol className="doc-log">
             {page.entries.map((entry) => (
               <li key={entry.date} className="doc-card">
                 <p className="text-brand font-mono text-xs tracking-wider">{entry.date}</p>
@@ -174,12 +184,12 @@ export async function ProductInfoPage({ kind }: { kind: ProductInfoKind }) {
           </ol>
         )}
         <div className="flex flex-wrap gap-3 pt-6">
-          <Link className="btn-brand" href={`${prefix}${cta.href}`}>
+          <Link className="btn-signal" href={`${prefix}${cta.href}`}>
             {cta.label}
             <ArrowRight size={16} strokeWidth={2.2} />
           </Link>
           {kind !== "help" && (
-            <Link className="btn-ghost" href={`${prefix}${ROUTES.HELP}`}>
+            <Link className="btn-line" href={`${prefix}${ROUTES.HELP}`}>
               {isZh ? "使用帮助" : "Help"}
             </Link>
           )}

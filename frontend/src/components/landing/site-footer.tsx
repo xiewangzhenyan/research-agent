@@ -15,11 +15,11 @@ export async function SiteFooter({ prefix }: { prefix: string }) {
   return (
     <footer className="site-footer">
       <div className="site-container site-footer-inner">
-        <div className="flex items-center gap-3">
+        <div className="site-footer-brand">
           <ResearchMark size={26} />
           <span>
-            © {new Date().getFullYear()} {APP_NAME} · {APP_BRAND}
-            <span className="text-subtle hidden sm:inline"> — {t("tagline")}</span>
+            {APP_NAME}
+            <small>{t("tagline")}</small>
           </span>
         </div>
         <nav aria-label={t("tagline")}>
@@ -29,6 +29,14 @@ export async function SiteFooter({ prefix }: { prefix: string }) {
             </Link>
           ))}
         </nav>
+      </div>
+      <div className="site-container">
+        <div className="site-footer-meta">
+          <span>
+            © {new Date().getFullYear()} {APP_BRAND}
+          </span>
+          <span>{t("rev")}</span>
+        </div>
       </div>
     </footer>
   );

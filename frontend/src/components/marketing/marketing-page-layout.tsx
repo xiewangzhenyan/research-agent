@@ -34,14 +34,21 @@ export async function MarketingPageLayout({
           { href: `${home}#workflow`, label: t("workflow") },
           { href: `${home}#evidence`, label: t("evidence") },
           { href: `${home}#knowledge`, label: t("knowledge") },
+          { href: `${home}#spec`, label: t("spec") },
           { href: `${prefix}${ROUTES.HELP}`, label: t("guide") },
         ]}
         cta={{ href: `${prefix}${ROUTES.CHAT}`, label: t("enter") }}
       />
       <main id="main">
         <section className="doc-hero">
-          <div className="site-container hero-copy">
-            {eyebrow && <p className="site-eyebrow">{eyebrow}</p>}
+          <div className="site-container doc-hero-inner">
+            {eyebrow && (
+              <p className="section-index">
+                <span>DOC</span>
+                <i aria-hidden />
+                <span>{eyebrow}</span>
+              </p>
+            )}
             <h1 className="doc-title">{title}</h1>
             {description && <p className="doc-lede">{description}</p>}
           </div>

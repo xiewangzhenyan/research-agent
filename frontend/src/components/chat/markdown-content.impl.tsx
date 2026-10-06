@@ -86,7 +86,7 @@ export function MarkdownContent({ content, onCiteClick, isStreaming }: MarkdownC
                     e.preventDefault();
                     onCiteClick(n);
                   }}
-                  className="bg-foreground/10 text-foreground/70 hover:bg-foreground/20 mx-0.5 inline-flex h-[1.1em] cursor-pointer items-center rounded px-1 align-middle font-mono text-[0.72em] font-semibold tabular-nums transition-colors"
+                  className="citation-chip cursor-pointer tabular-nums"
                   title={`Source [${n}]`}
                 >
                   {n}

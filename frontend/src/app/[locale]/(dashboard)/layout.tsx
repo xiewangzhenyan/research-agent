@@ -4,6 +4,7 @@ import { AuthGuard } from "@/components/layout/auth-guard";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { MobileTabBar } from "@/components/layout/mobile-tab-bar";
 import { PageTransition } from "@/components/layout/page-transition";
+import { WorkspacePrefetch } from "@/components/layout/workspace-prefetch";
 import { GenerationConfigWarmup } from "@/hooks/use-generation-config";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </main>
           <MobileTabBar />
           <CommandPalette />
+          <WorkspacePrefetch />
         </div>
       </ProjectProvider>
     </AuthGuard>

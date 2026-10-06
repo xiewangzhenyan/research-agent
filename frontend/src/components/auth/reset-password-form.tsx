@@ -103,7 +103,7 @@ export function ResetPasswordForm({ token }: Props) {
                 {[1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
-                    className={`h-1 flex-1 rounded-full transition-colors ${
+                    className={`h-1 flex-1 rounded-sm transition-colors ${
                       i <= score ? "bg-brand" : "bg-foreground/10"
                     }`}
                   />

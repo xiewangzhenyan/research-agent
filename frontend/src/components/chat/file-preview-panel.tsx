@@ -89,7 +89,7 @@ export function FilePreviewPanel() {
           isDragging && "bg-foreground/20",
         )}
       >
-        <div className="bg-foreground/0 group-hover:bg-foreground/15 absolute top-1/2 left-1/2 h-12 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full transition-colors" />
+        <div className="bg-foreground/0 group-hover:bg-foreground/15 absolute top-1/2 left-1/2 h-12 w-1 -translate-x-1/2 -translate-y-1/2 rounded-sm transition-colors" />
       </div>
 
       <header className="border-foreground/10 flex items-center gap-2 border-b px-3 py-2">

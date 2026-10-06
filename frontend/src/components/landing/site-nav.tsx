@@ -36,15 +36,16 @@ export function SiteNav({ homeHref, homeLabel, navLabel, links, cta }: SiteNavPr
     <header className="site-nav" data-scrolled={scrolled}>
       <div className="site-container site-nav-inner">
         <Link href={homeHref} aria-label={homeLabel} className="site-brand">
-          <ResearchMark size={30} />
+          <ResearchMark size={28} />
           <span>
             {APP_NAME}
             <small>{APP_BRAND}</small>
           </span>
         </Link>
         <nav aria-label={navLabel} className="site-links">
-          {links.map((link) => (
+          {links.map((link, i) => (
             <a key={link.href} href={link.href}>
+              <span aria-hidden>{String(i + 1).padStart(2, "0")}</span>
               {link.label}
             </a>
           ))}
@@ -53,7 +54,7 @@ export function SiteNav({ homeHref, homeLabel, navLabel, links, cta }: SiteNavPr
           <div className="hidden sm:block">
             <LanguageSwitcherIcon />
           </div>
-          <Link href={cta.href} className="btn-brand btn-sm">
+          <Link href={cta.href} className="btn-signal btn-sm">
             {cta.label}
             <ArrowUpRight size={15} strokeWidth={2.2} />
           </Link>

@@ -33,6 +33,8 @@ export type NavKey =
 export interface NavItem {
   key: NavKey;
   href: string;
+  /** Path prefix that marks the item active when it differs from `href`. */
+  match?: string;
   icon: LucideIcon;
   adminOnly?: boolean;
 }
@@ -66,10 +68,16 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const NAV_FOOTER: NavItem[] = [
   { key: "admin", href: ROUTES.ADMIN, icon: ShieldCheck, adminOnly: true },
-  { key: "settings", href: ROUTES.SETTINGS, icon: Settings },
+  // Link straight to the first tab: `/settings` only redirects, which costs a round trip.
+  { key: "settings", href: ROUTES.SETTINGS_PROFILE, match: ROUTES.SETTINGS, icon: Settings },
 ];
 
-const PROFILE_ITEM: NavItem = { key: "profile", href: ROUTES.PROFILE, icon: UserCircle };
+const PROFILE_ITEM: NavItem = {
+  key: "profile",
+  href: ROUTES.SETTINGS_PROFILE,
+  match: ROUTES.PROFILE,
+  icon: UserCircle,
+};
 
 export const ALL_NAV_ITEMS: NavItem[] = [
   ...NAV_GROUPS.flatMap((g) => g.items),
@@ -90,7 +98,7 @@ export function navItem(key: NavKey): NavItem {
 export function activeNavKey(pathname: string): NavKey {
   const path = stripLocale(pathname);
   const match = ALL_NAV_ITEMS.find(
-    (item) => item.key !== "dashboard" && isRouteActive(path, item.href),
+    (item) => item.key !== "dashboard" && isRouteActive(path, item.match ?? item.href),
   );
   return match?.key ?? "dashboard";
 }

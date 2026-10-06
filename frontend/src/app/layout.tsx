@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter, Noto_Sans_SC } from "next/font/google";
+import { Archivo, IBM_Plex_Mono, IBM_Plex_Sans, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import { defaultLocale } from "@/i18n";
 import { BRAND_ASSETS } from "@/lib/brand-assets";
@@ -15,24 +15,24 @@ const cjk = Noto_Sans_SC({
   preload: false,
 });
 
-const display = Geist({
+// Variable Archivo: headings switch to its expanded cut through font-stretch.
+const display = Archivo({
   subsets: ["latin"],
   variable: "--nf-display",
-  weight: ["500", "600", "700"],
+  axes: ["wdth"],
   display: "swap",
 });
 
-const body = Inter({
+const body = IBM_Plex_Sans({
   subsets: ["latin"],
   variable: "--nf-body",
-  weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const mono = Geist_Mono({
+const mono = IBM_Plex_Mono({
   subsets: ["latin"],
   variable: "--nf-mono",
-  weight: ["400", "500"],
+  weight: ["400", "500", "600"],
   display: "swap",
 });
 
@@ -92,7 +92,7 @@ export const viewport: Viewport = {
   // used by the mobile bottom tab bar.
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
+    { media: "(prefers-color-scheme: light)", color: "#F2F1EC" },
     { media: "(prefers-color-scheme: dark)", color: SITE.themeColor },
   ],
 };

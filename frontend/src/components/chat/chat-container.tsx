@@ -383,7 +383,7 @@ function ConversationSkeleton() {
   return (
     <div className="space-y-6 py-4 sm:py-6">
       <div className="flex gap-2 sm:gap-4">
-        <div className="bg-foreground/10 h-8 w-8 shrink-0 animate-pulse rounded-full sm:h-9 sm:w-9" />
+        <div className="bg-foreground/10 h-8 w-8 shrink-0 animate-pulse rounded-sm sm:h-9 sm:w-9" />
         <div className="flex max-w-[85%] flex-1 flex-col gap-2">
           <div className="bg-foreground/10 h-4 w-1/3 animate-pulse rounded-md" />
           <div className="bg-foreground/8 h-4 w-4/5 animate-pulse rounded-md" />
@@ -391,14 +391,14 @@ function ConversationSkeleton() {
         </div>
       </div>
       <div className="flex flex-row-reverse gap-2 sm:gap-4">
-        <div className="bg-foreground/10 h-8 w-8 shrink-0 animate-pulse rounded-full sm:h-9 sm:w-9" />
+        <div className="bg-foreground/10 h-8 w-8 shrink-0 animate-pulse rounded-sm sm:h-9 sm:w-9" />
         <div className="flex max-w-[85%] flex-1 flex-col items-end gap-2">
           <div className="bg-foreground/10 h-4 w-1/4 animate-pulse rounded-md" />
           <div className="bg-foreground/8 h-4 w-3/5 animate-pulse rounded-md" />
         </div>
       </div>
       <div className="flex gap-2 sm:gap-4">
-        <div className="bg-foreground/10 h-8 w-8 shrink-0 animate-pulse rounded-full sm:h-9 sm:w-9" />
+        <div className="bg-foreground/10 h-8 w-8 shrink-0 animate-pulse rounded-sm sm:h-9 sm:w-9" />
         <div className="flex max-w-[85%] flex-1 flex-col gap-2">
           <div className="bg-foreground/8 h-4 w-3/4 animate-pulse rounded-md" />
           <div className="bg-foreground/8 h-4 w-1/2 animate-pulse rounded-md" />

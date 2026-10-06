@@ -17,7 +17,7 @@ function ScoreDot({ score }: { score: number }) {
     score >= 0.7 ? "bg-foreground" : score >= 0.4 ? "bg-foreground/55" : "bg-foreground/25";
   return (
     <span
-      className={cn("h-1.5 w-1.5 shrink-0 rounded-full", tone)}
+      className={cn("h-1.5 w-1.5 shrink-0 rounded-sm", tone)}
       title={`Relevance: ${score.toFixed(2)}`}
     />
   );

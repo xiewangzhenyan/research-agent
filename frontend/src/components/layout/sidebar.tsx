@@ -51,10 +51,13 @@ function useNavIndicator(navRef: React.RefObject<HTMLElement | null>) {
 function NavLink({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
   const active = useActiveRoute();
   const t = useTranslations("nav");
-  const isActive = active(item.href);
+  const isActive = active(item.match ?? item.href);
   return (
     <Link
       href={item.href}
+      // Full prefetches are keyed with their query string. With the default ("auto"),
+      // `/chat?new=1` and `/chat` share one entry and opening either refetches the page.
+      prefetch
       onClick={onNavigate}
       aria-current={isActive ? "page" : undefined}
       className={cn("console-nav-link", isActive && "is-active")}
@@ -91,7 +94,7 @@ function SidebarContents({
         </span>
       </Link>
       <div className="px-3">
-        <Link href="/chat?new=1" onClick={onNavigate} className="workspace-new-chat">
+        <Link href="/chat?new=1" prefetch onClick={onNavigate} className="workspace-new-chat">
           <Plus size={18} strokeWidth={2.2} />
           {t("newChat")}
         </Link>

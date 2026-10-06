@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Bell, Palette, Shield, Slash, UserCircle } from "lucide-react";
+import { Palette, Shield, Slash, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { useActiveRoute } from "@/lib/active-route";
 import { useLocale, useTranslations } from "next-intl";
@@ -13,7 +13,6 @@ const SETTINGS_TABS = [
   { labelKey: "profile", href: ROUTES.SETTINGS_PROFILE, icon: UserCircle },
   { labelKey: "account", href: ROUTES.SETTINGS_ACCOUNT, icon: Shield },
   { labelKey: "slashCommands", href: ROUTES.SETTINGS_SLASH_COMMANDS, icon: Slash },
-  { labelKey: "notifications", href: ROUTES.SETTINGS_NOTIFICATIONS, icon: Bell },
   { labelKey: "appearance", href: ROUTES.SETTINGS_APPEARANCE, icon: Palette },
 ];
 
@@ -29,8 +28,8 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         title={t("settings")}
         description={
           isZh
-            ? "管理您的账户、外观、通知和斜杠命令。"
-            : "Manage your account, appearance, notifications, and slash commands."
+            ? "管理个人资料、账户安全、外观和斜杠命令。"
+            : "Manage your profile, account security, appearance and slash commands."
         }
       />
       <div className="console-settings-grid">

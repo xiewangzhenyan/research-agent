@@ -139,7 +139,7 @@ export function BrandColorPicker() {
           >
             <span
               aria-hidden
-              className="border-foreground/15 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border"
+              className="border-foreground/15 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border"
               style={{ background: swatch }}
             >
               {isActive && <Check className="h-4 w-4" style={{ color: `oklch(${p.fgL}% 0 0)` }} />}

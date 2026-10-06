@@ -6,8 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   ArrowUpRight,
-  CreditCard,
   MessageSquare,
+  MessagesSquare,
   RefreshCw,
   Star,
   UserPlus,
@@ -20,20 +20,18 @@ import { LoadingState } from "@/components/states";
 import { Button } from "@/components/ui";
 import { apiClient } from "@/lib/api-client";
 import { ROUTES } from "@/lib/constants";
-import { formatCurrency, timeAgo } from "@/lib/utils";
+import { timeAgo } from "@/lib/utils";
 
 interface AdminStats {
   total_users?: number;
   active_users_24h?: number;
   total_conversations?: number;
   total_messages?: number;
-  credits_charged_30d?: number;
-  mrr_cents?: number;
 }
 
 interface RecentEvent {
   id: string;
-  type: "user_signup" | "conversation_created" | "subscription_renewed" | "rating_low";
+  type: "user_signup" | "conversation_created" | "rating_low";
   title: string;
   description: string;
   timestamp: string;
@@ -42,7 +40,6 @@ interface RecentEvent {
 const EVENT_ICON: Record<RecentEvent["type"], LucideIcon> = {
   user_signup: UserPlus,
   conversation_created: MessageSquare,
-  subscription_renewed: CreditCard,
   rating_low: Star,
 };
 
@@ -123,9 +120,9 @@ export default function AdminOverviewPage() {
             icon={MessageSquare}
           />
           <StatCard
-            label={isZh ? "月度经常性收入" : "MRR"}
-            value={typeof stats?.mrr_cents === "number" ? formatCurrency(stats.mrr_cents) : "—"}
-            icon={CreditCard}
+            label={isZh ? "消息总数" : "Messages"}
+            value={typeof stats?.total_messages === "number" ? stats.total_messages.toLocaleString() : "—"}
+            icon={MessagesSquare}
           />
         </div>
       )}

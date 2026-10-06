@@ -24,7 +24,7 @@ for (const size of [32, 180, 192, 512]) {
 // A maskable icon keeps the mark inside the platform's safe area.
 const maskable = renderToStaticMarkup(
   <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">
-    <rect width="512" height="512" fill="#0D2421" />
+    <rect width="512" height="512" fill="#0B0B0C" />
     <g transform="translate(77,77)">
       <ResearchMark size={358} />
     </g>

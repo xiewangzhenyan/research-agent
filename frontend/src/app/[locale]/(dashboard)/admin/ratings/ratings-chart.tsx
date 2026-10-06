@@ -84,7 +84,7 @@ function RatingsTooltip({
       </p>
       {payload.map((p) => (
         <div key={p.name} className="flex items-center gap-2">
-          <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
+          <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: p.color }} />
           <span className="text-muted-foreground">{p.name}</span>
           <span className="text-foreground ml-3 font-semibold tabular-nums">{p.value}</span>
         </div>

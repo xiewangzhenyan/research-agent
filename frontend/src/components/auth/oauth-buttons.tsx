@@ -46,7 +46,7 @@ export function OAuthButtons({ next, variant = "signin" }: OAuthButtonsProps) {
           <a
             key={provider}
             href={url}
-            className="border-foreground/15 hover:border-foreground/40 hover:bg-foreground/[0.03] text-foreground inline-flex h-11 w-full items-center justify-center gap-3 rounded-full border px-5 text-sm font-medium transition-colors"
+            className="border-foreground/15 hover:border-foreground/40 hover:bg-foreground/[0.03] text-foreground inline-flex h-11 w-full items-center justify-center gap-3 rounded-sm border px-5 text-sm font-medium transition-colors"
           >
             <BrandIcon name={ICON[provider]} className="h-4 w-4" aria-hidden />
             {label}

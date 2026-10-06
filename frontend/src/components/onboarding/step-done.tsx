@@ -24,12 +24,12 @@ export function StepDone() {
       </p>
       <div className="mt-8 flex gap-4">
         <Link
-          className="bg-foreground text-background rounded-full px-6 py-3"
+          className="bg-foreground text-background rounded-sm px-6 py-3"
           href={`${prefix}/chat`}
         >
           {zh ? "打开聊天" : "Open chat"}
         </Link>
-        <Link className="rounded-full border px-6 py-3" href={`${prefix}/help`}>
+        <Link className="rounded-sm border px-6 py-3" href={`${prefix}/help`}>
           {zh ? "使用帮助" : "Help"}
         </Link>
       </div>

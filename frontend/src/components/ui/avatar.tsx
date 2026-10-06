@@ -10,7 +10,7 @@ const Avatar = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <AvatarPrimitive.Root
     ref={ref}
-    className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full", className)}
+    className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-sm", className)}
     {...props}
   />
 ));
@@ -38,7 +38,7 @@ const AvatarFallback = React.forwardRef<
       // High-contrast neutral fallback — initials need to be readable on
       // every theme regardless of the brand color (low-saturation greens
       // washed out the previous bg-muted/text-brand combo).
-      "bg-foreground/10 text-foreground flex h-full w-full items-center justify-center rounded-full text-xs font-semibold",
+      "bg-foreground/10 text-foreground flex h-full w-full items-center justify-center rounded-sm text-xs font-semibold",
       className,
     )}
     {...props}

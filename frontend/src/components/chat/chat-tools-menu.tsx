@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Check, Plus, Paperclip, ChartNoAxesCombined } from "lucide-react";
 import { useLocale } from "next-intl";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui";
-import { fetchTools } from "@/lib/tool-catalog";
+import { toolsQuery } from "@/lib/workspace-queries";
 import { useAuthStore } from "@/stores";
 import { useKnowledgeStore } from "@/stores/knowledge-store";
 
@@ -24,8 +24,7 @@ export function ChatToolsMenu({
   const [open, setOpen] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const catalog = useQuery({
-    queryKey: ["tools", userId],
-    queryFn: ({ signal }) => fetchTools(signal),
+    ...toolsQuery(userId),
     enabled: open && !!userId && !!onPythonChange,
     staleTime: 60_000,
   });
@@ -47,7 +46,7 @@ export function ChatToolsMenu({
         >
           <Plus className="h-5 w-5" />
           {enabled && !strict && (
-            <span className="bg-foreground absolute right-1 bottom-1 h-1.5 w-1.5 rounded-full" />
+            <span className="bg-foreground absolute right-1 bottom-1 h-1.5 w-1.5 rounded-sm" />
           )}
         </button>
       </PopoverTrigger>

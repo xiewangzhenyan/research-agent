@@ -288,7 +288,10 @@ test("closing during a pending stop does not restart detail reads when the serve
     await expect.poll(() => requested).toBe(true);
     await dialog.getByRole("button", { name: "关闭详情" }).click();
     await expect(dialog).toHaveCount(0);
-    const reads = () => server.taskRequests.filter((r) => r.method === "GET").length;
+    // Only this run's detail reads; the workspace may warm unrelated lists (e.g. the tool catalog).
+    const reads = () =>
+      server.taskRequests.filter((r) => r.method === "GET" && r.path.startsWith(`/api/tasks/${rid}`))
+        .length;
     const previous = reads();
     const acknowledged = page.waitForResponse((response) =>
       response.url().endsWith(`/tasks/${rid}/cancel`),

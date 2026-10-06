@@ -125,7 +125,7 @@ function ConversationList({
           <div className="flex flex-col items-center justify-center py-10 text-center">
             <span
               aria-hidden
-              className="bg-muted text-muted-foreground mb-4 flex h-12 w-12 items-center justify-center rounded-full"
+              className="bg-muted text-muted-foreground mb-4 flex h-12 w-12 items-center justify-center rounded-sm"
             >
               {isArchivedView ? (
                 <Archive className="h-5 w-5" />

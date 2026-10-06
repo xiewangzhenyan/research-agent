@@ -26,7 +26,7 @@ export const SITE = {
   /** Twitter handle for `twitter:site` (with @). Empty string disables. */
   twitter: "",
   /** Theme color used in PWA manifest + browser chrome. */
-  themeColor: "#080C13",
+  themeColor: "#0B0B0C",
   /** Long-form keywords. Light SEO weight today; useful for clarity. */
   keywords: [
     "AI assistant",

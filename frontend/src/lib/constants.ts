@@ -26,7 +26,6 @@ export const ROUTES = {
   SETTINGS_PROFILE: "/settings/profile",
   SETTINGS_ACCOUNT: "/settings/account",
   SETTINGS_APPEARANCE: "/settings/appearance",
-  SETTINGS_NOTIFICATIONS: "/settings/notifications",
   SETTINGS_SLASH_COMMANDS: "/settings/slash-commands",
   RAG: "/rag",
   ADMIN: "/admin",

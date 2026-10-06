@@ -183,7 +183,7 @@ export function UserDetailDrawer({
             variant="outline"
             size="sm"
             onClick={() => onUpdate(user.id, { is_active: !user.is_active })}
-            className="rounded-full"
+            className="rounded-sm"
           >
             {user.is_active ? (
               <>
@@ -201,7 +201,7 @@ export function UserDetailDrawer({
             variant="outline"
             size="sm"
             onClick={() => onUpdate(user.id, { is_app_admin: !user.is_app_admin })}
-            className="rounded-full"
+            className="rounded-sm"
           >
             {user.is_app_admin ? (
               <>
@@ -215,7 +215,7 @@ export function UserDetailDrawer({
               </>
             )}
           </Button>
-          <Button variant="outline" size="sm" onClick={handleImpersonate} className="rounded-full">
+          <Button variant="outline" size="sm" onClick={handleImpersonate} className="rounded-sm">
             <KeyRound className="mr-1.5 h-3.5 w-3.5" />
             Impersonate
           </Button>
@@ -225,7 +225,7 @@ export function UserDetailDrawer({
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-destructive hover:text-destructive ml-auto rounded-full"
+                className="text-destructive hover:text-destructive ml-auto rounded-sm"
               >
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                 Delete

@@ -28,7 +28,7 @@ export function CookieBanner() {
         </Link>
       </p>
       <button
-        className="bg-brand text-brand-foreground hover:bg-brand-hover mt-3 rounded-full px-4 py-2 text-sm font-medium transition-colors"
+        className="bg-brand text-brand-foreground hover:bg-brand-hover mt-3 rounded-sm px-4 py-2 text-sm font-medium transition-colors"
         onClick={() => {
           try {
             localStorage.setItem("cookie.notice.read", "1");

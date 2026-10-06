@@ -86,7 +86,7 @@ export function ChatControls({
           disabled={disabled}
           aria-label={zh ? "聊天模型与设置" : "Chat controls"}
           data-chat-settings-trigger
-          className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full px-2 text-xs"
+          className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-sm px-2 text-xs"
         >
           <Sliders className="h-3.5 w-3.5" />
           <span className="max-w-[125px] truncate sm:max-w-[220px]">
@@ -99,7 +99,7 @@ export function ChatControls({
           </span>
           {customized && (
             <span
-              className="bg-brand h-1.5 w-1.5 rounded-full"
+              className="bg-brand h-1.5 w-1.5 rounded-sm"
               aria-label={zh ? "已自定义" : "Customized"}
             />
           )}

@@ -82,13 +82,13 @@ export default function MagicLinkVerifyPage() {
             <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
               <Link
                 href={ROUTES.LOGIN}
-                className="border-foreground/15 hover:border-foreground/40 text-foreground inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-medium transition-colors"
+                className="border-foreground/15 hover:border-foreground/40 text-foreground inline-flex h-10 items-center gap-2 rounded-sm border px-4 text-sm font-medium transition-colors"
               >
                 {t("signInWithPassword")}
               </Link>
               <Link
                 href={ROUTES.FORGOT_PASSWORD}
-                className="bg-foreground text-background hover:bg-foreground/90 inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors"
+                className="bg-foreground text-background hover:bg-foreground/90 inline-flex h-10 items-center gap-2 rounded-sm px-4 text-sm font-medium transition-colors"
               >
                 {t("requestNewLink")}
               </Link>

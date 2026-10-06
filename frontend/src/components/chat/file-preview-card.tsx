@@ -439,7 +439,7 @@ function BinaryFallback({ url, filename }: { url: string; filename: string }) {
       </div>
       <a
         href={url}
-        className="border-foreground/15 hover:border-foreground/40 hover:bg-foreground/5 mt-2 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 font-mono text-[11px] tracking-wider uppercase transition-colors"
+        className="border-foreground/15 hover:border-foreground/40 hover:bg-foreground/5 mt-2 inline-flex items-center gap-2 rounded-sm border px-3.5 py-1.5 font-mono text-[11px] tracking-wider uppercase transition-colors"
       >
         <Download className="h-3.5 w-3.5" />
         Download

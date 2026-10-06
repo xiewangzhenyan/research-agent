@@ -16,6 +16,8 @@ interface TabItem {
   icon: LucideIcon;
   /** When true, treat as active if pathname starts with `href`. */
   startsWith?: boolean;
+  /** Prefix used for the active state when it differs from `href`. */
+  match?: string;
   onClick?: () => void;
 }
 
@@ -37,11 +39,11 @@ export function MobileTabBar() {
       icon: Search,
       onClick: () => window.dispatchEvent(new CustomEvent("command-palette:open")),
     },
-    { label: t("settings"), href: settings.href, icon: settings.icon, startsWith: true },
+    { label: t("settings"), href: settings.href, match: settings.match, icon: settings.icon, startsWith: true },
   ];
 
   const isActive = (item: TabItem) =>
-    !!item.href && isRouteActive(stripped, item.href, !item.startsWith);
+    !!item.href && isRouteActive(stripped, item.match ?? item.href, !item.startsWith);
 
   return (
     <nav
@@ -62,7 +64,7 @@ export function MobileTabBar() {
             />
             <span>{item.label}</span>
             {active && (
-              <span aria-hidden className="bg-brand pop-in absolute top-0 h-0.5 w-8 rounded-full" />
+              <span aria-hidden className="bg-brand pop-in absolute top-0 h-0.5 w-8 rounded-sm" />
             )}
           </>
         );

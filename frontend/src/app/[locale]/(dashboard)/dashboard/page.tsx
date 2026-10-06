@@ -15,19 +15,13 @@ import {
 } from "lucide-react";
 import { OnboardingBanner } from "@/components/dashboard/onboarding-banner";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { RecentActivity, useRecentConversations } from "@/components/dashboard/recent-activity";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Button } from "@/components/ui";
 import { useAuth } from "@/hooks";
-import { apiClient } from "@/lib/api-client";
 import { ROUTES } from "@/lib/constants";
 import { isAppAdmin } from "@/lib/utils";
-import { knowledgeRequest, type KnowledgeBase } from "@/lib/knowledge";
-interface ConversationsResponse {
-  total?: number;
-  items: Array<{ id: string }>;
-}
-
+import { knowledgeBasesQuery } from "@/lib/workspace-queries";
 function getGreeting(t: (key: string) => string): string {
   const hour = new Date().getHours();
   if (hour < 12) return t("greetingMorning");
@@ -40,16 +34,8 @@ export default function DashboardPage() {
   const t = useTranslations("dashboard");
 
   const zh = useLocale() === "zh";
-  const bases = useQuery({
-    queryKey: ["knowledge-bases", user?.id],
-    queryFn: () => knowledgeRequest<{ items: KnowledgeBase[] }>("bases"),
-    enabled: !!user,
-  });
-  const conversations = useQuery({
-    queryKey: ["conversations", "count", user?.id],
-    queryFn: () => apiClient.get<ConversationsResponse>("/conversations?limit=1"),
-    enabled: !!user,
-  });
+  const bases = useQuery(knowledgeBasesQuery(user?.id));
+  const conversations = useRecentConversations();
   const allBases = bases.isError ? undefined : bases.data?.items;
   const metric = (field: "document_count" | "chunk_count") =>
     allBases ? allBases.reduce((sum, base) => sum + base[field], 0).toLocaleString() : "—";
@@ -61,7 +47,7 @@ export default function DashboardPage() {
 
       <PageHeader
         eyebrow={t("eyebrow")}
-        title={firstName ? `${getGreeting(t)}, ${firstName}` : getGreeting(t)}
+        title={firstName ? t("greetingWithName", { greeting: getGreeting(t), name: firstName }) : getGreeting(t)}
         description={t("description")}
         actions={
           <Button asChild>
@@ -236,7 +222,7 @@ function AdminTile({
       href={href}
       className="panel panel-interactive flex items-center gap-3 p-4"
     >
-      <span className="bg-foreground/8 text-foreground flex h-9 w-9 items-center justify-center rounded-full">
+      <span className="bg-foreground/8 text-foreground flex h-9 w-9 items-center justify-center rounded-sm">
         <Icon className="h-4 w-4" />
       </span>
       <div className="flex-1">

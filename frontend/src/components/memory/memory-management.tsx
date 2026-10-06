@@ -79,7 +79,7 @@ export function MemoryManagement({
             )}
           </p>
         </div>
-        <span className="text-muted-foreground bg-muted shrink-0 rounded-full px-3 py-1 text-xs">
+        <span className="text-muted-foreground bg-muted shrink-0 rounded-sm px-3 py-1 text-xs">
           {data.enabled ? t("已开启", "Enabled") : t("已关闭", "Disabled")}
         </span>
       </div>

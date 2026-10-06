@@ -19,7 +19,7 @@ const TRIGGER_VARIANT: Record<TabsVariant, string> = {
   pill: "ring-offset-background focus-visible:ring-ring data-[state=active]:bg-background data-[state=active]:text-foreground inline-flex items-center justify-center rounded-md px-3 py-1 text-sm font-medium whitespace-nowrap transition-[color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow",
   // Underline tabs (knowledge/models): the indicator scales in under the active tab.
   underline:
-    "focus-visible:ring-ring hover:text-foreground data-[state=active]:text-foreground after:bg-brand relative inline-flex h-11 items-center px-0.5 text-sm font-medium whitespace-nowrap transition-colors after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:origin-center after:scale-x-0 after:rounded-full after:transition-transform after:duration-200 focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:after:scale-x-100",
+    "focus-visible:ring-ring hover:text-foreground data-[state=active]:text-foreground after:bg-brand relative inline-flex h-11 items-center px-0.5 text-sm font-medium whitespace-nowrap transition-colors after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:origin-center after:scale-x-0 after:rounded-sm after:transition-transform after:duration-200 focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:after:scale-x-100",
 };
 
 const TabsList = React.forwardRef<

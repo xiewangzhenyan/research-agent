@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useLocale } from "next-intl";
 import { ArrowLeft, Check } from "lucide-react";
 
 import { Progress } from "@/components/ui";
@@ -27,12 +28,22 @@ interface OnboardingShellProps {
   hideSkip?: boolean;
 }
 
-const STEP_LABELS: Record<OnboardingStep, string> = {
-  welcome: "Welcome",
-  agent: "Chat model",
-  data: "Attachments",
-  done: "Done",
-};
+const COPY = {
+  zh: {
+    skip: "暂时跳过 →",
+    back: "上一步",
+    step: (i: number, n: number) => `第 ${i} 步，共 ${n} 步`,
+    progress: (i: number, n: number) => `引导进度：第 ${i} 步，共 ${n} 步`,
+    labels: { welcome: "欢迎", agent: "对话模型", data: "附件", done: "完成" },
+  },
+  en: {
+    skip: "Skip for now →",
+    back: "Back",
+    step: (i: number, n: number) => `Step ${i} of ${n}`,
+    progress: (i: number, n: number) => `Onboarding progress: step ${i} of ${n}`,
+    labels: { welcome: "Welcome", agent: "Chat model", data: "Attachments", done: "Done" },
+  },
+} satisfies Record<string, { labels: Record<OnboardingStep, string> } & Record<string, unknown>>;
 
 export function OnboardingShell({
   step,
@@ -42,6 +53,7 @@ export function OnboardingShell({
   hideSkip,
 }: OnboardingShellProps) {
   const router = useRouter();
+  const copy = useLocale() === "zh" ? COPY.zh : COPY.en;
   const idx = stepIndex(step);
   const total = ONBOARDING_STEPS.length;
   // Last step is 1-indexed `idx + 1`; fill the bar proportionally.
@@ -68,7 +80,7 @@ export function OnboardingShell({
               href={ROUTES.DASHBOARD}
               className="text-muted-foreground hover:text-foreground text-xs font-medium tracking-wide uppercase"
             >
-              Skip for now →
+              {copy.skip}
             </Link>
           )}
         </div>
@@ -77,7 +89,7 @@ export function OnboardingShell({
           <Progress
             value={progressValue}
             className="h-1"
-            aria-label={`Onboarding progress: step ${idx + 1} of ${total}`}
+            aria-label={copy.progress(idx + 1, total)}
           />
           <ol className="flex items-center gap-1.5 sm:gap-3">
             {ONBOARDING_STEPS.map((s, i) => {
@@ -87,7 +99,7 @@ export function OnboardingShell({
                 <li key={s} className="flex flex-1 items-center gap-2">
                   <div
                     className={cn(
-                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold transition-colors",
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-[10px] font-semibold transition-colors",
                       (done || active) && "bg-foreground text-background",
                       !done && !active && "bg-muted text-muted-foreground",
                     )}
@@ -100,7 +112,7 @@ export function OnboardingShell({
                       active || done ? "text-foreground" : "text-muted-foreground",
                     )}
                   >
-                    {STEP_LABELS[s]}
+                    {copy.labels[s]}
                   </span>
                   {i < total - 1 && (
                     <span
@@ -119,8 +131,8 @@ export function OnboardingShell({
 
       <main className="mx-auto max-w-3xl px-6 py-12 md:py-20">
         <div className="space-y-3">
-          <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
-            Step {idx + 1} of {total}
+          <p className="text-muted-foreground font-mono text-[11px] font-medium tracking-wider uppercase">
+            {copy.step(idx + 1, total)}
           </p>
           <h1 className="text-display-lg text-foreground">{title}</h1>
           {description && (
@@ -139,7 +151,7 @@ export function OnboardingShell({
             className="text-muted-foreground hover:text-foreground mt-10 inline-flex items-center gap-2 text-sm font-medium"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back
+            {copy.back}
           </button>
         )}
       </main>

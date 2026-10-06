@@ -21,6 +21,7 @@ import { ParseReport } from "@/components/knowledge/parse-report";
 import { RetrievalTester } from "@/components/knowledge/retrieval-tester";
 import { ChunkPreview } from "@/components/knowledge/chunk-preview";
 import { ChunkingSettings } from "@/components/knowledge/chunking-settings";
+import { knowledgeBasesQuery } from "@/lib/workspace-queries";
 import {
   knowledgeRequest as api,
   type KnowledgeBase,
@@ -93,11 +94,7 @@ function KnowledgeWorkspace({ userId }: { userId: string }) {
   } | null>(null);
   const [removal, setRemoval] = useState<{ path: string; name: string } | null>(null);
   const input = useRef<HTMLInputElement>(null);
-  const bases = useQuery({
-    queryKey: ["knowledge-bases", userId],
-    queryFn: () => api<{ items: KnowledgeBase[] }>("bases"),
-    enabled: !!userId,
-  });
+  const bases = useQuery(knowledgeBasesQuery(userId));
   const current = bases.data?.items.find((b) => b.id === searchParams.get("base"));
   const visibleBases = bases.data?.items.filter((b) =>
     `${b.name} ${b.description || ""}`.toLocaleLowerCase().includes(baseQuery.toLocaleLowerCase()),

@@ -146,7 +146,7 @@ function RAGSourceGroup({
         {!["rrf", "bm25", "cosine", "reranker", "context"].includes(chunks[0]?.scoreType || "") && <ScoreDot score={bestScore} />}
         {collection && (
           <span
-            className="border-foreground/15 text-foreground/55 hidden shrink-0 rounded-full border px-1.5 py-0.5 font-mono text-[9px] tracking-wider uppercase sm:inline"
+            className="border-foreground/15 text-foreground/55 hidden shrink-0 rounded-sm border px-1.5 py-0.5 font-mono text-[9px] tracking-wider uppercase sm:inline"
             title={`Collection: ${collection}`}
           >
             {collection}
@@ -216,7 +216,7 @@ function ScoreDot({ score }: { score: number }) {
     score >= 0.7 ? "bg-foreground" : score >= 0.4 ? "bg-foreground/55" : "bg-foreground/25";
   return (
     <span
-      className={cn("h-1.5 w-1.5 shrink-0 rounded-full", tone)}
+      className={cn("h-1.5 w-1.5 shrink-0 rounded-sm", tone)}
       title={`Relevance: ${score.toFixed(2)}`}
     />
   );

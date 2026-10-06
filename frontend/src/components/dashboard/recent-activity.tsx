@@ -1,16 +1,15 @@
 "use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { useQuery } from "@tanstack/react-query";
 import { MessageSquare } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-
 import { EmptyState, ErrorState, LoadingState } from "@/components/states";
 import { apiClient } from "@/lib/api-client";
 import { ROUTES } from "@/lib/constants";
+import { currentProject } from "@/lib/project-scope";
 import { cn, getErrorMessage, timeAgo } from "@/lib/utils";
-
+import { useAuthStore } from "@/stores";
 interface ActivityItem {
   id: string;
   icon: LucideIcon;
@@ -20,7 +19,6 @@ interface ActivityItem {
   href?: string;
   accent?: "default" | "brand" | "danger";
 }
-
 interface ConversationItem {
   id: string;
   title?: string | null;
@@ -28,45 +26,41 @@ interface ConversationItem {
   updated_at?: string | null;
 }
 
+/**
+ * The five latest conversations plus the total count. Shared by the overview's
+ * stat card and this list so the dashboard makes one request; revisits render
+ * from cache at once and refresh in the background.
+ */
+export function useRecentConversations() {
+  const userId = useAuthStore((s) => s.user?.id);
+  return useQuery({
+    queryKey: ["conversations", "recent", userId, currentProject()?.id ?? "default"],
+    queryFn: () =>
+      apiClient.get<{ items: ConversationItem[]; total: number }>("/conversations?limit=5"),
+    enabled: !!userId,
+    staleTime: 0,
+  });
+}
+
 export function RecentActivity({ limit = 6 }: { limit?: number }) {
   const t = useTranslations("dashboard");
   const locale = useLocale();
-  const [items, setItems] = useState<ActivityItem[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = async () => {
-    setError(null);
-    setItems(null);
-    try {
-      const conversations = await apiClient.get<{ items: ConversationItem[] }>(
-        "/conversations?limit=5",
-      );
-      const events: ActivityItem[] = [];
-
-      {
-        for (const c of conversations.items.slice(0, 4)) {
-          events.push({
-            id: `conv-${c.id}`,
-            icon: MessageSquare,
-            title: c.title?.trim() || t("newConversation"),
-            description: t("conversation"),
-            timestamp: c.updated_at || c.created_at,
-            href: `${ROUTES.CHAT}?id=${c.id}`,
-          });
-        }
-      }
-
-      events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setItems(events.slice(0, limit));
-    } catch (err) {
-      setError(getErrorMessage(err, t("activityLoadFailed")));
-    }
-  };
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limit]);
+  const recent = useRecentConversations();
+  const error = recent.isError ? getErrorMessage(recent.error, t("activityLoadFailed")) : null;
+  const items: ActivityItem[] | null = recent.data
+    ? recent.data.items
+        .slice(0, 4)
+        .map((c) => ({
+          id: `conv-${c.id}`,
+          icon: MessageSquare,
+          title: c.title?.trim() || t("newConversation"),
+          description: t("conversation"),
+          timestamp: c.updated_at || c.created_at,
+          href: `${ROUTES.CHAT}?id=${c.id}`,
+        }))
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+        .slice(0, limit)
+    : null;
 
   return (
     <div className="panel flex h-full min-w-0 flex-col p-5 lg:p-6">
@@ -87,7 +81,7 @@ export function RecentActivity({ limit = 6 }: { limit?: number }) {
         <ErrorState
           title={t("activityLoadFailed")}
           description={error}
-          cta={{ label: t("retry"), onClick: load }}
+          cta={{ label: t("retry"), onClick: () => void recent.refetch() }}
         />
       )}
       {items && items.length === 0 && !error && (
@@ -122,7 +116,7 @@ function ActivityRow({ item, locale }: { item: ActivityItem; locale: string }) {
     >
       <div
         className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-sm",
           item.accent === "brand"
             ? "bg-muted text-foreground"
             : item.accent === "danger"
