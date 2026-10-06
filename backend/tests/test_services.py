@@ -193,6 +193,35 @@ class TestUserServicePostgresql:
             assert result == mock_user
 
     @pytest.mark.anyio
+    async def test_update_email_taken_by_another_user_raises_already_exists(
+        self, user_service: UserService, mock_user: MockUser
+    ):
+        """Changing to an address another account uses is rejected before the write."""
+        with patch("app.services.user.user_repo") as mock_repo:
+            mock_repo.get_by_id = AsyncMock(return_value=mock_user)
+            mock_repo.get_by_email = AsyncMock(return_value=MockUser(email="taken@example.com"))
+            mock_repo.update = AsyncMock(return_value=mock_user)
+
+            with pytest.raises(AlreadyExistsError):
+                await user_service.update(mock_user.id, UserUpdate(email="taken@example.com"))
+
+            mock_repo.update.assert_not_called()
+
+    @pytest.mark.anyio
+    async def test_update_unchanged_email_skips_lookup(
+        self, user_service: UserService, mock_user: MockUser
+    ):
+        """Saving the profile with the current address does not query for duplicates."""
+        with patch("app.services.user.user_repo") as mock_repo:
+            mock_repo.get_by_id = AsyncMock(return_value=mock_user)
+            mock_repo.get_by_email = AsyncMock()
+            mock_repo.update = AsyncMock(return_value=mock_user)
+
+            await user_service.update(mock_user.id, UserUpdate(email=mock_user.email))
+
+            mock_repo.get_by_email.assert_not_called()
+
+    @pytest.mark.anyio
     async def test_update_with_password(self, user_service: UserService, mock_user: MockUser):
         """Test updating user with password change."""
         with patch("app.services.user.user_repo") as mock_repo:

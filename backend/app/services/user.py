@@ -140,6 +140,15 @@ class UserService:
         user = await self.get_by_id(user_id)
 
         update_data = user_in.model_dump(exclude_unset=True)
+        email = update_data.get("email")
+        if email and email != user.email:
+            # Same check as registration, so a taken address is a 409 instead of a unique-index 500.
+            existing = await user_repo.get_by_email(self.db, email)
+            if existing and existing.id != user.id:
+                raise AlreadyExistsError(
+                    message="Email already registered",
+                    details={"email": email},
+                )
         if "password" in update_data:
             update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
 
