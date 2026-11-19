@@ -65,6 +65,33 @@ after the sandbox probe passes, or explicitly release with that capability disab
 The probes do not replace a real authenticated login/chat/reconnect acceptance
 check after cutover. Keep probe reports and deployment evidence private.
 
+### Security dependency upgrade and search indexes
+
+The November 2026 security update upgrades FastEmbed to 0.9.1 so it can use
+Pillow 13, and Logfire to 5.6 so it can use the patched OpenTelemetry 1.45.2
+family. Rebuild the backend image from the updated lockfile; previously prepared
+images do not include these fixes.
+
+With `RAG_SEARCH_BACKEND=postgres`, the search fingerprint includes the FastEmbed
+version. Existing search indexes must be rebuilt with the new backend before
+reopening ingress, even when model weight files are unchanged. For each ready
+document, set `RELEASE_VERSION`, `OWNER_UUID` and `DOCUMENT_UUID` to the new
+release version, actual owner and document IDs:
+
+```bash
+BACKEND_IMAGE="agent_backend:$RELEASE_VERSION" \
+FRONTEND_IMAGE="agent-frontend:$RELEASE_VERSION" \
+docker compose --env-file backend/.env -f docker-compose.prod.yml \
+  run --rm --no-deps -T app agent cmd rebuild-search \
+  --user-id "$OWNER_UUID" --document-id "$DOCUMENT_UUID"
+```
+
+Keep maintenance enabled until rebuilding and authenticated retrieval acceptance
+finish. The rebuild checks ownership and source generation; changed documents
+must be retried after they are stable. Do not rewrite stored fingerprints to
+mark historical vectors compatible without rebuilding them. The legacy search
+backend does not use this PostgreSQL fingerprint gate.
+
 ## Apply during maintenance
 
 Before applying, enable maintenance at the external reverse proxy and block new

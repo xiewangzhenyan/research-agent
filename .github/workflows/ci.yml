@@ -225,17 +225,16 @@ jobs:
       - name: Install dependencies
         run: uv sync --directory backend --dev --frozen --python 3.12
 
-      - name: Install pip-audit
-        run: uv pip install --python backend/.venv/bin/python pip-audit
-
       - name: Run pip-audit
-        run: .venv/bin/pip-audit --progress-spinner=off
-        working-directory: backend
+        # Isolate the scanner so its own dependencies cannot change the frozen app environment.
+        run: |
+          audit_site=$(uv run --directory backend --frozen python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
+          uvx --python 3.12 --from pip-audit==2.10.1 pip-audit --progress-spinner=off --path "$audit_site"
 
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [lint, test, test-database, test-frontend]
+    needs: [lint, test, test-database, test-frontend, security]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
