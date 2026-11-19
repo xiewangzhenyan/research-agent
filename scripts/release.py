@@ -162,12 +162,14 @@ class Release:
                 "inspect",
                 cid,
                 "--format",
-                '{"id":"{{.Id}}","image":"{{.Image}}","running":{{.State.Running}},"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}}',
+                '{"id":"{{.Id}}","image":"{{.Image}}","running":{{.State.Running}},"health":{{json (index .State "Health")}}}',
             ],
             label="container-state",
             capture=True,
         )
-        return json.loads(result.stdout)
+        state = json.loads(result.stdout)
+        state["health"] = (state["health"] or {}).get("Status")
+        return state
 
     def prepare(self):
         commit = self.revision()

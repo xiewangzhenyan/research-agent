@@ -142,6 +142,31 @@ class ReleaseTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(release.ReleaseError):
                 release.Release(value)
 
+    def test_inspect_handles_legacy_containers_without_healthchecks(self):
+        task = release.Release("v-test", root=self.root)
+        for health, expected in ((None, None), ({"Status": "healthy"}, "healthy")):
+            with (
+                self.subTest(health=health),
+                patch.object(
+                    task,
+                    "run",
+                    side_effect=[
+                        SimpleNamespace(stdout=b"container-id"),
+                        SimpleNamespace(
+                            stdout=json.dumps(
+                                {
+                                    "id": "container-id",
+                                    "image": "sha256:old",
+                                    "running": True,
+                                    "health": health,
+                                }
+                            ).encode()
+                        ),
+                    ],
+                ),
+            ):
+                self.assertEqual(task.container("frontend")["health"], expected)
+
     def test_prepare_rejects_missing_or_wrong_revision_after_build(self):
         for image in (None, {"id": "sha256:wrong", "revision": "another-revision"}):
             with self.subTest(image=image), tempfile.TemporaryDirectory() as folder:
