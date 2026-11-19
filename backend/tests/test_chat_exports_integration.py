@@ -9,7 +9,6 @@ from uuid import UUID
 
 import pytest
 from docx import Document
-from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from app.api.routes.v1.chat_turns import download_answer
 from app.core.config import settings
@@ -25,6 +24,7 @@ from app.services.message_export import export_message
 from app.services.project import ProjectService
 from app.services.run_artifact import RunArtifactService
 from app.worker.agent_runs import try_run
+from tests.model_fixtures import ScriptedModel, tool_delta
 from tests.test_agent_runs_integration import get, users
 from tests.test_durable_chat import state, submit
 
@@ -111,16 +111,15 @@ def test_document_tool_without_python_persists_reuses_and_survives_reopen():
     async def stream(messages, info):
         returned = [
             p
-            for m in messages
-            for p in m.parts
-            if p.part_kind == "tool-return" and getattr(p, "tool_name", None) == "create_document"
+            for p in messages
+            if p.type == "tool" and getattr(p, "name", None) == "create_document"
         ]
         assert "run_python" not in [tool.name for tool in info.function_tools]
         if len(returned) >= 2:
             yield "报告已经生成，请使用文件卡片下载。"
         else:
             yield {
-                0: DeltaToolCall(
+                0: tool_delta(
                     name="create_document",
                     tool_call_id=f"document-{len(returned)}",
                     json_args=json.dumps(
@@ -141,7 +140,7 @@ def test_document_tool_without_python_persists_reuses_and_survives_reopen():
             run = await submit(owner, message="请生成一份 Word 实验报告")
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 await try_run(run.id)
             finished = await get(owner, run.id)

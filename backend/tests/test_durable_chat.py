@@ -8,8 +8,6 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
-from pydantic_ai.messages import ModelResponse, ToolCallPart
-from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from sqlalchemy import select
 
 from app.core.exceptions import AlreadyExistsError, NotFoundError
@@ -25,6 +23,7 @@ from app.services.chat_turn import ChatTurnService
 from app.services.model_config import resolve_generation_config
 from app.services.project import ProjectService
 from app.worker.agent_runs import try_run
+from tests.model_fixtures import ScriptedModel, model_response, tool_call, tool_delta
 from tests.test_agent_runs_integration import get, text_stream, users
 from tests.test_knowledge_collaboration import fixture, roles, search_result
 
@@ -58,7 +57,7 @@ def test_atomic_idempotent_submission_and_history_after_absent_client():
                 await state(b, one.conversation_id)
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=text_stream),
+                return_value=ScriptedModel(stream_function=text_stream),
             ):
                 # No browser connection exists; a fresh worker claims the saved turn.
                 await asyncio.gather(try_run(one.id), try_run(one.id))
@@ -94,7 +93,7 @@ def test_same_conversation_order_and_previous_answer_context():
             assert (await get(a, second.id)).attempt == 0
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 await try_run(first.id)
                 await try_run(second.id)
@@ -149,15 +148,11 @@ def test_pagination_project_boundary_and_invalid_cursor():
 
 def test_durable_clarification_and_worker_recovery():
     async def stream(messages, info):
-        if any(
-            getattr(p, "tool_name", None) == "ask_user" and p.part_kind == "tool-return"
-            for m in messages
-            for p in m.parts
-        ):
+        if any(getattr(p, "name", None) == "ask_user" and p.type == "tool" for p in messages):
             yield "使用 Markdown，继续完成。"
         else:
             yield {
-                0: DeltaToolCall(
+                0: tool_delta(
                     name="ask_user",
                     json_args=json.dumps(
                         {
@@ -175,7 +170,7 @@ def test_durable_clarification_and_worker_recovery():
             turn = await submit(a, message="整理内容")
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 await try_run(turn.id)
                 snapshot = await state(a, turn.conversation_id)
@@ -220,7 +215,7 @@ def test_progress_survives_cancel_and_restart_without_duplicate_messages():
             turn = await submit(a, message="长回答")
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 work = asyncio.create_task(try_run(turn.id))
                 await asyncio.wait_for(entered.wait(), 10)
@@ -291,10 +286,10 @@ def test_automatic_router_fast_path_and_safe_fallback():
         }
         with patch(
             "app.services.chat_execution._build_model",
-            return_value=FunctionModel(
-                lambda m, i: ModelResponse(
+            return_value=ScriptedModel(
+                lambda m, i: model_response(
                     parts=[
-                        ToolCallPart(
+                        tool_call(
                             i.output_tools[0].name,
                             {
                                 "route": "knowledge_collaboration",
@@ -314,7 +309,8 @@ def test_automatic_router_fast_path_and_safe_fallback():
                 "route"
             ] == "knowledge_collaboration"
         with patch(
-            "app.services.chat_execution.Agent.run", side_effect=RuntimeError("router unavailable")
+            "app.services.chat_execution.structured_call",
+            side_effect=RuntimeError("router unavailable"),
         ):
             assert (await choose_route(request, {"query": "test"}, config))["route"] == "standard"
 
@@ -371,7 +367,7 @@ def test_http_acceptance_restoration_and_memory_scope():
 
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 await try_run(UUID(turn["id"]))
             restored = await client.get(
@@ -395,15 +391,11 @@ def test_chat_python_requires_permission_and_keeps_artifacts():
     from tests.test_sandbox_files import artifact
 
     async def stream(messages, info):
-        if any(
-            getattr(p, "tool_name", None) == "run_python" and p.part_kind == "tool-return"
-            for m in messages
-            for p in m.parts
-        ):
+        if any(getattr(p, "name", None) == "run_python" and p.type == "tool" for p in messages):
             yield "计算完成，结果文件已保存。"
         else:
             yield {
-                0: DeltaToolCall(
+                0: tool_delta(
                     name="run_python", json_args='{"code":"print(1)"}', tool_call_id="chat-python"
                 )
             }
@@ -435,7 +427,7 @@ def test_chat_python_requires_permission_and_keeps_artifacts():
                 ) as remote,
                 patch(
                     "app.agents.assistant._build_model",
-                    return_value=FunctionModel(stream_function=stream),
+                    return_value=ScriptedModel(stream_function=stream),
                 ),
             ):
                 turn = await submit(a, message="执行计算并生成文件", python_enabled=True)

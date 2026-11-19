@@ -1,9 +1,9 @@
 ---
 name: agent-tool
-description: Add a new tool/function the AI agent can call (e.g. look something up, hit an external API, perform an action). Use when extending the assistant's capabilities, wiring a new function into the agent, or when the model needs a new action. This project uses pydantic_ai.
+description: Add a typed, authorized tool to the project's native LangGraph execution graph.
 ---
 
-# Add an Agent Tool (pydantic_ai)
+# Add an Agent Tool (LangGraph)
 
 Agent tools live in `backend/app/agents/tools/` and are surfaced to the model so it can call them mid-conversation. The assistant is defined in `backend/app/agents/`.
 
@@ -11,16 +11,18 @@ Agent tools live in `backend/app/agents/tools/` and are surfaced to the model so
 
 1. **Write the tool function** in `backend/app/agents/tools/<tool_name>.py`:
    - Async, fully type-hinted, with a clear docstring — **the docstring and signature are what the model sees**, so make them precise.
-   - Pure logic: take typed args, return a JSON-serializable result. Raise on hard errors; return a structured `{"error": ...}` for soft failures the model should reason about.
+   - Take typed args and return a bounded JSON-serializable result. Raise `ToolRetry` for recoverable input errors; propagate permission, cancellation and service failures.
    - Keep secrets/IO behind `settings` and the service layer; don't inline credentials.
 
-2. **Export it** from `backend/app/agents/tools/__init__.py` (add the import and append to `__all__`, matching the existing feature-gated blocks).
+2. **Authorize it:** add its specification to `tool_catalog.py` and the appropriate policy. Register it only when allowed; recheck authorization before effects.
 
-3. **Register it on the agent** in the assistant for the active framework:
-   - `app/agents/assistant.py` — decorate with `@agent.tool` (needs `RunContext[Deps]`) or `@agent.tool_plain` (no context):
+3. **Register it** in `AssistantAgent.registry` or the durable graph's registry:
+   - Decorate with `@registry.register` (injects `ToolContext`) or `@registry.register_plain` (no context):
      ```python
-     @agent.tool
-     async def my_tool(ctx: RunContext[Deps], query: str) -> dict:
+     from app.agents.runtime import ToolContext
+
+     @registry.register
+     async def my_tool(ctx: ToolContext, query: str) -> dict:
          """One-line description the model reads to decide when to call this."""
          ...
      ```
@@ -29,11 +31,12 @@ Agent tools live in `backend/app/agents/tools/` and are surfaced to the model so
 
 5. **Frontend rendering (optional):** tool calls render as cards in the chat UI. For a bespoke card, add a renderer under `frontend/src/components/chat/tool-results/`; otherwise the generic card handles it.
 
-6. **Test it:** add `backend/tests/test_<tool_name>.py` (see existing `test_web_search.py` / `test_chart_tool.py`). Tools are plain async functions — test them directly, no agent needed.
+6. **Test it:** test the function, schema validation and authorization. Use `tests/model_fixtures.py` for native model fixtures and `tests/test_native_runtime.py` for checkpoint recovery patterns.
 
 ## Rules
 
 - The docstring is the contract with the model — keep it accurate and action-oriented.
 - Return small, structured payloads; don't dump huge blobs into the context.
 - Long-running or side-effecting work belongs in a service (and possibly a background task), not inline in the tool.
+- Each completed tool has a checkpoint; external effects still need durable idempotency keys for crashes before checkpoint persistence.
 - See `docs/howto/add-agent-tool.md` for a fuller walkthrough.

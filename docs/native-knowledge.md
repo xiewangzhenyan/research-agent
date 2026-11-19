@@ -59,7 +59,7 @@ python scripts/evaluate_knowledge.py --answers --output /tmp/knowledge-eval-answ
 
 `scripts/verify_native_knowledge.py` 后可继续运行 `scripts/verify_reliable_knowledge.py`，在隔离数据库验证真实问答、范围恢复及引用删除。
 
-报告中的 recall 为文档级召回率；无答案问题召回相关片段不等于回答有依据。语义层面的引用支持率保留为空，需人工逐结论标注；合成小语料结果不代表真实用户资料质量。上线后的下一步应建立脱敏真实资料评测集，再决定重排、OCR 和向量索引升级的优先级。
+报告中的 recall 为文档级召回率；无答案问题召回相关片段不等于回答有依据。语义层面的引用支持率需人工逐结论标注；新报告会保留生成快照，可交给 `evaluate_research.py --knowledge-report` 生成评审包并离线计分，详见 [研究质量评估](research-evaluation.md)。超时和服务错误不计为正确拒答。合成小语料结果不代表真实用户资料质量；还需建立脱敏真实资料评测集，再决定重排、OCR 和向量索引升级的优先级。
 
 ## 指定文献与引用阅读
 

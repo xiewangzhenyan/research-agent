@@ -17,14 +17,8 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import WebSocket, WebSocketDisconnect
-from pydantic_ai.messages import (
-    ModelRequest,
-    ModelResponse,
-    SystemPromptPart,
-    TextPart,
-    UserPromptPart,
-)
 
+from app.agents.messages import history_messages
 from app.api.deps import get_conversation_service
 from app.db.session import get_db_context
 from app.schemas.conversation import (
@@ -78,19 +72,8 @@ class AgentConnectionManager:
         return await send_event(websocket, event_type, data)
 
 
-def build_message_history(history: list[dict[str, str]]) -> list[ModelRequest | ModelResponse]:
-    """Convert conversation history to PydanticAI message format."""
-    model_history: list[ModelRequest | ModelResponse] = []
-
-    for msg in history:
-        if msg["role"] == "user":
-            model_history.append(ModelRequest(parts=[UserPromptPart(content=msg["content"])]))
-        elif msg["role"] == "assistant":
-            model_history.append(ModelResponse(parts=[TextPart(content=msg["content"])]))
-        elif msg["role"] == "system":
-            model_history.append(ModelRequest(parts=[SystemPromptPart(content=msg["content"])]))
-
-    return model_history
+def build_message_history(history):
+    return history_messages(history)
 
 
 def truncate_title(text: str, limit: int = 50) -> str:

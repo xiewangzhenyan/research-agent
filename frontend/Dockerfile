@@ -39,6 +39,8 @@ RUN bun run build
 
 # Production image
 FROM base AS runner
+ARG RELEASE_REVISION=unknown
+LABEL org.opencontainers.image.revision=$RELEASE_REVISION
 WORKDIR /app
 
 ENV NODE_ENV=production

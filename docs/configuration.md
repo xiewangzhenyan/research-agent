@@ -98,7 +98,7 @@ Computed properties:
 | `AI_MODEL` | `gpt-5.5` | Default LLM model for chat |
 | `AI_TEMPERATURE` | `0.7` | LLM temperature (0.0 = deterministic, 1.0 = creative) |
 | `AI_AVAILABLE_MODELS` | (auto-configured) | JSON list of models shown in the UI model selector |
-| `AI_FRAMEWORK` | `pydantic_ai` | AI framework (informational) |
+| `AI_FRAMEWORK` | `langgraph` | AI framework (informational; changing it does not switch runtimes) |
 | `LLM_PROVIDER` | `openai` | LLM provider (informational) |
 
 ### Customizing Available Models

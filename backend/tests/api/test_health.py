@@ -18,6 +18,15 @@ async def test_health_check(client: AsyncClient):
 
 
 @pytest.mark.anyio
+async def test_readiness_hides_connection_error_details(client, mock_db_session, mock_redis):
+    mock_db_session.execute = AsyncMock(side_effect=RuntimeError("private-db-credential"))
+    mock_redis.ping = AsyncMock(side_effect=RuntimeError("private-redis-credential"))
+    response = await client.get(f"{settings.API_V1_STR}/health/ready")
+    assert response.status_code == 503
+    assert "private-" not in response.text
+
+
+@pytest.mark.anyio
 async def test_readiness_check(client: AsyncClient):
     """Test readiness probe with mocked dependencies."""
     response = await client.get(f"{settings.API_V1_STR}/ready")

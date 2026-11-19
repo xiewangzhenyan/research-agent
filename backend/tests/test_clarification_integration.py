@@ -5,7 +5,6 @@ import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
 from app.core.exceptions import AlreadyExistsError, BadRequestError, NotFoundError
 from app.db.session import get_worker_db_context
@@ -15,6 +14,7 @@ from app.services.agent_run import AgentRunService
 from app.services.clarification import END_EVIDENCE, RETRY_EVIDENCE, SKIP, ClarificationQuestion
 from app.services.task_readiness import ReadinessAssessment
 from app.worker.agent_runs import try_run
+from tests.model_fixtures import ScriptedModel, tool_delta
 from tests.test_agent_runs_integration import get, users
 from tests.test_durable_chat import state, submit
 from tests.test_knowledge_collaboration import fixture, search_result
@@ -68,7 +68,7 @@ def test_missing_inputs_stop_before_generation_and_survive_worker_reclaim():
                 ) as assessment,
                 patch(
                     "app.agents.assistant._build_model",
-                    return_value=FunctionModel(stream_function=stream),
+                    return_value=ScriptedModel(stream_function=stream),
                 ),
             ):
                 turn = await submit(a, message="比较这些方案")
@@ -185,12 +185,12 @@ def test_requirement_change_and_cancel_reject_old_mandatory_answers():
 def test_same_response_cannot_generate_file_while_asking_a_required_question():
     async def stream(messages, info):
         yield {
-            0: DeltaToolCall(
+            0: tool_delta(
                 name="create_document",
                 json_args='{"document":{"format":"md","title":"未获确认的文档","content":"内容"}}',
                 tool_call_id="doc",
             ),
-            1: DeltaToolCall(
+            1: tool_delta(
                 name="ask_user",
                 json_args='{"questions":[{"question":"处理哪个对象？","kind":"missing_input","options":["A","B"]}]}',
                 tool_call_id="ask",
@@ -202,7 +202,7 @@ def test_same_response_cannot_generate_file_while_asking_a_required_question():
             with (
                 patch(
                     "app.agents.assistant._build_model",
-                    return_value=FunctionModel(stream_function=stream),
+                    return_value=ScriptedModel(stream_function=stream),
                 ),
                 patch(
                     "app.services.agent_run_graph.render_async", new_callable=AsyncMock
@@ -221,11 +221,11 @@ def test_same_response_cannot_generate_file_while_asking_a_required_question():
 
 def test_optional_preference_can_use_default_without_mandatory_recheck():
     async def stream(messages, info):
-        if any(getattr(p, "part_kind", None) == "tool-return" for m in messages for p in m.parts):
+        if any(p.type == "tool" for p in messages):
             yield "按默认格式完成。"
         else:
             yield {
-                0: DeltaToolCall(
+                0: tool_delta(
                     name="ask_user",
                     json_args='{"questions":[{"question":"偏好什么语气？","kind":"preference","options":["简洁","详细"]}]}',
                     tool_call_id="pref",
@@ -236,7 +236,7 @@ def test_optional_preference_can_use_default_without_mandatory_recheck():
         async with users() as (a, _):
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 turn = await submit(a, message="你好")
                 await try_run(turn.id)
@@ -306,8 +306,7 @@ def test_unavailable_readiness_fails_closed_before_any_tool_or_generation():
 
 
 def test_second_retrieval_can_recover_with_real_source_validation():
-    from pydantic_ai.messages import ModelResponse, ToolCallPart
-
+    from tests.model_fixtures import model_response, tool_call
     from tests.test_knowledge_collaboration import answer as supported_answer
     from tests.test_knowledge_collaboration import record_search
 
@@ -321,14 +320,14 @@ def test_second_retrieval_can_recover_with_real_source_validation():
                 return record_search(kwargs, [] if count == 1 else [source])
 
             def model(messages, info):
-                return ModelResponse(
-                    parts=[ToolCallPart(info.output_tools[0].name, supported_answer())]
+                return model_response(
+                    parts=[tool_call(info.output_tools[0].name, supported_answer())]
                 )
 
             with (
                 patch("app.services.knowledge.KnowledgeService.search", side_effect=search),
                 patch(
-                    "app.services.knowledge_answer._build_model", return_value=FunctionModel(model)
+                    "app.services.knowledge_answer._build_model", return_value=ScriptedModel(model)
                 ),
             ):
                 turn = await submit(a, message="服务期限？", knowledge_base_ids=[bid])

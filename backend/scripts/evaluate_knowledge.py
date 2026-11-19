@@ -11,9 +11,31 @@ import time
 from pathlib import Path
 from typing import Any
 
+from app.schemas.research_evaluation import ResearchCase, ResearchDataset, ResearchTrial
 from app.services.knowledge_answer import grounded_answer, rewrite_query
 from app.services.knowledge_index import MODEL, embed, rank_chunks, split_blocks
 from app.services.knowledge_terms import TERMINOLOGY_VERSION, retrieval_aliases
+from scripts.evaluate_research import write_private
+
+
+def assessment_case(case, hits):
+    return ResearchCase(
+        id=case["id"],
+        split=case["split"],
+        question=case["question"],
+        requirements=case.get("requirements") or [{"id": "question", "text": case["question"]}],
+        sources=[
+            {
+                "id": str(h.get("id") or f"{h['document_id']}:{h['index']}"),
+                "document_id": str(h["document_id"]),
+                "index": h["index"],
+                "content": h["content"],
+                "revision": h.get("revision"),
+                "file_version": h.get("file_version"),
+            }
+            for h in hits
+        ],
+    )
 
 
 async def main():
@@ -41,6 +63,7 @@ async def main():
     ):
         chunk["embedding"] = vector
     results: list[dict[str, Any]] = []
+    assessment_cases, trials = [], []
     for case in fixture["cases"]:
         started = time.monotonic()
         query, strategy = await rewrite_query(case["question"], case.get("history", []), None)
@@ -70,10 +93,42 @@ async def main():
                 e in row["evidence_hits"][:6] for e in case["expected_evidence"]
             )
         if args.answers:
-            output, citations, meta = await grounded_answer(
-                case["question"], hits[:6], None, resolved_query=query
-            )
-            row.update(output=output, citations=[c["document_id"] for c in citations], **meta)
+            evaluated_case = assessment_case(case, hits[:6])
+            assessment_cases.append(evaluated_case)
+            generation_started = time.monotonic()
+            citations = []
+            common: dict[str, Any] = {
+                "case_id": case["id"],
+                "route": "standard",
+                "source_ids": [s.id for s in evaluated_case.sources],
+            }
+            try:
+                output, citations, meta = await grounded_answer(
+                    case["question"], hits[:6], None, resolved_query=query, include_evaluation=True
+                )
+                detail = meta.pop("evaluation")
+                row.update(output=output, citations=[c["document_id"] for c in citations], **meta)
+                trials.append(
+                    ResearchTrial(
+                        **common,
+                        status="completed",
+                        answer=detail["answer"],
+                        model=detail["model"],
+                        usage=detail["usage"],
+                        latency_ms=meta["answer_ms"],
+                    )
+                )
+            except Exception as exc:
+                row.update(answer_status="error", citations=[], error_type=type(exc).__name__)
+                trials.append(
+                    ResearchTrial(
+                        **common,
+                        status="timeout" if isinstance(exc, TimeoutError) else "error",
+                        model="generation-unavailable",
+                        error_type=type(exc).__name__,
+                        latency_ms=round((time.monotonic() - generation_started) * 1000),
+                    )
+                )
             if case.get("expected_evidence"):
                 cited_pages = [
                     {"document_id": c["document_id"], "page": c["page"]} for c in citations
@@ -98,7 +153,10 @@ async def main():
                 for k in [1, 6, 10]
             },
             "unknown_with_candidates": sum(bool(r["hits"]) for r in unknown),
-            "no_answer_accuracy": sum(not r.get("citations") for r in unknown) / len(unknown)
+            "no_answer_accuracy": sum(
+                r.get("answer_status") in {"no_results", "insufficient"} for r in unknown
+            )
+            / len(unknown)
             if args.answers and unknown
             else None,
             "citation_support_accuracy": None,
@@ -115,8 +173,20 @@ async def main():
         "limitations": "Small synthetic corpus; recall is document-level. Citation entailment requires human review. Unknown queries may retrieve related but insufficient passages.",
         "summary": summary,
         "cases": results,
+        **(
+            {
+                "research_dataset": ResearchDataset(
+                    origin=fixture.get("origin", "authored_synthetic"),
+                    description=fixture.get("description", "Knowledge evaluation"),
+                    cases=assessment_cases,
+                ).model_dump(),
+                "research_trials": [t.model_dump() for t in trials],
+            }
+            if args.answers
+            else {}
+        ),
     }
-    Path(args.output).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    write_private(args.output, report)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 

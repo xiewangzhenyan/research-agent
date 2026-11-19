@@ -18,7 +18,7 @@ uv run --directory backend pytest tests/ --cov=app --cov-report=term:skip-covere
 ```
 
 异步测试用 `@pytest.mark.anyio`。启用 `--strict-markers` 后，拼错或未安装插件的
-标记会直接导致收集失败。测试使用 FunctionModel 或 mock，不使用生产模型密钥。
+标记会直接导致收集失败。测试使用原生 BaseChatModel 的 ScriptedModel 替身或 mock，不使用生产模型密钥。
 测试配置可用 `OPENAI_API_KEY=ci-placeholder-not-a-real-key` 与
 `OPENAI_BASE_URL=http://127.0.0.1:9/v1`，避免误发真实模型请求。
 

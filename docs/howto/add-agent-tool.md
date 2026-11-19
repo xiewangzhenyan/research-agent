@@ -1,57 +1,45 @@
 # How to: Add a New Agent Tool
 
-## Overview
+LangGraph executes model and tool nodes. `ToolRegistry` registers typed functions
+as native LangChain `StructuredTool` instances; it does not run an agent loop.
 
-Agent tools let your AI agent perform actions — search the web, query databases, send emails, etc. Each tool is a Python function that the agent can call.
-
-## Step-by-Step
-
-### 1. Create the tool file
-
-```python
-# app/agents/tools/weather.py
-# PydanticAI tools are async functions decorated at registration time
-async def get_weather(city: str) -> str:
-    """Get current weather for a city.
-
-    Args:
-        city: Name of the city to get weather for.
-
-    Returns:
-        Weather description string.
-    """
-    # Your implementation here (API call, etc.)
-    import httpx
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(f"https://wttr.in/{city}?format=3")
-        return resp.text
-```
-
-### 2. Export from `app/agents/tools/__init__.py`
+Add a tool specification to `app/agents/tool_catalog.py` and include it in the
+appropriate authorization policy. Register the function only when its name is
+in the resolved allowed-tool set. See `AssistantAgent.registry` and the document
+and Python registrations in `app/services/agent_run_graph.py` for working examples.
 
 ```python
-from app.agents.tools.weather import get_weather
+from app.agents.runtime import ToolContext, ToolRetry
+
+# Inside registry construction, after resolving allowed tools:
+if "lookup_record" in allowed:
+    @registry.register(name="lookup_record")
+    async def lookup_record(ctx: ToolContext, record_id: str) -> dict:
+        """Read one record available to the current user."""
+        await ctx.deps.authorize_tool("lookup_record")
+        if not record_id.strip():
+            raise ToolRetry("Supply a non-empty record ID")
+        return await read_authorized_record(ctx.deps.user_id, record_id)
 ```
 
-### 3. Register in your agent
+The snippet assumes an application `read_authorized_record` function. Enforce
+object ownership there too. Plain functions without injected dependencies use
+`@registry.register_plain`. Parameter schemas come from function annotations;
+Pydantic validates them before dispatch. Keep docstrings specific and results bounded.
 
-In `app/agents/assistant.py`, add the tool to the agent:
+Raise `ToolRetry` only for recoverable input mistakes. Permission, cancellation
+and service errors must propagate; do not disguise them as successful results.
+Durable questions use `ToolDeferred` and the existing outer `await_input` flow.
+MCP tools must retain exact-argument consent and the dispatch ledger.
 
-```python
-@agent.tool
-async def weather_tool(ctx: RunContext[Deps], city: str) -> str:
-    """Get current weather for a city."""
-    from app.agents.tools.weather import get_weather
-    return await get_weather(city)
-```
+Each completed tool has its own checkpoint. A crash between an external effect
+and checkpoint persistence can still retry a tool: use a durable idempotency key
+for effects. Keep tool deadlines explicit and recheck permissions before effects.
 
-### 4. Test it
+Test schema validation, authorization and recovery using the native
+`tests.model_fixtures.ScriptedModel`; see `tests/test_native_runtime.py`.
 
-Start the server and ask the agent: "What's the weather in Warsaw?"
-
-## Tips
-
-- Keep tools focused — one tool, one job
-- Write clear docstrings — the agent uses them to decide when to call your tool
-- Handle errors gracefully — return error messages as strings, don't raise exceptions
-- For expensive operations, consider adding caching
+For a new assistant role, define an `AgentDefinition` and call `create_agent`
+from `app/agents/factory.py`. Set its `ExecutionLimits` there. Shared checks belong
+in `ExecutionPolicy`; retain object permissions and idempotency in the service.
+Research roles with an output schema cannot acquire an executable tool registry.

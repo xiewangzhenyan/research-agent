@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
 import pytest
-from pydantic_ai.models.function import FunctionModel
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -14,6 +13,7 @@ from app.db.models.conversation import Message
 from app.db.models.memory import MemoryItem, MemoryPreference
 from app.db.session import get_worker_db_context
 from app.services.agent_session import AgentSession
+from tests.model_fixtures import ScriptedModel
 from tests.test_project_spaces_integration import header, workspace
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_TASK_DB_TESTS") != "1", reason="disposable DB only")
@@ -205,7 +205,7 @@ def test_actual_agent_prompt_recall_persistence_and_no_automatic_extraction():
                     patch("app.services.agent.get_db_context", get_worker_db_context),
                     patch(
                         "app.agents.assistant._build_model",
-                        return_value=FunctionModel(stream_function=stream),
+                        return_value=ScriptedModel(stream_function=stream),
                     ),
                 ):
                     await session.process_message({"message": "继续", "knowledge_base_ids": []})

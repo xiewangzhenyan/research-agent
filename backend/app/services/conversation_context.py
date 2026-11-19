@@ -310,10 +310,10 @@ async def revalidate(request, context, user_id, project_id):
     from app.db.session import get_worker_db_context
 
     async with get_worker_db_context() as db:
-        from app.services.work_task import WorkTaskService
+        from app.services.work_task import WorkTaskService, context_matches
 
         current_work = await WorkTaskService(db, user_id, project_id=project_id).context(request)
-        if current_work != context.get("work_context", ""):
+        if not context_matches(context.get("work_context", ""), current_work):
             raise BadRequestError(message="任务引用的来源已变化，请重新发送以读取最新进度")
         source = await source_message(db, request, user_id, project_id)
         checks = context.get("context_checks", [])

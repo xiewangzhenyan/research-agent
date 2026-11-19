@@ -1,13 +1,13 @@
-"""Tests for AI agent module (PydanticAI)."""
+"""Tests for AI agent module (native LangGraph)."""
 
 from unittest.mock import patch
 
 import pytest
-from pydantic_ai.models.test import TestModel
 
 from app.agents.assistant import AssistantAgent, Deps, get_agent
 from app.agents.prompts import DEFAULT_SYSTEM_PROMPT
 from app.agents.utils import get_current_datetime
+from tests.model_fixtures import ScriptedModel
 
 
 class TestDeps:
@@ -67,7 +67,7 @@ class TestAssistantAgent:
     @patch("app.agents.assistant._build_model")
     def test_agent_property_creates_agent(self, mock_build_model):
         """Test agent property creates agent on first access."""
-        mock_build_model.return_value = TestModel()
+        mock_build_model.return_value = ScriptedModel()
         agent = AssistantAgent()
         _ = agent.agent
         assert agent._agent is not None
@@ -76,7 +76,7 @@ class TestAssistantAgent:
     @patch("app.agents.assistant._build_model")
     def test_agent_property_caches_agent(self, mock_build_model):
         """Test agent property caches the agent instance."""
-        mock_build_model.return_value = TestModel()
+        mock_build_model.return_value = ScriptedModel()
         agent = AssistantAgent()
         agent1 = agent.agent
         agent2 = agent.agent

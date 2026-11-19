@@ -7,6 +7,7 @@ from app.core.exceptions import AlreadyExistsError, NotFoundError, RateLimitErro
 from app.db.models.run_artifact import RunArtifact
 from app.repositories.agent_run import AgentRunRepository
 from app.repositories.run_artifact import RunArtifactRepository
+from app.services.artifact_validation import validate_files
 
 
 def metadata(item):
@@ -14,7 +15,16 @@ def metadata(item):
         key: str(getattr(item, key))
         if key in {"id", "run_id", "execution_id"}
         else getattr(item, key)
-        for key in ("id", "run_id", "execution_id", "name", "mime_type", "size", "sha256")
+        for key in (
+            "id",
+            "run_id",
+            "execution_id",
+            "name",
+            "mime_type",
+            "size",
+            "sha256",
+            "validation",
+        )
     }
 
 
@@ -56,15 +66,24 @@ class RunArtifactService:
         from app.services.work_task import WorkTaskService
 
         await WorkTaskService(self.db, self.user_id, project_id=self.project_id).validate_run(run)
+        validations = await validate_files(files)
         execution_id = UUID(str(execution_id))
         existing = {item.id: item for item in await self.repo.list(run_id, self.user_id)}
         items, new = [], []
-        for file in files:
+        for file, validation in zip(files, validations, strict=True):
             key = uuid5(execution_id, file["name"] + ":" + file["sha256"])
             item = existing.get(key)
             if item is None:
                 item = RunArtifact(
-                    id=key, run_id=run_id, user_id=self.user_id, execution_id=execution_id, **file
+                    id=key,
+                    run_id=run_id,
+                    user_id=self.user_id,
+                    execution_id=execution_id,
+                    **{
+                        field: file[field]
+                        for field in ("name", "mime_type", "content", "size", "sha256")
+                    },
+                    validation=validation,
                 )
                 new.append(item)
             items.append(item)

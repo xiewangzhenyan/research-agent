@@ -30,7 +30,7 @@
   `AI_MODEL_OUTPUT_LIMITS={"模型ID":16000}` 可调整该模型额度；应用允许范围为
   256–32000，最终仍应符合实际供应商限制。前端读取服务端提供的范围；不改线上 `.env`。
 - Responses 传输实际使用 `temperature`、`top_p`、`max_output_tokens` 和 `reasoning`。
-  PydanticAI 的 `max_tokens` 映射到 `max_output_tokens`；当前不开放 seed、频率/存在惩罚。
+  langchain-openai Responses 将内部 `max_tokens` 映射到 `max_output_tokens`；当前不开放 seed、频率/存在惩罚。
   本地 HTTP mock 测试检查最终请求体，没有调用收费模型。
 - 参数在消息接收事务中写入 `conversations.generation_options`（迁移 `0044`），
   与会话消息一起恢复。仅保存用户覆盖项；省略 `generation` 或传 null 表示沿用，

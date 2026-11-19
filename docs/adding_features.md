@@ -193,14 +193,15 @@ def my_command(name: str):
 
 Run with: `uv run agent cmd my-command --name test`
 
-## Adding an AI Agent Tool (PydanticAI)
+## Adding an AI Agent Tool (LangGraph)
 
 ```python
 # app/agents/assistant.py
-@agent.tool
-async def my_tool(ctx: RunContext[Deps], param: str) -> dict:
+@registry.register
+async def my_tool(ctx: ToolContext, param: str) -> dict:
     """Tool description for LLM - be specific about what it does."""
-    # Access dependencies via ctx.deps
+    # Register only after resolving the authorized tool catalog.
+    # Access dependencies via ctx.deps; recheck authorization before effects.
     result = await some_operation(param)
     return {"result": result}
 ```

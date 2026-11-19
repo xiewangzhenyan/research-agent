@@ -35,6 +35,9 @@ def test_artifact_atomic_idempotent_scoped_and_fenced():
                 current.status, current.attempt = "running", 1
             async with get_worker_db_context() as db:
                 first = await RunArtifactService(db, a).save(run.id, 1, eid, files)
+                assert first[0]["validation"]["structure"] == "checked"
+                assert first[0]["validation"]["sha256"] == first[0]["sha256"]
+                assert first[0]["validation"]["content_validation"] == "not_verified"
             async with get_worker_db_context() as db:
                 assert await RunArtifactService(db, a).save(run.id, 1, eid, files) == first
                 assert len(await RunArtifactService(db, a).list(run.id)) == 1
@@ -119,10 +122,110 @@ def test_quota_prevents_partial_write():
     asyncio.run(check())
 
 
+def test_structural_check_is_atomic_and_cannot_be_self_assigned():
+    from app.services.artifact_validation import ArtifactValidationError
+
+    async def check():
+        async with users() as (a, _):
+            run = await create(a)
+            async with get_worker_db_context() as db:
+                row = await db.get(AgentRun, run.id)
+                row.status, row.attempt = "running", 1
+            good = validate_artifacts([artifact()], "completed")[0]
+            bad = validate_artifacts(
+                [artifact(b"broken", name="bad.json", mime_type="application/json")], "completed"
+            )[0]
+            async with get_worker_db_context() as db:
+                with pytest.raises(ArtifactValidationError):
+                    await RunArtifactService(db, a).save(run.id, 1, uuid4(), [good, bad])
+                assert await RunArtifactService(db, a).list(run.id) == []
+            async with get_worker_db_context() as db:
+                saved = await RunArtifactService(db, a).save(
+                    run.id, 1, uuid4(), [{**good, "validation": {"content_validation": "accepted"}}]
+                )
+                assert saved[0]["validation"]["content_validation"] == "not_verified"
+            async with get_worker_db_context() as db:
+                assert (await RunArtifactService(db, a).list(run.id))[0]["validation"] == saved[0][
+                    "validation"
+                ]
+
+    asyncio.run(check())
+
+
+def test_python_can_repair_invalid_output_without_saving_the_invalid_file():
+    import json
+
+    from app.core.config import settings
+    from app.worker.agent_runs import try_run
+    from tests.model_fixtures import ScriptedModel, tool_delta
+    from tests.test_agent_runs_integration import get
+
+    async def stream(messages, info):
+        returned = [
+            p for p in messages if p.type == "tool" and getattr(p, "name", None) == "run_python"
+        ]
+        if len(returned) == 2:
+            yield "已生成并检查 JSON 格式，计算内容仍待复核。"
+        else:
+            yield {
+                0: tool_delta(
+                    name="run_python",
+                    tool_call_id=f"json-{len(returned)}",
+                    json_args=json.dumps({"code": f"print({len(returned)})"}),
+                )
+            }
+
+    async def check():
+        async with users() as (a, _):
+            responses = []
+            for data in [b"broken", b'{"value": 2}']:
+                responses.append(
+                    {
+                        "state": "completed",
+                        "execution_id": str(uuid4()),
+                        "exit_code": 0,
+                        "artifact_files": validate_artifacts(
+                            [artifact(data, name="result.json", mime_type="application/json")],
+                            "completed",
+                        ),
+                    }
+                )
+            with (
+                patch.object(settings, "SANDBOX_ALLOW_PUBLIC", True),
+                patch.object(
+                    sandbox_client,
+                    "health",
+                    AsyncMock(
+                        return_value={
+                            "status": "ready",
+                            "file_execution": {"inputs_read_only": True},
+                        }
+                    ),
+                ),
+                patch.object(
+                    sandbox_client, "run_python", AsyncMock(side_effect=responses)
+                ) as remote,
+                patch(
+                    "app.agents.assistant._build_model",
+                    return_value=ScriptedModel(stream_function=stream),
+                ),
+            ):
+                run = await create(a, tools=["run_python"])
+                await try_run(run.id)
+                saved = await get(a, run.id)
+                assert saved.status == "completed", saved.error
+                assert remote.await_count == 2
+                async with get_worker_db_context() as db:
+                    files = await RunArtifactService(db, a).list(run.id)
+                    assert len(files) == 1
+                    assert "json_syntax" in files[0]["validation"]["checks"]
+                    assert files[0]["validation"]["content_validation"] == "not_verified"
+
+    asyncio.run(check())
+
+
 @pytest.mark.parametrize("named_project", [False, True])
 def test_file_task_graph_persists_metadata_without_binary_events(named_project):
-    from pydantic_ai.models.function import DeltaToolCall, FunctionModel
-
     from app.core.config import settings
     from app.repositories.agent_run import AgentRunRepository
     from app.schemas.agent_run import AgentRunCreate
@@ -130,17 +233,14 @@ def test_file_task_graph_persists_metadata_without_binary_events(named_project):
     from app.services.agent_run import AgentRunService
     from app.services.project import ProjectService
     from app.worker.agent_runs import try_run
+    from tests.model_fixtures import ScriptedModel, tool_delta
 
     async def stream(messages, info):
-        if any(
-            getattr(p, "tool_name", None) == "run_python" and p.part_kind == "tool-return"
-            for m in messages
-            for p in m.parts
-        ):
+        if any(getattr(p, "name", None) == "run_python" and p.type == "tool" for p in messages):
             yield "文件已生成"
         else:
             yield {
-                0: DeltaToolCall(
+                0: tool_delta(
                     name="run_python", json_args='{"code":"print(1)"}', tool_call_id="file-one"
                 )
             }
@@ -170,7 +270,7 @@ def test_file_task_graph_persists_metadata_without_binary_events(named_project):
                 ) as remote,
                 patch(
                     "app.agents.assistant._build_model",
-                    return_value=FunctionModel(stream_function=stream),
+                    return_value=ScriptedModel(stream_function=stream),
                 ),
             ):
                 project_id = None

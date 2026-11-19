@@ -25,8 +25,3 @@ def instrument_app(app: Any) -> None:
 def instrument_asyncpg() -> None:
     """Instrument asyncpg for PostgreSQL."""
     logfire.instrument_asyncpg()
-
-
-def instrument_pydantic_ai() -> None:
-    """Instrument PydanticAI for AI agent observability."""
-    logfire.instrument_pydantic_ai()

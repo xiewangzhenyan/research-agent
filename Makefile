@@ -1,4 +1,4 @@
-.PHONY: install format lint test run clean help db-init dev dev-down dev-logs dev-rebuild dev-frontend docker-clean stage stage-down prod prod-down
+.PHONY: install format lint test run clean help db-init dev dev-down dev-logs dev-rebuild dev-frontend docker-clean stage stage-down prod prod-prepare prod-apply prod-down
 
 # === Environments ===========================================================
 # `make dev`   — local development (docker-compose.dev.yml + bind-mounted source)
@@ -97,14 +97,16 @@ stage:
 stage-down:
 	docker compose -f docker-compose.yml down
 
-# === Production: external Nginx, real secrets in backend/.env ===
+# Production defaults to a reviewable plan. Preparation builds immutable images;
+# application is an explicit maintenance operation with backups before migration.
 prod:
-	@test -f backend/.env || (echo "❌ backend/.env missing — run 'cp backend/.env.example backend/.env' and fill in real secrets" && exit 1)
-	docker compose --env-file backend/.env -f docker-compose.prod.yml up -d --build
-	@echo "▶ Waiting for DB then running migrations…"
-	@sleep 5
-	docker compose --env-file backend/.env -f docker-compose.prod.yml exec -T app agent db upgrade
-	@echo "✅ Production stack up. Configure your nginx host with nginx/nginx.conf"
+	python3 scripts/release.py $(if $(RELEASE_VERSION),--version $(RELEASE_VERSION))
+
+prod-prepare:
+	python3 scripts/release.py --prepare --version "$(RELEASE_VERSION)"
+
+prod-apply:
+	python3 scripts/release.py --apply --version "$(RELEASE_VERSION)" --backup-dir "$(BACKUP_DIR)"
 
 prod-down:
 	docker compose --env-file backend/.env -f docker-compose.prod.yml down
@@ -253,17 +255,8 @@ docker-frontend-logs:
 docker-frontend-build:
 	docker compose -f docker-compose.frontend.yml build
 
-# === Docker: Production (with Traefik) ===
-docker-prod:
-	docker compose -f docker-compose.prod.yml up -d
-	@echo ""
-	@echo "✅ Production services started with Traefik!"
-	@echo ""
-	@echo "Endpoints (replace DOMAIN with your domain):"
-	@echo "   Frontend: https://$$DOMAIN"
-	@echo "   API: https://api.$$DOMAIN"
-	@echo "   Flower: https://flower.$$DOMAIN"
-	@echo "   Traefik: https://traefik.$$DOMAIN"
+# === Docker: Production (external Nginx) ===
+docker-prod: prod
 
 docker-prod-down:
 	docker compose -f docker-compose.prod.yml down
@@ -332,7 +325,7 @@ help:
 	@echo ""
 	@echo "📦 Other environments:"
 	@echo "  make stage          Production-like stack on localhost (no bind mounts)"
-	@echo "  make prod           Production stack (requires backend/.env + nginx)"
+	@echo "  make prod           Review the production release plan"
 	@echo ""
 	@echo "Setup (without Docker):"
 	@echo "  make install       Install Python deps + pre-commit hooks"
@@ -370,8 +363,8 @@ help:
 	@echo "  make docker-db            Start only PostgreSQL"
 	@echo "  make docker-redis         Start only Redis"
 	@echo ""
-	@echo "Docker (Production with Traefik):"
-	@echo "  make docker-prod          Start production stack"
+	@echo "Docker (Production with external Nginx):"
+	@echo "  make docker-prod          Review the production release plan"
 	@echo "  make docker-prod-down     Stop production stack"
 	@echo "  make docker-prod-logs     View production logs"
 	@echo ""

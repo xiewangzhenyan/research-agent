@@ -6,7 +6,6 @@ from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
-from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 
@@ -27,6 +26,7 @@ from app.services.run_artifact import RunArtifactService
 from app.services.work_task import WorkTaskService
 from app.services.work_task_intent import intent
 from app.worker.agent_runs import try_run
+from tests.model_fixtures import ScriptedModel, tool_delta
 from tests.test_agent_runs_integration import get, text_stream, users
 from tests.test_durable_chat import state, submit
 
@@ -50,7 +50,7 @@ async def describe(uid, run, project_id=None):
 
 async def execute(run):
     with patch(
-        "app.agents.assistant._build_model", return_value=FunctionModel(stream_function=text_stream)
+        "app.agents.assistant._build_model", return_value=ScriptedModel(stream_function=text_stream)
     ):
         await try_run(run.id)
 
@@ -80,7 +80,7 @@ def test_work_survives_turns_new_conversations_and_topic_changes():
             task_id = UUID(first.request["work_task"]["id"])
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 await try_run(first.id)
                 other = await submit(
@@ -158,7 +158,7 @@ def test_project_isolation_and_database_rejects_cross_scope_links():
 def test_revision_bypasses_waiting_input_and_old_approval_cannot_resume():
     async def stream(messages, info):
         yield {
-            0: DeltaToolCall(
+            0: tool_delta(
                 name="ask_user",
                 json_args='{"questions":[{"question":"选择格式？","options":["Word","PPT"]}]}',
                 tool_call_id="format",
@@ -170,7 +170,7 @@ def test_revision_bypasses_waiting_input_and_old_approval_cannot_resume():
             first = await submit(a, message="创建任务：整理任务报告")
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 await try_run(first.id)
             old = await get(a, first.id)
@@ -273,7 +273,7 @@ def test_old_stream_and_artifact_cannot_commit_after_goal_change():
             first = await submit(a, message="创建任务：生成原始报告")
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 running = asyncio.create_task(try_run(first.id))
                 try:
@@ -322,7 +322,7 @@ def test_restart_and_checkpoint_removal_do_not_remove_work_state():
             first = await submit(a, message="创建任务：需要跨天恢复的工作")
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 worker = asyncio.create_task(try_run(first.id))
                 await asyncio.wait_for(entered.wait(), 10)
@@ -412,6 +412,56 @@ def test_complete_requirements_are_budgeted_strict_excludes_prior_assistant_resu
     asyncio.run(check())
 
 
+def test_business_context_rebuilds_progress_and_scoped_artifact_references():
+    async def check():
+        import hashlib
+
+        from app.db.models.run_artifact import RunArtifact
+
+        async with users() as (a, b):
+            first = await submit(a, message="创建任务：比较方案，预算不得超过 98.71 元")
+            await execute(first)
+            artifact_id, foreign_id = uuid4(), uuid4()
+            content = b"outline"
+            async with get_worker_db_context() as db:
+                for aid, uid in [(artifact_id, a), (foreign_id, b)]:
+                    db.add(
+                        RunArtifact(
+                            id=aid,
+                            run_id=first.id,
+                            user_id=uid,
+                            execution_id=uuid4(),
+                            name="outline.md",
+                            mime_type="text/markdown",
+                            size=len(content),
+                            sha256=hashlib.sha256(content).hexdigest(),
+                            content=content,
+                        )
+                    )
+            second = await submit(a, message="继续", work_task=selection(first))
+            assert second.conversation_id != first.conversation_id
+            async with get_worker_db_context() as db:
+                snapshot = await WorkTaskService(db, a).context_snapshot(second.request)
+                strict = await WorkTaskService(db, a).context_snapshot(
+                    {
+                        **second.request,
+                        "knowledge_base_ids": [str(uuid4())],
+                        "knowledge_strict": True,
+                    }
+                )
+            assert snapshot.current_message_id == str(second.user_message_id)
+            assert "98.71" in snapshot.requirements[0].requirement
+            assert snapshot.progress[0].run_id == str(first.id)
+            assert snapshot.progress[0].status == "completed"
+            assert [f.id for f in snapshot.artifacts] == [str(artifact_id)]
+            assert snapshot.artifacts[0].verification == "not_verified"
+            assert snapshot.artifacts[0].validation is None
+            assert str(foreign_id) not in snapshot.model_dump_json()
+            assert strict.previous_results == [] and strict.artifacts == snapshot.artifacts
+
+    asyncio.run(check())
+
+
 def test_ambiguous_continue_creates_a_clarification_without_mutating_either_task():
     async def check():
         async with users() as (a, _):
@@ -425,5 +475,199 @@ def test_ambiguous_continue_creates_a_clarification_without_mutating_either_task
                 == (await describe(a, second))["revision"]
                 == 1
             )
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize("named_project", [False, True])
+def test_python_reuses_selected_task_output_across_conversations(named_project):
+    import base64
+    import json
+    from unittest.mock import AsyncMock
+
+    from app.core.config import settings
+    from app.db.models.run_artifact import RunArtifact
+    from app.services import sandbox_client
+    from app.services.artifact_validation import inspect_artifact
+    from app.services.sandbox_files import input_name, load_execution_inputs, validate_artifacts
+    from tests.test_sandbox_files import artifact
+
+    async def check():
+        async with users() as (a, b):
+            project_id = None
+            if named_project:
+                async with get_worker_db_context() as db:
+                    project_id = (await ProjectService(db, a).save(ProjectWrite(name="Files"))).id
+            first = await submit(a, project_id=project_id, message="创建任务：计算数据并核对结果")
+            await execute(first)
+            file = validate_artifacts([artifact()], "completed")[0]
+            fid = uuid4()
+            async with get_worker_db_context() as db:
+                db.add(
+                    RunArtifact(
+                        id=fid,
+                        run_id=first.id,
+                        user_id=a,
+                        execution_id=uuid4(),
+                        validation=inspect_artifact(file),
+                        **file,
+                    )
+                )
+            selected_path = "/inputs/" + input_name(fid, file["name"])
+            code = f"print(open({selected_path!r}).read())"
+            seen = []
+
+            async def stream(messages, info):
+                seen.append(str(messages))
+                if any(
+                    getattr(p, "name", None) == "run_python" and p.type == "tool" for p in messages
+                ):
+                    yield "已读取上一轮文件并计算"
+                else:
+                    yield {
+                        0: tool_delta(
+                            name="run_python",
+                            json_args=json.dumps({"code": code, "artifact_ids": [str(fid)]}),
+                            tool_call_id="reuse",
+                        )
+                    }
+
+            with (
+                patch.object(settings, "SANDBOX_ALLOW_PUBLIC", True),
+                patch.object(
+                    sandbox_client,
+                    "health",
+                    AsyncMock(
+                        return_value={
+                            "status": "ready",
+                            "file_execution": {"inputs_read_only": True},
+                        }
+                    ),
+                ),
+                patch.object(
+                    sandbox_client,
+                    "run_python",
+                    AsyncMock(
+                        return_value={
+                            "state": "completed",
+                            "execution_id": str(uuid4()),
+                            "exit_code": 0,
+                            "stdout": "a,b\n1,2",
+                        }
+                    ),
+                ) as remote,
+                patch(
+                    "app.agents.assistant._build_model",
+                    return_value=ScriptedModel(stream_function=stream),
+                ),
+            ):
+                second = await submit(
+                    a,
+                    project_id=project_id,
+                    message="继续读取此前文件计算",
+                    python_enabled=True,
+                    work_task=selection(first),
+                )
+                assert second.conversation_id != first.conversation_id
+                await try_run(second.id)
+                async with get_worker_db_context() as db:
+                    saved = await AgentRunService(db, a, project_id=project_id).get(second.id)
+                    context = await WorkTaskService(db, a, project_id=project_id).context(
+                        second.request
+                    )
+                    restored = json.loads(context.rsplit("\n", 1)[-1])
+                    assert restored["artifacts"][0]["validation"]["sha256"] == file["sha256"]
+                assert saved.status == "completed", saved.error
+                assert selected_path in seen[0]
+                remote.assert_awaited_once()
+                mounted = remote.call_args.kwargs["inputs"]
+                assert base64.b64decode(mounted[0]["content_base64"]) == file["content"]
+                assert mounted[0]["name"] == selected_path.removeprefix("/inputs/")
+                assert "content_base64" not in str(saved.result)
+                # Repeated loads reconstruct the identical input identity without storing bytes.
+                async with get_worker_db_context() as db:
+                    again, _ = await load_execution_inputs(
+                        db,
+                        a,
+                        second.request,
+                        artifact_ids=[fid],
+                        work_context=context,
+                        project_id=project_id,
+                    )
+                    assert again == mounted
+                    with pytest.raises(NotFoundError):
+                        await load_execution_inputs(
+                            db,
+                            b,
+                            second.request,
+                            artifact_ids=[fid],
+                            work_context=context,
+                            project_id=project_id,
+                        )
+                    with pytest.raises(NotFoundError):
+                        await load_execution_inputs(
+                            db,
+                            a,
+                            second.request,
+                            artifact_ids=[fid],
+                            work_context=context,
+                            project_id=None if named_project else uuid4(),
+                        )
+                # Same account/project, unrelated task: no inherited access to this file.
+                unrelated = await submit(a, project_id=project_id, message="创建任务：另一个目标")
+                async with get_worker_db_context() as db:
+                    other = await WorkTaskService(db, a, project_id=project_id).context(
+                        unrelated.request
+                    )
+                    with pytest.raises(NotFoundError):
+                        await load_execution_inputs(
+                            db,
+                            a,
+                            {**unrelated.request, "sandbox_protocol": 2},
+                            artifact_ids=[fid],
+                            work_context=other,
+                            project_id=project_id,
+                        )
+                # Same-length corruption is rejected even when database metadata is unchanged.
+                async with get_worker_db_context() as db:
+                    item = await RunArtifactService(db, a, project_id=project_id).get(first.id, fid)
+                    item.content = b"a,b\n3,4"
+                async with get_worker_db_context() as db:
+                    with pytest.raises(BadRequestError, match="完整性"):
+                        await load_execution_inputs(
+                            db,
+                            a,
+                            second.request,
+                            artifact_ids=[fid],
+                            work_context=context,
+                            project_id=project_id,
+                        )
+                    await RunArtifactService(db, a, project_id=project_id).delete(first.id, fid)
+                async with get_worker_db_context() as db:
+                    with pytest.raises(BadRequestError, match="已变化"):
+                        await load_execution_inputs(
+                            db,
+                            a,
+                            second.request,
+                            artifact_ids=[fid],
+                            work_context=context,
+                            project_id=project_id,
+                        )
+                await submit(
+                    a,
+                    project_id=project_id,
+                    message="更新任务目标",
+                    work_task=selection(second, "revise"),
+                )
+                async with get_worker_db_context() as db:
+                    with pytest.raises(AlreadyExistsError):
+                        await load_execution_inputs(
+                            db,
+                            a,
+                            second.request,
+                            artifact_ids=[fid],
+                            work_context=context,
+                            project_id=project_id,
+                        )
 
     asyncio.run(check())

@@ -3,6 +3,11 @@ import { defineConfig, devices } from "@playwright/test";
 // UI contracts use mock APIs. Real database/ownership workflows have a separate CI job.
 // No real user credentials or production services are required.
 const external = process.env.PLAYWRIGHT_BASE_URL;
+const port = Number(process.env.PLAYWRIGHT_PORT || 39000);
+if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+  throw new Error("PLAYWRIGHT_PORT must be an unprivileged TCP port");
+}
+const local = `http://localhost:${port}`;
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -12,7 +17,7 @@ export default defineConfig({
   timeout: 30000,
   reporter: [["list"], ["html", { outputFolder: "playwright-report", open: "never" }]],
   use: {
-    baseURL: external || "http://127.0.0.1:38000",
+    baseURL: external || local,
     locale: "zh-CN",
     reducedMotion: "reduce",
     trace: "retain-on-failure",
@@ -30,9 +35,17 @@ export default defineConfig({
   webServer: external
     ? undefined
     : {
-        command: process.env.CI ? "bun run start" : "bun run dev",
-        url: "http://127.0.0.1:38000/login",
-        reuseExistingServer: !process.env.CI,
+        command: `node ./node_modules/next/dist/bin/next ${process.env.CI ? "start" : "dev"} --hostname localhost --port ${port}`,
+        env: {
+          NEXT_DIST_DIR: process.env.CI ? ".next" : ".next-e2e",
+          NEXT_TELEMETRY_DISABLED: "1",
+          BACKEND_URL: "http://127.0.0.1:9",
+          OTEL_SDK_DISABLED: "true",
+          OTEL_EXPORTER_OTLP_ENDPOINT: "http://127.0.0.1:9",
+          OTEL_EXPORTER_OTLP_HEADERS: "",
+        },
+        url: local + "/login",
+        reuseExistingServer: false,
         timeout: 120000,
       },
 });

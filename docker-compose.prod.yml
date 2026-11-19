@@ -6,7 +6,7 @@
 #   1. Fill backend/.env with real production secrets (cp backend/.env.example
 #      backend/.env if it doesn't exist yet). The same file is used for dev and
 #      prod — there is no separate .env.prod.
-#   2. Run: make prod   (or: docker compose --env-file backend/.env -f docker-compose.prod.yml up -d)
+#   2. Review: make prod; prepare/apply a versioned release (see docs/deploy.md).
 #
 # Prerequisites:
 #   1. Configure your external Nginx using nginx/nginx.conf as reference
@@ -18,7 +18,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: agent_backend:dev
+    image: ${BACKEND_IMAGE:-agent_backend:dev}
     container_name: agent_backend
     volumes:
       - media_data:/app/media
@@ -36,6 +36,7 @@ services:
     networks:
       - backend-internal
       - egress
+      - model-gateway
     ports:
       - "127.0.0.1:38001:38001"
     depends_on:
@@ -55,7 +56,7 @@ services:
 
 
   reranker:
-    image: agent_backend:dev
+    image: ${BACKEND_IMAGE:-agent_backend:dev}
     container_name: agent_reranker
     command: uvicorn app.reranker.main:app --host 0.0.0.0 --port 38004 --workers 1 --no-access-log
     volumes:
@@ -128,7 +129,7 @@ services:
           memory: 256M
 
   celery_worker:
-    image: agent_backend:dev
+    image: ${BACKEND_IMAGE:-agent_backend:dev}
     container_name: agent_celery_worker
     volumes:
       - media_data:/app/media
@@ -165,7 +166,7 @@ services:
           memory: 256M
 
   task_worker:
-    image: agent_backend:dev
+    image: ${BACKEND_IMAGE:-agent_backend:dev}
     container_name: agent_task_worker
     command: python -m app.worker.agent_runs
     env_file:
@@ -182,6 +183,7 @@ services:
     networks:
       - backend-internal
       - egress
+      - model-gateway
     depends_on:
       db:
         condition: service_healthy
@@ -190,7 +192,11 @@ services:
     stop_signal: SIGINT
     stop_grace_period: 15s
     healthcheck:
-      disable: true
+      test: ["CMD", "python", "-m", "app.healthcheck", "worker"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     deploy:
       resources:
         limits:
@@ -198,7 +204,7 @@ services:
           memory: 1536M
 
   celery_beat:
-    image: agent_backend:dev
+    image: ${BACKEND_IMAGE:-agent_backend:dev}
     container_name: agent_celery_beat
     command: celery -A app.worker.celery_app beat --loglevel=warning
     env_file:
@@ -227,7 +233,7 @@ services:
           memory: 256M
 
   flower:
-    image: agent_backend:dev
+    image: ${BACKEND_IMAGE:-agent_backend:dev}
     container_name: agent_flower
     command: celery -A app.worker.celery_app flower --port=5555
     env_file:
@@ -256,6 +262,7 @@ services:
           memory: 256M
 
   frontend:
+    image: ${FRONTEND_IMAGE:-agent-frontend:latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -291,6 +298,12 @@ services:
     depends_on:
       - app
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "bun", "-e", "const r = await fetch('http://127.0.0.1:38000/api/health/live'); if (!r.ok || (await r.json()).status !== 'ready') process.exit(1)"]
+      interval: 15s
+      timeout: 10s
+      start_period: 45s
+      retries: 3
     deploy:
       resources:
         limits:
@@ -303,6 +316,13 @@ networks:
     internal: true
   egress:
     driver: bridge
+  # Local OpenAI-compatible model gateway that only listens on the host's loopback.
+  # The API and task worker (the only services that call the model) join its Docker
+  # network; set MODEL_GATEWAY_NETWORK in backend/.env and point OPENAI_BASE_URL at
+  # the gateway container.
+  model-gateway:
+    external: true
+    name: ${MODEL_GATEWAY_NETWORK:-model-gateway}
 
 volumes:
   rerank_models:

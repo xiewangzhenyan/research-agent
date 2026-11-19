@@ -10,7 +10,6 @@ from uuid import UUID
 import pytest
 from cryptography.fernet import Fernet
 from pydantic import SecretStr
-from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from sqlalchemy import select
 
 from app.core.config import settings
@@ -30,6 +29,7 @@ from app.services.capability_runtime import ALLOW, DENY, checked, snapshot
 from app.services.mcp_connections import test_connection as discover
 from app.services.project import ProjectService
 from app.worker.agent_runs import try_run
+from tests.model_fixtures import ScriptedModel, tool_delta
 from tests.test_agent_runs_integration import get, users
 from tests.test_capability_security import ENTRY
 from tests.test_clarification_integration import answer
@@ -237,11 +237,11 @@ def test_mcp_requires_exact_durable_consent_and_rechecks_policy(decision):
 
             async def stream(messages, info):
                 results = [
-                    p.content
-                    for m in messages
-                    for p in m.parts
-                    if getattr(p, "tool_name", None) == "call_mcp_tool"
-                    and p.part_kind == "tool-return"
+                    json.loads(p.content)
+                    for p in messages
+                    if getattr(p, "name", None) == "call_mcp_tool"
+                    and p.type == "tool"
+                    and p.content.startswith("{")
                 ]
                 if any(
                     isinstance(r, dict) and (r.get("content") or r.get("denied")) for r in results
@@ -249,7 +249,7 @@ def test_mcp_requires_exact_durable_consent_and_rechecks_policy(decision):
                     yield "已按授权处理。"
                 else:
                     yield {
-                        0: DeltaToolCall(
+                        0: tool_delta(
                             name="call_mcp_tool",
                             json_args=json.dumps(args),
                             tool_call_id="mcp_call",
@@ -265,7 +265,7 @@ def test_mcp_requires_exact_durable_consent_and_rechecks_policy(decision):
             with (
                 patch(
                     "app.agents.assistant._build_model",
-                    return_value=FunctionModel(stream_function=stream),
+                    return_value=ScriptedModel(stream_function=stream),
                 ),
                 patch("app.services.capability_runtime.exchange", remote),
             ):
@@ -311,16 +311,14 @@ def test_auto_approved_mcp_is_deduplicated_within_a_run():
             async def stream(messages, info):
                 results = [
                     p
-                    for m in messages
-                    for p in m.parts
-                    if getattr(p, "tool_name", None) == "call_mcp_tool"
-                    and p.part_kind == "tool-return"
+                    for p in messages
+                    if getattr(p, "name", None) == "call_mcp_tool" and p.type == "tool"
                 ]
                 if len(results) >= 2:
                     yield "只调用了一次远程服务。"
                 else:
                     yield {
-                        0: DeltaToolCall(
+                        0: tool_delta(
                             name="call_mcp_tool",
                             json_args=json.dumps(args),
                             tool_call_id=f"call{len(results)}",
@@ -331,7 +329,7 @@ def test_auto_approved_mcp_is_deduplicated_within_a_run():
             with (
                 patch(
                     "app.agents.assistant._build_model",
-                    return_value=FunctionModel(stream_function=stream),
+                    return_value=ScriptedModel(stream_function=stream),
                 ),
                 patch("app.services.capability_runtime.exchange", remote),
             ):
@@ -360,15 +358,13 @@ def test_skill_loads_only_published_selected_files(tmp_path, monkeypatch):
             async def stream(messages, info):
                 seen.append(str(messages))
                 if any(
-                    getattr(p, "tool_name", None) == "read_skill_file"
-                    and p.part_kind == "tool-return"
-                    for m in messages
-                    for p in m.parts
+                    getattr(p, "name", None) == "read_skill_file" and p.type == "tool"
+                    for p in messages
                 ):
                     yield "已读取发布版本。"
                 else:
                     yield {
-                        0: DeltaToolCall(
+                        0: tool_delta(
                             name="read_skill_file",
                             json_args=json.dumps({"skill_id": skill["id"]}),
                             tool_call_id="skill",
@@ -377,7 +373,7 @@ def test_skill_loads_only_published_selected_files(tmp_path, monkeypatch):
 
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 turn = await submit(a, message="按技能流程整理资料")
                 await try_run(turn.id)
@@ -451,7 +447,7 @@ def test_running_stdio_requires_remote_stop_before_cancellation():
 
             async def stream(messages, info):
                 yield {
-                    0: DeltaToolCall(
+                    0: tool_delta(
                         name="call_mcp_tool",
                         tool_call_id="stdio",
                         json_args=json.dumps(
@@ -467,7 +463,7 @@ def test_running_stdio_requires_remote_stop_before_cancellation():
             with (
                 patch(
                     "app.agents.assistant._build_model",
-                    return_value=FunctionModel(stream_function=stream),
+                    return_value=ScriptedModel(stream_function=stream),
                 ),
                 patch("app.services.capability_runtime.exchange", side_effect=remote),
                 patch.object(

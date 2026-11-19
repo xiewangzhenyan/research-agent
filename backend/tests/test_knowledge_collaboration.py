@@ -10,8 +10,6 @@ from uuid import uuid4
 
 import pytest
 from langgraph.checkpoint.memory import InMemorySaver
-from pydantic_ai.messages import ModelResponse, ToolCallPart
-from pydantic_ai.models.function import FunctionModel
 
 from app.core.exceptions import BadRequestError, NotFoundError
 from app.db.models.knowledge import KnowledgeBase, KnowledgeDocument
@@ -26,6 +24,7 @@ from app.services.knowledge_collaboration import (
 from app.services.knowledge_index import MODEL
 from app.services.model_config import resolve_generation_config
 from app.worker.agent_runs import try_run
+from tests.model_fixtures import ScriptedModel, model_response, tool_call
 from tests.test_agent_runs_integration import create, get, users
 
 pytestmark = pytest.mark.skipif(
@@ -137,6 +136,10 @@ def test_full_worker_collaboration_and_bounded_revision(reject, invalid):
             else:
                 assert saved.result["citations"][0]["quotes"] == [source["content"]]
                 assert calls == ["planner", "researcher", "writer", "critic"]
+                handoffs = {h["role"]: h for h in saved.result["collaboration"]["handoffs"]}
+                assert handoffs["researcher"]["validation"] == "source_quotes_checked"
+                assert handoffs["writer"]["evidence"][0]["source_id"] == source["id"]
+                assert handoffs["critic"]["validation"] == "review_approved"
             with pytest.raises(NotFoundError):
                 await get(other, run.id)
 
@@ -172,12 +175,12 @@ def test_checkpoint_resumes_failed_role_without_repeating_completed_roles():
             fail = True
             normal = roles(calls)
 
-            async def invoke(role, *args):
+            async def invoke(role, *args, **kwargs):
                 nonlocal fail
                 if role == "writer" and fail:
                     fail = False
                     raise RuntimeError("interrupted generation")
-                return await normal(role, *args)
+                return await normal(role, *args, **kwargs)
 
             async def emit(*args):
                 pass
@@ -211,8 +214,8 @@ def test_deleted_source_revokes_next_role_access():
             calls = []
             normal = roles(calls)
 
-            async def invoke(role, *args):
-                result = await normal(role, *args)
+            async def invoke(role, *args, **kwargs):
+                result = await normal(role, *args, **kwargs)
                 if role == "researcher":
                     async with get_worker_db_context() as db:
                         doc = await db.get(KnowledgeDocument, source["document_id"])
@@ -268,9 +271,9 @@ def test_empty_search_skips_unnecessary_model_calls():
 def test_role_adapter_uses_structured_output_without_general_tools():
     def model(messages, info):
         assert not info.function_tools
-        return ModelResponse(
+        return model_response(
             parts=[
-                ToolCallPart(
+                tool_call(
                     info.output_tools[0].name, {"objective": "核对条款", "queries": ["服务期限"]}
                 )
             ]
@@ -278,7 +281,7 @@ def test_role_adapter_uses_structured_output_without_general_tools():
 
     async def check():
         with patch(
-            "app.services.knowledge_collaboration._build_model", return_value=FunctionModel(model)
+            "app.services.knowledge_collaboration._build_model", return_value=ScriptedModel(model)
         ):
             result, usage = await run_role(
                 "planner", {"question": "条款"}, resolve_generation_config({}), {}
@@ -299,6 +302,76 @@ def test_source_merge_retains_multiple_queries_and_unique_indices():
     assert len({s["id"] for s in result}) == 10
 
 
+def test_standalone_role_revalidates_owner_before_schema_retry():
+    from app.core.exceptions import AuthorizationError
+    from app.db.models.user import User
+
+    async def check():
+        async with fixture() as (uid, _, bid, _):
+            calls = []
+
+            async def model(messages, info):
+                calls.append(True)
+                async with get_worker_db_context() as db:
+                    owner = await db.get(User, uid)
+                    owner.is_active = False
+                return model_response([tool_call("ResearchPlan", {})])
+
+            async def emit(*args):
+                pass
+
+            graph = build_collaboration_graph(
+                InMemorySaver(),
+                user_id=uid,
+                configuration=resolve_generation_config({}).model_dump(),
+                emit=emit,
+            )
+            with patch(
+                "app.services.knowledge_collaboration._build_model",
+                return_value=ScriptedModel(model),
+            ):
+                with pytest.raises(AuthorizationError):
+                    await graph.ainvoke(
+                        {"prompt": "条款", "base_ids": [str(bid)]},
+                        {"configurable": {"thread_id": str(uuid4())}},
+                    )
+            assert calls == [True]
+
+    asyncio.run(check())
+
+
+def test_researcher_checks_newly_retrieved_documents_before_model():
+    async def check():
+        async with fixture() as (uid, _, bid, source):
+            calls = []
+            stale = {**source, "document_id": str(uuid4())}
+
+            async def emit(*args):
+                pass
+
+            graph = build_collaboration_graph(
+                InMemorySaver(),
+                user_id=uid,
+                configuration=resolve_generation_config({}).model_dump(),
+                emit=emit,
+            )
+            with (
+                patch("app.services.knowledge_collaboration.run_role", side_effect=roles(calls)),
+                patch(
+                    "app.services.knowledge.KnowledgeService.search",
+                    side_effect=search_result([stale]),
+                ),
+            ):
+                with pytest.raises(NotFoundError):
+                    await graph.ainvoke(
+                        {"prompt": "条款", "base_ids": [str(bid)]},
+                        {"configurable": {"thread_id": str(uuid4())}},
+                    )
+            assert calls == ["planner"]
+
+    asyncio.run(check())
+
+
 def test_cancel_collaboration_prevents_review_and_result():
     from app.services.agent_run import AgentRunService
 
@@ -307,14 +380,14 @@ def test_cancel_collaboration_prevents_review_and_result():
             calls, entered, stopped = [], asyncio.Event(), asyncio.Event()
             normal = roles(calls)
 
-            async def invoke(role, *args):
+            async def invoke(role, *args, **kwargs):
                 if role == "writer":
                     entered.set()
                     try:
                         await asyncio.sleep(30)
                     finally:
                         stopped.set()
-                return await normal(role, *args)
+                return await normal(role, *args, **kwargs)
 
             run = await create(uid, mode="knowledge_collaboration", knowledge_base_ids=[bid])
             with (

@@ -4,12 +4,9 @@
 import hashlib
 import json
 import re
-from dataclasses import replace
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from pydantic_ai.capabilities import AbstractCapability
-from pydantic_ai.messages import ToolCallPart
 
 from app.core.exceptions import BadRequestError
 
@@ -128,17 +125,3 @@ def evidence_pending(round_number):
         kind="evidence",
         round_number=round_number,
     )
-
-
-class ClarificationFirstGuard(AbstractCapability):
-    """No tool from a mixed ask-and-execute response may race ahead of the question."""
-
-    async def after_model_request(self, ctx, *, request_context, response):
-        questions = [
-            p for p in response.parts if isinstance(p, ToolCallPart) and p.tool_name == "ask_user"
-        ]
-        if questions:
-            # Return a coherent model history containing only calls that can be resolved.
-            # The model can request other tools again after the user has answered.
-            return replace(response, parts=questions[:1])
-        return response

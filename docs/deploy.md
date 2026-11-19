@@ -1,142 +1,127 @@
 # Deployment
 
-The project uses Docker Compose, GitHub Actions and an external Nginx reverse proxy.
+Production uses `docker-compose.prod.yml`, PostgreSQL with pgvector, Redis, an
+external model gateway network and an external Nginx reverse proxy. Releases
+have a maintenance window: stop ingress and writers, back up, migrate, then start
+all runtime services from the prepared images. Do not start new API/workers before
+migrations, or use the development Compose file for a production upgrade.
 
-- ✅ Docker / `docker-compose.yml`
-- ❌ No Kubernetes manifests
-- CI: `github`
-- Reverse proxy: Nginx
+## Prepare an upgrade
 
+Keep real credentials in `backend/.env` and out of Git. Configure the gateway
+container URL and `MODEL_GATEWAY_NETWORK`; that external network must already
+exist. The external `agent_rag_models` and `agent_rerank_models` volumes must
+contain the required models. See [configuration.md](configuration.md) and
+[storage-maintenance.md](storage-maintenance.md). The release command upgrades an
+existing healthy installation; it does not provision a new database or model cache.
 
----
-
-
-## Docker Compose (single host)
-
-For staging or small production:
-
-```bash
-# 1. Configure
-cp backend/.env.example backend/.env
-# Edit backend/.env with production values (see ENV_VARS.md)
-
-# 2. Build + start
-docker compose up -d --build
-
-# 3. Apply migrations
-docker compose exec app uv run alembic upgrade head
-
-
-# 4. Verify
-curl http://localhost:38001/api/v1/health
-# Frontend: http://localhost:38000
-```
-
-
-### Serving from a host that isn't localhost
-
-The defaults assume the browser runs on the Docker host. Opening the app from
-another machine (a LAN IP, a staging box, a tunnel) needs two things set, and
-both fail in a way that looks like something else:
+Review and commit the combined source changes, run the release regressions, and
+choose a unique image version. From the repository root:
 
 ```bash
-# In the .env next to docker-compose.prod.yml
-PUBLIC_HOST=10.0.0.5     # an address the BROWSER can reach
-COOKIE_SECURE=false      # ONLY if you serve over plain http:// (see below)
+# Read-only: prints the release order, makes no Docker calls.
+make prod
+
+# Builds app and frontend only; does not recreate running services.
+make prod-prepare RELEASE_VERSION=v2026.11.19-rc1
 ```
+
+Preparation requires a clean working tree. It builds `agent_backend:<version>`
+and `agent-frontend:<version>` with the current Git revision label, and records
+exact image IDs in `backups/prepared/<version>/prepared.json`. Existing tags
+belonging to another revision are rejected. Keep source, images and configuration
+frozen between preparation and application. A failed preparation leaves private
+evidence; review it and use a fresh version for another attempt.
+
+`NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` and `NEXT_PUBLIC_SITE_URL` are baked
+into the frontend at build time. Set reachable public HTTPS/WSS addresses before
+preparing images. For trusted HTTP-only testing, `COOKIE_SECURE=false` allows the
+auth cookies; production should use TLS. Nginx must forward WebSocket Upgrade
+headers for `/api/v1/ws`. Use `nginx/nginx.conf` as a template, updating domain
+names and certificate paths.
+
+## Verify the candidate
+
+Run backend tests with Python 3.12 and a disposable PostgreSQL database, migration
+upgrade/downgrade/upgrade checks, frontend unit/type checks, desktop/mobile browser
+contracts, and `python3 -m unittest discover -s scripts/tests -p test_release.py`.
+Tests must not discover the production `.env` or connect to production databases.
+See [testing.md](testing.md) for database test setup.
+
+The explicit live probe uses synthetic input and no business records. It makes at
+most three bounded model requests and two small sandbox jobs. Use the prepared
+image and the configured gateway network:
 
 ```bash
-# NEXT_PUBLIC_* is inlined into the bundle, so this needs a real rebuild
-docker compose -f docker-compose.prod.yml build frontend
-docker compose -f docker-compose.prod.yml up -d frontend
+BACKEND_IMAGE=agent_backend:v2026.11.19-rc1 \
+FRONTEND_IMAGE=agent-frontend:v2026.11.19-rc1 \
+docker compose --env-file backend/.env -f docker-compose.prod.yml \
+  run --rm --no-deps -T app python scripts/release_smoke.py --live --model --sandbox
 ```
 
-1. **`NEXT_PUBLIC_*` is baked in at build time.** Next.js inlines those values
-   into the JavaScript the browser downloads, so a runtime env var cannot change
-   them — `docker-compose.prod.yml` passes them as `build:` args instead. Miss
-   this and the chat socket dials `ws://localhost:38001` from
-   the visitor's own machine and the input stays disabled ("Offline").
-2. **The auth cookies are `Secure` in production, and a browser silently drops a
-   `Secure` cookie that arrives over `http://`.** Login looks like it worked (the
-   user comes back in the response body) and then every request carrying no
-   cookie answers 401, `/api/auth/me` included, so the token never refreshes.
-   TLS is the real fix; `COOKIE_SECURE=false` is the escape hatch for a trusted
-   network.
+The script defaults to offline mode without `--live`. Missing or incompatible
+sandbox configuration is an unpassed check. Enable Python/file execution only
+after the sandbox probe passes, or explicitly release with that capability disabled.
+The probes do not replace a real authenticated login/chat/reconnect acceptance
+check after cutover. Keep probe reports and deployment evidence private.
 
-Reaching the backend matters too: the chat socket is opened by the browser
-directly against `NEXT_PUBLIC_WS_URL`, so either publish the backend port or
-route `/api/v1/ws` through your proxy with the `Upgrade` headers set.
+## Apply during maintenance
 
-### Reverse proxy
-Nginx config in `nginx/nginx.conf` proxies `/` → frontend, `/` on `api.DOMAIN` → backend, and `/api/v1/ws` → backend WebSocket. Update `server_name` and the TLS cert paths there.
-
-
-
-
-## Platform-specific quickstarts
-
-### Fly.io
+Before applying, enable maintenance at the external reverse proxy and block new
+API/WebSocket traffic. Drain active jobs and check there are no external workers
+or scheduled clients still writing the same database/media. The script controls
+only this Compose installation; it does not configure Nginx or freeze external
+integrations. Ensure backup storage has space and keep the maintenance window open
+until acceptance is complete.
 
 ```bash
-fly launch --name agent-backend --region waw
-fly postgres create --name agent-db
-fly postgres attach agent-db
-# Redis: use Upstash (`fly redis create`) or Fly's Tigris
-fly secrets set $(cat backend/.env | grep -v '^#' | xargs)
-fly deploy
+# Explicit operation: stops production services and changes the database.
+make prod-apply RELEASE_VERSION=v2026.11.19-rc1 \
+  BACKUP_DIR=backups/releases/v2026.11.19-rc1
 ```
 
-### Railway
+`BACKUP_DIR` must be new. The command:
 
-1. Connect repo, pick Dockerfile-based deploy.
-2. Add env vars from `backend/.env` to Railway service.
-3. Provision PostgreSQL plugin → `DATABASE_URL` auto-injected.
-4. Provision Redis plugin → `REDIS_URL` auto-injected.
-5. Deploy.
+1. Checks the clean source revision, prepared image IDs, gateway network and healthy
+   existing PostgreSQL/Redis. Records old image IDs and preserves rollback tags.
+2. Stops frontend, API, task worker, Celery worker/beat, Flower and reranker.
+3. Dumps the whole database, including LangGraph checkpoint tables, and archives
+   media. Fully parses the database archive and checks media gzip integrity;
+   records SHA-256 hashes. These checks do not replace a restore rehearsal.
+4. Runs `agent db upgrade` and LangGraph checkpoint schema setup in one-shot
+   containers from the new backend image while writers remain stopped.
+5. Starts matching API/workers/frontend/reranker, checks exact image IDs, waits
+   for readiness and checks the local Celery worker responds.
 
-### Render
+Logs, backups and manifests have restrictive permissions and are Git-ignored.
+Copy validated backups to separately managed storage. Never publish interpolated
+Compose configuration: it contains credentials.
 
-1. Create Web Service → docker, point at `backend/Dockerfile`.
-2. Create Static Site for frontend (build cmd: `bun install && bun run build`, output dir: `.next`).
-3. Create PostgreSQL → copy DATABASE_URL.
-4. Add env vars; deploy.
+## Acceptance and recovery
 
-### Vercel (frontend only)
+API `/api/v1/health` is liveness; `/api/v1/health/ready` checks database and Redis
+readiness. Container health uses readiness. The task worker's health requires
+recent successful database progress from both dispatch loops; process existence
+alone is insufficient. Frontend `/api/health/live` checks the frontend process;
+`/api/health` retains the backend connectivity check used by the UI.
 
-The frontend is a Next.js app — works on Vercel out of the box.
+Before reopening ingress, verify the expected Alembic revision, login, a normal
+chat turn, tool streaming, reload/reconnect recovery, a waiting clarification,
+source citations and generated file access where enabled. Check logs and queue
+state. Readiness alone does not establish model or sandbox availability.
 
-```bash
-cd frontend
-vercel
-```
+Failure before migrations restart only the previously running existing containers.
+After migration starts, failure keeps all writers stopped for investigation. Keep
+proxy maintenance enabled and inspect the private evidence; do not simply rerun
+an apply with the same backup directory.
 
-Set `BACKEND_URL`, `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` (`wss://…`) and
-`NEXT_PUBLIC_SITE_URL` in the Vercel dashboard, pointing at your backend host,
-then redeploy — the `NEXT_PUBLIC_*` ones are only picked up by a fresh build.
+Older runtimes may not understand newly written LangGraph checkpoints. There is
+no automatic `alembic downgrade -1` or image-only rollback. Prefer a forward fix.
+If restoring is necessary, stop all writers and restore the matched pre-release
+database **and media** into an isolated environment first, verify the old image
+and schema/checkpoint compatibility, then perform a reviewed full recovery. Work
+accepted after the backup needs reconciliation. Do not delete volumes, flush
+queues, or prune shared-host images as part of rollback.
 
-
----
-
-## Environment validation in production
-
-Before promoting to prod, run:
-
-```bash
-docker compose exec app uv run python -c "from app.core.config import settings; print('OK')"
-```
-
-Catches missing required env vars early. See `ENV_VARS.md` for the full list.
-
-## Post-deploy checks
-
-- [ ] `/api/v1/health` returns `{"status": "ok"}`
-- [ ] `alembic current` matches expected revision
-- [ ] Frontend renders, login flow works end-to-end
-- [ ] Logs flowing to your aggregator + Logfire receiving traces
-- [ ] Reverse proxy enforces HTTPS
-
-## Rollback
-
-- **Schema:** `alembic downgrade -1` rolls back one migration. Test on staging first.
-- **Code:** redeploy previous image tag. Pin tags (`v1.2.3`), never deploy `latest` to prod.
-- **Data:** restore from your most recent backup; verify `alembic current` matches the data version.
+GitHub upload and production deployment are separate operations. The release
+script performs neither a Git push nor reverse-proxy maintenance changes.

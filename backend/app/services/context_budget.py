@@ -2,7 +2,8 @@
 
 import json
 
-from pydantic_ai.capabilities import AbstractCapability
+from langchain_core.messages import BaseMessage
+from langchain_core.tools import BaseTool
 
 from app.core.config import settings
 from app.core.exceptions import BadRequestError
@@ -78,11 +79,17 @@ def request_cost(value):
 
     if value is None:
         return 0
+    if isinstance(value, BaseMessage):
+        return request_cost(value.model_dump())
+    if isinstance(value, BaseTool):
+        return request_cost(value.args_schema.model_json_schema()) + cost(value.description)
     if isinstance(value, bytes):
         return 2000
     if isinstance(value, str):
         return cost(value)
     if isinstance(value, Mapping):
+        if value.get("type") == "image_url" and isinstance(value.get("image_url"), Mapping):
+            return 2000
         return 8 + sum(cost(str(k)) + request_cost(v) for k, v in value.items())
     if isinstance(value, (list, tuple)):
         return 8 + sum(request_cost(v) for v in value)
@@ -91,19 +98,16 @@ def request_cost(value):
     return cost(str(value))
 
 
-class ContextBudgetGuard(AbstractCapability):
+class ContextBudgetGuard:
     """Check every provider call, including growing tool results and HITL resumes."""
 
     def __init__(self, config, validate=None):
         self.config, self.validate = config, validate
 
-    async def before_model_request(self, ctx, request_context):
+    async def check(self, messages, parameters):
         if self.validate:
             await self.validate()
-        estimated = request_cost(request_context.messages) + request_cost(
-            request_context.model_request_parameters
-        )
+        estimated = request_cost(messages) + request_cost(parameters)
         limit = input_budget(self.config) + SYSTEM_RESERVE
         if estimated + 512 > limit:
             raise BadRequestError(message="本轮对话或工具结果已达上下文预算，请拆分任务后继续")
-        return request_context

@@ -1,18 +1,14 @@
 """Critical versus optional inputs, fixed scopes and bounded model assessment."""
 
 import asyncio
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic import ValidationError
-from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
-from pydantic_ai.models.function import FunctionModel
 
 from app.core.exceptions import BadRequestError
 from app.services.clarification import (
     SKIP,
-    ClarificationFirstGuard,
     ClarificationQuestion,
     answered_items,
     pending_questions,
@@ -26,6 +22,7 @@ from app.services.task_readiness import (
     assess,
     assess_with_model,
 )
+from tests.model_fixtures import ScriptedModel, model_response, text_part, tool_call
 
 
 def pending(required=True, **extra):
@@ -64,30 +61,16 @@ def test_optional_skip_closed_options_and_question_identity():
 
 
 def test_mixed_model_response_defers_all_other_tools_before_dispatch():
-    async def check():
-        question = ToolCallPart(
-            "ask_user", {"questions": [{"question": "数据？"}]}, tool_call_id="q"
-        )
-        original = ModelResponse(
-            parts=[
-                ToolCallPart("create_document", {}, tool_call_id="doc"),
-                TextPart("开始执行"),
-                question,
-            ]
-        )
-        response = await ClarificationFirstGuard().after_model_request(
-            None, request_context=None, response=original
-        )
-        assert response.parts == [question] and len(original.parts) == 3
-        other = ModelResponse(parts=[TextPart("直接回答")])
-        assert (
-            await ClarificationFirstGuard().after_model_request(
-                None, request_context=None, response=other
-            )
-            is other
-        )
+    from app.agents.runtime import clarification_first
 
-    asyncio.run(check())
+    question = tool_call("ask_user", {"questions": [{"question": "数据？"}]}, "q")
+    original = model_response(
+        parts=[tool_call("create_document", {}, "doc"), text_part("开始执行"), question]
+    )
+    response = clarification_first(original)
+    assert response.tool_calls == [question] and len(original.tool_calls) == 2
+    other = model_response(parts=[text_part("直接回答")])
+    assert clarification_first(other) is other
 
 
 def test_clear_questions_skip_extra_model_call_and_preferences_do_not_block():
@@ -135,13 +118,13 @@ def test_real_structured_model_contract_and_fail_closed_without_tools(controls):
         def model(messages, info):
             observed.append(str(messages))
             assert info.function_tools == []
-            assert info.model_settings["timeout"] == 40
+            assert "timeout" not in info.model_settings
             assert info.model_settings.get("openai_reasoning_effort") == (
                 "low" if controls else None
             )
-            return ModelResponse(
+            return model_response(
                 parts=[
-                    ToolCallPart(
+                    tool_call(
                         info.output_tools[0].name,
                         {
                             "issues": [
@@ -160,7 +143,7 @@ def test_real_structured_model_contract_and_fail_closed_without_tools(controls):
 
         validate = AsyncMock()
         with (
-            patch("app.services.task_readiness._build_model", return_value=FunctionModel(model)),
+            patch("app.services.task_readiness._build_model", return_value=ScriptedModel(model)),
             patch("app.services.task_readiness.model_controls", return_value=controls),
         ):
             result, usage = await assess_with_model(
@@ -182,8 +165,8 @@ def test_real_structured_model_contract_and_fail_closed_without_tools(controls):
         validate.assert_awaited_once()
         with (
             patch(
-                "app.services.task_readiness.Agent",
-                return_value=SimpleNamespace(run=AsyncMock(side_effect=TimeoutError())),
+                "app.services.task_readiness.structured_call",
+                AsyncMock(side_effect=TimeoutError()),
             ),
             patch("app.services.task_readiness._build_model"),
             pytest.raises(ReadinessUnavailable),

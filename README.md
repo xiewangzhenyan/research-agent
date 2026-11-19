@@ -26,7 +26,7 @@
 | --- | --- |
 | 前端 | Next.js、React、TypeScript、Tailwind CSS |
 | API | FastAPI、Pydantic |
-| Agent 执行 | PydanticAI |
+| Agent 执行 | LangGraph 原生模型／工具节点 + langchain-openai Responses 适配 |
 | 工作流 | LangGraph |
 | 数据与检索 | PostgreSQL、pgvector、本地中文 Embedding/Rerank |
 | 后台处理 | 独立任务 worker、Celery、Redis |

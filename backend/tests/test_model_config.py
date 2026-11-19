@@ -7,7 +7,6 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from pydantic_ai.models.test import TestModel
 
 from app.agents.assistant import get_agent
 from app.agents.tool_catalog import CHAT_TOOL_NAMES
@@ -17,6 +16,7 @@ from app.core.exceptions import BadRequestError
 from app.main import app
 from app.services import agent_capabilities, agent_session, knowledge_answer
 from app.services.model_config import resolve_generation_config
+from tests.model_fixtures import ScriptedModel
 
 
 @pytest.fixture(autouse=True)
@@ -78,12 +78,12 @@ def test_policy_snapshot_changes_when_defaults_change(monkeypatch):
 
 
 def test_registered_tools_and_prompt_match_real_runtime():
-    with patch("app.agents.assistant._build_model", return_value=TestModel()):
+    with patch("app.agents.assistant._build_model", return_value=ScriptedModel()):
         assistant = get_agent()
-        assert set(assistant.agent._function_toolset.tools) == set(CHAT_TOOL_NAMES)
+        assert set(assistant.agent.tools) == set(CHAT_TOOL_NAMES)
         assert "You have a `run_python`" not in assistant.system_prompt
         assert "You can render charts" not in assistant.system_prompt
-        assert assistant.agent.model_settings == assistant.configuration.provider_settings()
+        assert assistant.agent.configuration == assistant.configuration
 
 
 @pytest.mark.anyio
@@ -104,7 +104,7 @@ async def test_grounded_and_rewrite_share_sampling_but_bound_auxiliary_output():
         return_value=SimpleNamespace(output=knowledge_answer.GroundedAnswer(sufficient=False))
     )
     with (
-        patch.object(knowledge_answer, "Agent", return_value=agent) as factory,
+        patch.object(knowledge_answer, "structured_call", agent.run) as factory,
         patch.object(knowledge_answer, "_build_model"),
     ):
         await knowledge_answer.grounded_answer(
@@ -143,12 +143,7 @@ async def test_session_forwards_and_persists_effective_configuration(strict):
     runtime = MagicMock()
     runtime.model_name = "standard"
 
-    @asynccontextmanager
-    async def iteration(*args, **kwargs):
-        yield SimpleNamespace(result=SimpleNamespace(output="answer"))
-
-    runtime.agent.iter = iteration
-    session._stream_agent_run = AsyncMock()
+    runtime.execute = AsyncMock(return_value={"output": "answer"})
     session._build_multimodal_input = AsyncMock(return_value="question")
     with (
         patch.object(agent_session, "get_db_context", database),
@@ -314,10 +309,9 @@ def test_top_p_clears_server_temperature_default_and_rejects_two_overrides(monke
 async def test_generation_controls_reach_responses_http_body(monkeypatch, sampling):
     import json
 
-    from openai import AsyncOpenAI
-    from pydantic_ai import Agent
-    from pydantic_ai.models.openai import OpenAIResponsesModel
-    from pydantic_ai.providers.openai import OpenAIProvider
+    from langchain_openai import ChatOpenAI
+
+    from app.agents.model import provider_options
 
     monkeypatch.setattr(settings, "AI_AVAILABLE_MODELS", ["gpt-4.1"])
     monkeypatch.setattr(settings, "AI_MODEL_CONTROLS", {"gpt-4.1": ["temperature", "top_p"]})
@@ -348,14 +342,16 @@ async def test_generation_controls_reach_responses_http_body(monkeypatch, sampli
 
     config = resolve_generation_config({"model": "gpt-4.1", "max_output_tokens": 2048, **sampling})
     async with httpx.AsyncClient(transport=httpx.MockTransport(request)) as http:
-        model = OpenAIResponsesModel(
-            "gpt-4.1",
-            provider=OpenAIProvider(
-                openai_client=AsyncOpenAI(api_key="test-only", http_client=http)
-            ),
+        model = ChatOpenAI(
+            model="gpt-4.1",
+            api_key="test-only",
+            http_async_client=http,
+            use_responses_api=True,
+            output_version="responses/v1",
+            max_retries=0,
         )
-        result = await Agent(model).run("test", model_settings=config.provider_settings())
-    assert result.output == "ok"
+        result = await model.bind(**provider_options(config.provider_settings())).ainvoke("test")
+    assert result.text == "ok"
     assert bodies[0]["max_output_tokens"] == 2048
     assert "max_tokens" not in bodies[0]
     for name, value in sampling.items():

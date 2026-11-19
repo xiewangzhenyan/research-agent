@@ -32,7 +32,7 @@ class EffectiveGenerationConfig(BaseModel):
     def provider_settings(self, *, include_output_limit: bool = True) -> dict:
         result = {}
         if include_output_limit and self.max_output_tokens is not None:
-            # PydanticAI maps max_tokens to Responses.max_output_tokens.
+            # The Responses transport maps max_tokens to max_output_tokens.
             result["max_tokens"] = self.max_output_tokens
         if self.top_p is not None:
             result["top_p"] = self.top_p

@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     SANDBOX_MCP_IMAGE_ID: str = ""
     SANDBOX_ALLOW_PUBLIC: bool = False
 
+    # Independent decision service; generation credentials are never reused.
+    JEV_ROUTING_MODE: Literal["off", "shadow", "active"] = "off"
+    JEV_API_KEY: SecretStr = SecretStr("")
+    JEV_MODEL: str = Field(default="jev-1.14.0", min_length=1, max_length=100)
+    JEV_TIMEOUT_SECONDS: float = Field(default=2.0, ge=0.1, le=5.0)
+    JEV_MIN_CONFIDENCE: float = Field(default=0.8, ge=0.5, le=1.0)
+
     RAG_SEARCH_BACKEND: Literal["legacy", "postgres"] = "legacy"
     RAG_MODEL_CACHE: Path = Path("/app/models_cache")
     RAG_RERANK_URL: str = "http://reranker:38004"
@@ -169,7 +176,7 @@ class Settings(BaseSettings):
         "gpt-5",
         "gpt-4.1",
     ]
-    AI_FRAMEWORK: str = "pydantic_ai"
+    AI_FRAMEWORK: str = "langgraph"
     LLM_PROVIDER: str = "openai"
 
     # Stable server-only key for encrypted MCP credentials (shared with task workers).

@@ -16,7 +16,6 @@ from app.core.config import settings
 from app.db.session import close_db
 from app.core.logfire_setup import instrument_app, setup_logfire
 from app.core.logfire_setup import instrument_asyncpg
-from app.core.logfire_setup import instrument_pydantic_ai
 from app.core.logging import setup_logging
 from app.core.middleware import RequestIDMiddleware
 from app.clients.redis import RedisClient
@@ -40,7 +39,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[LifespanState, None]:
     state: LifespanState = {}
     setup_logfire()
     instrument_asyncpg()
-    instrument_pydantic_ai()
     redis_client = RedisClient()
     await redis_client.connect()
     state["redis"] = redis_client
@@ -101,7 +99,7 @@ AI workspace for knowledge retrieval, conversation, and persistent agent tasks.
 - **API Key**: Header-based API key authentication
 - **Database**: Async database operations
 - **Redis**: Caching and session storage
-- **AI Agent**: PydanticAI-powered conversational assistant
+- **AI Agent**: LangGraph-powered conversational assistant
 - **Observability**: Logfire integration for tracing and monitoring
 
 ## Documentation

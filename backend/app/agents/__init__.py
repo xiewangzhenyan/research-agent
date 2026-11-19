@@ -1,4 +1,4 @@
-"""AI Agents module using PydanticAI.
+"""AI Agents module using LangGraph.
 
 This module contains agents that handle AI-powered interactions.
 Tools are defined in the tools/ subdirectory.

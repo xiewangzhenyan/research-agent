@@ -9,25 +9,10 @@ from typing import Any, ClassVar
 from uuid import UUID, uuid4
 
 from fastapi import WebSocket, WebSocketDisconnect
-from pydantic_ai import (
-    Agent,
-    FinalResultEvent,
-    FunctionToolCallEvent,
-    FunctionToolResultEvent,
-    PartDeltaEvent,
-    PartStartEvent,
-    TextPartDelta,
-    ToolCallPartDelta,
-)
-from pydantic_ai.messages import (
-    BinaryContent,
-    TextPart,
-    ThinkingPart,
-    ThinkingPartDelta,
-)
 from sqlalchemy import select
 
 from app.agents.assistant import Deps, get_agent
+from app.agents.messages import image_content
 from app.api.deps import get_conversation_service
 from app.core.exceptions import AppException, BadRequestError
 from app.db.models.conversation import Message
@@ -370,14 +355,49 @@ class AgentSession:
                 )
                 await send_event(self.websocket, "final_result", {"output": output})
             else:
-                async with assistant.agent.iter(
-                    user_input, deps=self.deps, message_history=model_history
-                ) as agent_run:
-                    await self._stream_agent_run(
-                        agent_run, user_message, collected_tool_calls, collected_thinking
+                for tc in collected_tool_calls:
+                    await send_event(
+                        self.websocket, "tool_call", {k: v for k, v in tc.items() if k != "result"}
                     )
-                if agent_run.result is not None:
-                    output = agent_run.result.output
+                    await send_event(
+                        self.websocket,
+                        "tool_result",
+                        {"tool_call_id": tc["tool_call_id"], "content": tc["result"]},
+                    )
+
+                async def event(item):
+                    kind = item["kind"]
+                    if kind in ("text_delta", "thinking_delta"):
+                        if kind == "thinking_delta":
+                            collected_thinking.append(item["text"])
+                        await send_event(
+                            self.websocket, kind, {"index": 0, "content": item["text"]}
+                        )
+                    elif kind == "tool_call":
+                        call = item["call"]
+                        value = {
+                            "tool_call_id": call["id"],
+                            "tool_name": call["name"],
+                            "args": call["args"],
+                        }
+                        collected_tool_calls.append(value)
+                        await send_event(self.websocket, "tool_call", value)
+                    elif kind == "tool_result":
+                        call = item["call"]
+                        for tc in collected_tool_calls:
+                            if tc["tool_call_id"] == call["id"]:
+                                tc["result"] = item["content"]
+                        await send_event(
+                            self.websocket,
+                            "tool_result",
+                            {"tool_call_id": call["id"], "content": item["content"]},
+                        )
+
+                result = await assistant.execute(
+                    user_input, deps=self.deps, history=model_history, on_event=event
+                )
+                output = result["output"]
+                await send_event(self.websocket, "final_result", {"output": output})
             if output is not None:
                 self.conversation_history.extend(
                     [
@@ -457,7 +477,7 @@ class AgentSession:
             return user_message
 
         storage = get_file_storage()
-        image_parts: list[BinaryContent] = []
+        image_parts: list[dict] = []
         file_context_parts: list[str] = []
         async with get_db_context() as file_db:
             attached_files = await get_conversation_service(file_db).list_attached_files(
@@ -468,7 +488,7 @@ class AgentSession:
                     if chat_file.file_type == "image":
                         file_data = await storage.load(chat_file.storage_path)
                         image_parts.append(
-                            BinaryContent(data=file_data, media_type=chat_file.mime_type)
+                            image_content(data=file_data, media_type=chat_file.mime_type)
                         )
                     elif chat_file.parsed_content:
                         file_context_parts.append(
@@ -481,128 +501,3 @@ class AgentSession:
         if image_parts:
             return [full_text, *image_parts]
         return full_text
-
-    async def _stream_agent_run(
-        self,
-        agent_run: Any,
-        user_message: str,
-        collected_tool_calls: list[dict[str, Any]],
-        collected_thinking: list[str],
-    ) -> None:
-        """Drive the agent_run iterator, dispatching each node to its streaming helper."""
-        retrieval_sent = False
-        async for node in agent_run:
-            if Agent.is_user_prompt_node(node):
-                prompt_text = (
-                    node.user_prompt if isinstance(node.user_prompt, str) else user_message
-                )
-                await send_event(self.websocket, "user_prompt_processed", {"prompt": prompt_text})
-            elif Agent.is_model_request_node(node):
-                await send_event(self.websocket, "model_request_start", {})
-                for tc in collected_tool_calls:
-                    if tc["tool_name"] == "search_knowledge_base" and not retrieval_sent:
-                        await send_event(
-                            self.websocket,
-                            "tool_call",
-                            {k: v for k, v in tc.items() if k != "result"},
-                        )
-                        await send_event(
-                            self.websocket,
-                            "tool_result",
-                            {"tool_call_id": tc["tool_call_id"], "content": tc["result"]},
-                        )
-                retrieval_sent = True
-                async with node.stream(agent_run.ctx) as request_stream:
-                    await self._stream_request_events(request_stream, collected_thinking)
-            elif Agent.is_call_tools_node(node):
-                await send_event(self.websocket, "call_tools_start", {})
-                async with node.stream(agent_run.ctx) as handle_stream:
-                    await self._stream_tool_events(handle_stream, collected_tool_calls)
-            elif Agent.is_end_node(node) and agent_run.result is not None:
-                await send_event(
-                    self.websocket, "final_result", {"output": agent_run.result.output}
-                )
-
-    async def _stream_request_events(
-        self, request_stream: Any, collected_thinking: list[str]
-    ) -> None:
-        """Forward model-request events (text/thinking/tool deltas + final-result start)."""
-        async for event in request_stream:
-            if isinstance(event, PartStartEvent):
-                await send_event(
-                    self.websocket,
-                    "part_start",
-                    {"index": event.index, "part_type": type(event.part).__name__},
-                )
-                if isinstance(event.part, TextPart) and event.part.content:
-                    await send_event(
-                        self.websocket,
-                        "text_delta",
-                        {"index": event.index, "content": event.part.content},
-                    )
-                elif isinstance(event.part, ThinkingPart) and event.part.content:
-                    if collected_thinking:
-                        collected_thinking.append(" ")
-                    collected_thinking.append(event.part.content)
-                    await send_event(
-                        self.websocket,
-                        "thinking_delta",
-                        {"index": event.index, "content": event.part.content},
-                    )
-            elif isinstance(event, PartDeltaEvent):
-                if isinstance(event.delta, TextPartDelta):
-                    await send_event(
-                        self.websocket,
-                        "text_delta",
-                        {"index": event.index, "content": event.delta.content_delta},
-                    )
-                elif isinstance(event.delta, ThinkingPartDelta):
-                    if event.delta.content_delta:
-                        collected_thinking.append(event.delta.content_delta)
-                        await send_event(
-                            self.websocket,
-                            "thinking_delta",
-                            {"index": event.index, "content": event.delta.content_delta},
-                        )
-                elif isinstance(event.delta, ToolCallPartDelta):
-                    await send_event(
-                        self.websocket,
-                        "tool_call_delta",
-                        {"index": event.index, "args_delta": event.delta.args_delta},
-                    )
-            elif isinstance(event, FinalResultEvent):
-                await send_event(
-                    self.websocket,
-                    "final_result_start",
-                    {"tool_name": event.tool_name},
-                )
-
-    async def _stream_tool_events(
-        self,
-        handle_stream: Any,
-        collected_tool_calls: list[dict[str, Any]],
-    ) -> None:
-        """Forward tool-call/result events; collect tool calls (with results) for persistence."""
-        pending: dict[str, dict[str, Any]] = {}
-        async for tool_event in handle_stream:
-            if isinstance(tool_event, FunctionToolCallEvent):
-                tc = {
-                    "tool_call_id": tool_event.part.tool_call_id,
-                    "tool_name": tool_event.part.tool_name,
-                    "args": tool_event.part.args_as_dict(raise_if_invalid=False),
-                }
-                collected_tool_calls.append(tc)
-                pending[tool_event.part.tool_call_id] = tc
-                await send_event(self.websocket, "tool_call", tc)
-            elif isinstance(tool_event, FunctionToolResultEvent):
-                tc = pending.get(tool_event.tool_call_id)
-                if tc is not None:
-                    tc["result"] = str(tool_event.result.content)
-                await send_event(
-                    self.websocket,
-                    "tool_result",
-                    {
-                        "tool_call_id": tool_event.tool_call_id,
-                        "content": str(tool_event.result.content),
-                    },
-                )

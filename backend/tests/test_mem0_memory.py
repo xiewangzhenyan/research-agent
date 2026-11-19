@@ -6,12 +6,11 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
-from pydantic_ai.messages import ModelResponse, ToolCallPart
-from pydantic_ai.models.function import FunctionModel
 
 from app.schemas.memory import ExtractionResult
 from app.services import mem0_memory as module
 from app.services.model_config import resolve_generation_config
+from tests.model_fixtures import ScriptedModel, model_response, tool_call
 
 TEXT = "之后请使用中文回答，涉及的专业术语保留英文名称。"
 VECTOR = [1.0] + [0.0] * 511
@@ -54,12 +53,10 @@ async def test_real_sdk_stages_automatic_facts_without_sqlite_or_factory_connect
 
     def model(messages, info):
         calls.append(messages)
-        return ModelResponse(
-            parts=[ToolCallPart(info.output_tools[0].name, {"memories": [fact()]})]
-        )
+        return model_response(parts=[tool_call(info.output_tools[0].name, {"memories": [fact()]})])
 
     with (
-        patch.object(module, "_build_model", return_value=FunctionModel(model)),
+        patch.object(module, "_build_model", return_value=ScriptedModel(model)),
         patch("app.services.memory_semantic.encode_query", return_value=(VECTOR, "test")),
         patch("app.services.memory_semantic.encode_note", return_value=(VECTOR, "test")) as encode,
         patch("mem0.memory.main.SQLiteManager", side_effect=AssertionError("No SQLite")),
@@ -93,10 +90,10 @@ async def test_sdk_preserves_authorized_correction_target_and_rejects_invented_q
                 fact("虚构的信息与用户无关", quote="从未在新消息出现的依据"),
             ]
         }
-        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, result)])
+        return model_response(parts=[tool_call(info.output_tools[0].name, result)])
 
     with (
-        patch.object(module, "_build_model", return_value=FunctionModel(model)),
+        patch.object(module, "_build_model", return_value=ScriptedModel(model)),
         patch("app.services.memory_semantic.encode_query", return_value=(VECTOR, "test")),
         patch("app.services.memory_semantic.encode_note", return_value=(VECTOR, "test")),
         patch("app.services.memory_semantic.fingerprint", return_value="test"),
@@ -118,12 +115,10 @@ async def test_sdk_hash_dedup_does_not_create_a_second_fact():
     old = item()
 
     def model(messages, info):
-        return ModelResponse(
-            parts=[ToolCallPart(info.output_tools[0].name, {"memories": [fact()]})]
-        )
+        return model_response(parts=[tool_call(info.output_tools[0].name, {"memories": [fact()]})])
 
     with (
-        patch.object(module, "_build_model", return_value=FunctionModel(model)),
+        patch.object(module, "_build_model", return_value=ScriptedModel(model)),
         patch("app.services.memory_semantic.encode_query", return_value=(VECTOR, "test")),
         patch("app.services.memory_semantic.encode_note", return_value=(VECTOR, "test")),
         patch("app.services.memory_semantic.fingerprint", return_value="test"),

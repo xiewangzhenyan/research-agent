@@ -9,7 +9,7 @@ knowledge retrieval, persistent tasks, source citations, and bounded multi-role 
 
 **Stack:** FastAPI + Pydantic v2, PostgreSQL
 , JWT + API Key auth, Redis
-, pydantic_ai (openai), Next.js 15 (i18n)
+, LangGraph + langchain-openai (Responses), Next.js 15 (i18n)
 
 ## Commands
 
@@ -45,6 +45,30 @@ backend/app/
 - Services raise `NotFoundError`, `AlreadyExistsError`
 - Separate `Create`, `Update`, `Response` schemas
 - Commands auto-discovered from `app/commands/`
+
+## Agent execution architecture
+
+- Keep LangGraph as the execution/checkpoint owner. Construct main and research
+  roles through `app/agents/factory.py`; use `policy.py` for shared lifecycle order.
+- Role prompts, output schemas and execution limits belong in role definitions.
+  Source/object authorization and worker fences remain mandatory in services.
+- WorkTask requirements, revisions, progress and artifact references come from
+  authorized business records, independently of compressed chat history.
+- Python may reuse explicitly selected task artifacts from that snapshot; recheck
+  live task scope and byte hashes, and share upload/input quotas. Integrity is not acceptance.
+- Persist code-produced, hash-bound artifact check reports. File structure checks
+  must remain separate from factual verification and user acceptance; legacy files stay unchecked.
+- Research evaluations bind reviews to exact input/output snapshots. Keep execution
+  failures, abstentions, missing runs and unreviewed claims separate; see docs/research-evaluation.md.
+- Fixed-source benchmarks share the production collaboration nodes through an explicit
+  adapter; production authorization stays mandatory. Replay must honor final publication decisions.
+- Evaluation batch resumes require matching execution manifests. Preserve failed attempts
+  and include their known costs; completed results and refusals must not be retried for a better score.
+- Isolate child-role inputs; exchange bounded `RoleHandoff` results with source
+  identities and code-assigned validation states. Quote checks are not fact verification.
+- Load bound Skill descriptions first, then files; load MCP tool summaries before
+  selected schemas. Do not expose loaders for unbound capability kinds.
+- See `docs/execution-harness.md` for the implemented boundaries and remaining work.
 
 ## Deployment disk budget
 

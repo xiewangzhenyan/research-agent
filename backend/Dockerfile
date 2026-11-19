@@ -28,6 +28,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Runtime stage
 FROM python:3.12-slim
 
+ARG RELEASE_REVISION=unknown
+LABEL org.opencontainers.image.revision=$RELEASE_REVISION
+
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
@@ -51,6 +54,6 @@ EXPOSE 38001
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:38001/api/v1/health')" || exit 1
+    CMD ["python", "-m", "app.healthcheck", "http"]
 
 CMD ["python", "-m", "cli.commands", "server", "run", "--host", "0.0.0.0", "--port", "38001"]

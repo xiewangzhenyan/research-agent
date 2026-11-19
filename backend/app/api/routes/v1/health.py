@@ -87,10 +87,10 @@ async def readiness_probe(
             "latency_ms": round(latency_ms, 2),
             "type": "postgresql",
         }
-    except Exception as e:
+    except Exception:
         checks["database"] = {
             "status": "unhealthy",
-            "error": str(e),
+            "error": "Database readiness check failed",
             "type": "postgresql",
         }
     try:
@@ -107,10 +107,10 @@ async def readiness_probe(
                 "status": "unhealthy",
                 "error": "Ping failed",
             }
-    except Exception as e:
+    except Exception:
         checks["redis"] = {
             "status": "unhealthy",
-            "error": str(e),
+            "error": "Redis readiness check failed",
         }
 
     # LLM provider — config-only check (avoid spending money on a probe call).

@@ -13,7 +13,6 @@ from uuid import uuid4
 
 import pytest
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from sqlalchemy import delete
 
 from app.core.config import settings
@@ -24,6 +23,7 @@ from app.repositories.agent_run import AgentRunRepository
 from app.schemas.agent_run import AgentRunCreate, AgentRunResume
 from app.services.agent_run import AgentRunService
 from app.worker.agent_runs import connect, try_run
+from tests.model_fixtures import ScriptedModel, tool_delta
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_TASK_DB_TESTS") != "1", reason="requires disposable database"
@@ -79,6 +79,28 @@ async def text_stream(messages, info):
     yield "任务完成，内容已持久保存。"
 
 
+def test_busy_worker_reports_database_verified_progress():
+    import time
+
+    async def stream(messages, info):
+        await asyncio.sleep(1.2)
+        yield "已完成"
+
+    async def check():
+        async with users() as (uid, _):
+            run = await create(uid)
+            pulses = []
+            with patch(
+                "app.agents.assistant._build_model",
+                return_value=ScriptedModel(stream_function=stream),
+            ):
+                await try_run(run.id, progress=lambda: pulses.append(time.monotonic()))
+            assert (await get(uid, run.id)).status == "completed"
+            assert len(pulses) > 2 and pulses[-1] - pulses[0] >= 1
+
+    asyncio.run(check())
+
+
 def test_submission_isolation_and_limit():
     async def check():
         async with users() as (a, b):
@@ -108,7 +130,7 @@ def test_duplicate_delivery_single_result_and_events():
             run = await create(a)
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=text_stream),
+                return_value=ScriptedModel(stream_function=text_stream),
             ):
                 await asyncio.gather(try_run(run.id), try_run(run.id))
                 await try_run(run.id)
@@ -126,17 +148,14 @@ def test_duplicate_delivery_single_result_and_events():
     asyncio.run(check())
 
 
-def test_durable_question_pause_and_resume():
+@pytest.mark.parametrize("legacy_messages", [False, True])
+def test_durable_question_pause_and_resume(legacy_messages):
     async def stream(messages, info):
-        if any(
-            getattr(p, "tool_name", None) == "ask_user" and p.part_kind == "tool-return"
-            for m in messages
-            for p in m.parts
-        ):
+        if any(getattr(p, "name", None) == "ask_user" and p.type == "tool" for p in messages):
             yield "收到补充信息，使用 Markdown 输出。"
         else:
             yield {
-                0: DeltaToolCall(
+                0: tool_delta(
                     name="ask_user",
                     json_args=json.dumps(
                         {
@@ -154,12 +173,64 @@ def test_durable_question_pause_and_resume():
             run = await create(a)
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 await try_run(run.id)
                 paused = await get(a, run.id)
                 assert paused.status == "waiting_input", paused.error
                 assert paused.pending_input["calls"][0]["call_id"] == "format-q"
+                if legacy_messages:
+                    # Simulate a pre-migration checkpoint waiting in the unchanged
+                    # outer await_input node, then resume through the real worker.
+                    from app.services.agent_run_graph import build_run_graph
+
+                    async with await connect() as conn:
+                        graph = build_run_graph(
+                            AsyncPostgresSaver(conn),
+                            user_id=a,
+                            configuration=run.effective_config,
+                            emit=None,
+                        )
+                        await graph.aupdate_state(
+                            {"configurable": {"thread_id": f"run:{run.id}"}},
+                            {
+                                "messages": json.dumps(
+                                    [
+                                        {
+                                            "kind": "request",
+                                            "parts": [
+                                                {
+                                                    "part_kind": "user-prompt",
+                                                    "content": "请整理一份任务说明",
+                                                }
+                                            ],
+                                        },
+                                        {
+                                            "kind": "response",
+                                            "parts": [
+                                                {
+                                                    "part_kind": "tool-call",
+                                                    "tool_name": "ask_user",
+                                                    "tool_call_id": "format-q",
+                                                    "args": {
+                                                        "questions": [
+                                                            {
+                                                                "question": "使用什么格式？",
+                                                                "options": ["Markdown", "纯文本"],
+                                                            }
+                                                        ]
+                                                    },
+                                                }
+                                            ],
+                                        },
+                                    ],
+                                    ensure_ascii=False,
+                                )
+                            },
+                        )
+                        # State updates schedule await_input again. Enter its
+                        # interrupt so the saved checkpoint matches an old run.
+                        await graph.ainvoke(None, {"configurable": {"thread_id": f"run:{run.id}"}})
                 reply = AgentRunResume(
                     question_id=paused.pending_input["question_id"],
                     answers={"format-q": ["Markdown"]},
@@ -196,7 +267,7 @@ def test_cancel_running_stops_generation_before_terminal_state():
             run = await create(a)
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=slow),
+                return_value=ScriptedModel(stream_function=slow),
             ):
                 work = asyncio.create_task(try_run(run.id))
                 await asyncio.wait_for(entered.wait(), 10)
@@ -225,7 +296,7 @@ def test_worker_interruption_recovers_completed_retrieval_node():
             run = await create(a)
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=slow),
+                return_value=ScriptedModel(stream_function=slow),
             ):
                 work = asyncio.create_task(try_run(run.id))
                 await asyncio.wait_for(entered.wait(), 10)
@@ -234,7 +305,7 @@ def test_worker_interruption_recovers_completed_retrieval_node():
             assert (await get(a, run.id)).status == "running"
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=text_stream),
+                return_value=ScriptedModel(stream_function=text_stream),
             ):
                 await try_run(run.id)
             saved = await get(a, run.id)
@@ -260,14 +331,14 @@ def test_process_kill_releases_lock_and_recovers_checkpoint():
 import asyncio
 from uuid import UUID
 from unittest.mock import patch
-from pydantic_ai.models.function import FunctionModel
+from tests.model_fixtures import ScriptedModel
 from app.worker.agent_runs import try_run
 async def stream(messages, info):
     print("MODEL_ENTERED", flush=True)
     await asyncio.sleep(120)
     yield "unreachable"
 async def main():
-    with patch("app.agents.assistant._build_model", return_value=FunctionModel(stream_function=stream)):
+    with patch("app.agents.assistant._build_model", return_value=ScriptedModel(stream_function=stream)):
         await try_run(UUID(RUN_ID))
 asyncio.run(main())
 """.replace("RUN_ID", repr(str(run.id)))
@@ -288,7 +359,7 @@ asyncio.run(main())
                     await proc.wait()
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=text_stream),
+                return_value=ScriptedModel(stream_function=text_stream),
             ):
                 await try_run(run.id)
             saved = await get(a, run.id)
@@ -348,7 +419,7 @@ def test_final_checkpoint_reconciles_without_second_model_call():
             run = await create(a)
             with patch(
                 "app.agents.assistant._build_model",
-                return_value=FunctionModel(stream_function=stream),
+                return_value=ScriptedModel(stream_function=stream),
             ):
                 with (
                     patch.object(AgentRunRepository, "event", crash_final_write),
@@ -371,15 +442,11 @@ def test_python_task_uses_remote_gateway_and_persists_code_output():
     from app.services import sandbox_client
 
     async def stream(messages, info):
-        if any(
-            getattr(p, "tool_name", None) == "run_python" and p.part_kind == "tool-return"
-            for m in messages
-            for p in m.parts
-        ):
+        if any(getattr(p, "name", None) == "run_python" and p.type == "tool" for p in messages):
             yield "计算结果是 2"
         else:
             yield {
-                0: DeltaToolCall(
+                0: tool_delta(
                     name="run_python", json_args='{"code":"print(1+1)"}', tool_call_id="python-one"
                 )
             }
@@ -403,7 +470,7 @@ def test_python_task_uses_remote_gateway_and_persists_code_output():
                 ) as remote,
                 patch(
                     "app.agents.assistant._build_model",
-                    return_value=FunctionModel(stream_function=stream),
+                    return_value=ScriptedModel(stream_function=stream),
                 ),
             ):
                 run = await create(a, tools=["run_python"])
@@ -434,7 +501,7 @@ def test_task_cancel_waits_for_external_stop_confirmation():
 
         async def stream(messages, info):
             yield {
-                0: DeltaToolCall(
+                0: tool_delta(
                     name="run_python", json_args='{"code":"print(1+1)"}', tool_call_id="slow-python"
                 )
             }
@@ -449,7 +516,7 @@ def test_task_cancel_waits_for_external_stop_confirmation():
                 ),
                 patch(
                     "app.agents.assistant._build_model",
-                    return_value=FunctionModel(stream_function=stream),
+                    return_value=ScriptedModel(stream_function=stream),
                 ),
             ):
                 run = await create(a, tools=["run_python"])

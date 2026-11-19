@@ -87,14 +87,14 @@ async def test_summaries_require_literal_sources_and_fall_back_on_failure():
     assert len(worker.validated_notes(summary, data)) == 1
     agent = MagicMock()
     agent.run = AsyncMock(side_effect=TimeoutError)
-    with patch.object(worker, "Agent", return_value=agent), patch.object(worker, "_build_model"):
+    with patch.object(worker, "structured_call", agent.run), patch.object(worker, "_build_model"):
         notes, mode, usage = await worker.summarize(
             data, resolve_generation_config({}).model_dump(), True
         )
     assert mode == "excerpt" and notes[0]["quote"] == data[0]["text"]
     assert usage["model_attempted"] is True
-    assert agent.run.await_args.kwargs["usage_limits"].request_limit == 1
-    with patch.object(worker, "Agent") as constructor:
+    assert agent.run.await_args.kwargs["request_limit"] == 1
+    with patch.object(worker, "structured_call") as constructor:
         await worker.summarize(data, {}, False)
     constructor.assert_not_called()
 
@@ -112,29 +112,25 @@ async def test_summary_indexes_separate_source_roles_without_promoting_assistant
 
 @pytest.mark.anyio
 async def test_budget_guard_stops_tool_result_growth_before_second_provider_request():
-    from pydantic_ai import Agent
-    from pydantic_ai.messages import ModelResponse, ToolCallPart
-    from pydantic_ai.models.function import FunctionModel
+    from app.agents.runtime import ToolRegistry, run_tools
+    from tests.model_fixtures import ScriptedModel, model_response, tool_call
 
     calls = []
 
     def provider(messages, info):
         calls.append(messages)
-        return ModelResponse(
-            parts=[ToolCallPart(tool_name="large_result", args={}, tool_call_id="once")]
+        return model_response(
+            parts=[tool_call(tool_name="large_result", args={}, tool_call_id="once")]
         )
 
-    agent = Agent(FunctionModel(provider), retries=0)
+    agent = ToolRegistry(ScriptedModel(provider), resolve_generation_config({}))
 
-    @agent.tool_plain
+    @agent.register_plain
     def large_result() -> str:
         return "数据" * 20000
 
     validate = AsyncMock()
     with pytest.raises(BadRequestError):
-        await agent.run(
-            "调用工具",
-            capabilities=[budget.ContextBudgetGuard(resolve_generation_config({}), validate)],
-        )
+        await run_tools(agent, "调用工具", validate=validate)
     assert len(calls) == 1
-    assert validate.await_count == 2
+    assert validate.await_count == 3

@@ -59,7 +59,7 @@ def test_fallback_preserves_current_constraints_and_avoids_new_topic():
 
 @pytest.mark.anyio
 async def test_rewrite_failure_falls_back_without_losing_question():
-    with patch("app.services.knowledge_answer.Agent.run", side_effect=TimeoutError):
+    with patch("app.services.knowledge_answer.structured_call", side_effect=TimeoutError):
         query, strategy = await rewrite_query(
             "那申请期限呢？", [{"role": "user", "content": "星河报销"}], None
         )

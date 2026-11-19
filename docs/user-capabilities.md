@@ -1,6 +1,6 @@
 # 用户自定义 MCP 与 Skills
 
-本批提供面向最终用户的能力管理。最终用户通过独立的 `/mcp` 与 `/skills` 页面管理能力，服务端统一负责身份、范围、凭据、连接和运行时权限。业务栈继续使用现有 Next.js、FastAPI、PydanticAI 与 LangGraph，不另起一个独立平台。
+本批提供面向最终用户的能力管理。最终用户通过独立的 `/mcp` 与 `/skills` 页面管理能力，服务端统一负责身份、范围、凭据、连接和运行时权限。业务栈继续使用现有 Next.js、FastAPI、LangGraph 与 langchain-openai，不另起一个独立平台。
 
 ## 本批可用的流程
 

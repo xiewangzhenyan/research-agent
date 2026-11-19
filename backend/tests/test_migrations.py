@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -17,13 +18,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def migrate(*args):
     assert settings.POSTGRES_DB.endswith("_review"), "Refusing to migrate a non-review database"
-    result = subprocess.run(
-        [sys.executable, "-m", "alembic", "-c", str(ROOT / "alembic.ini"), *args],
-        capture_output=True,
-        text=True,
-        cwd=ROOT,
-        timeout=60,
-    )
+    # Never discover the operator's backend/.env while testing an isolated DB.
+    with tempfile.TemporaryDirectory(prefix="agent-migration-review-") as folder:
+        result = subprocess.run(
+            [sys.executable, "-m", "alembic", "-c", str(ROOT / "alembic.ini"), *args],
+            capture_output=True,
+            text=True,
+            cwd=folder,
+            timeout=60,
+        )
     assert result.returncode == 0, f"alembic {args} failed:\n{result.stderr}"
     return result.stdout
 

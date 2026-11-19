@@ -7,14 +7,6 @@ from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
-from pydantic_ai import PartDeltaEvent, PartStartEvent
-from pydantic_ai.messages import (
-    TextPart,
-    TextPartDelta,
-    ThinkingPart,
-    ThinkingPartDelta,
-    ToolCallPart,
-)
 
 from app.schemas.chat_turn import ChatTurnCreate
 from app.services import chat_execution as chat
@@ -44,7 +36,7 @@ def request(**overrides):
     ],
 )
 async def test_direct_questions_and_restricted_scopes_never_invoke_router(overrides):
-    with patch.object(chat, "Agent") as agent:
+    with patch.object(chat, "structured_call") as agent:
         result = await chat.choose_route(request(**overrides), {}, resolve_generation_config({}))
     assert result["route"] == "standard"
     agent.assert_not_called()
@@ -66,13 +58,13 @@ async def test_collaboration_requires_confident_decision_and_model_failure_falls
             )
         )
     data = request()
-    with patch.object(chat, "Agent", return_value=agent), patch.object(chat, "_build_model"):
+    with patch.object(chat, "structured_call", agent.run), patch.object(chat, "_build_model"):
         result = await chat.choose_route(
             data, {"query": data["prompt"]}, resolve_generation_config({})
         )
     assert result["route"] == ("knowledge_collaboration" if outcome == "high" else "standard")
     assert "tools" not in result and "knowledge_base_ids" not in result
-    assert agent.run.await_args.kwargs["usage_limits"].request_limit == 1
+    assert agent.run.await_args.kwargs["request_limit"] == 1
 
 
 @pytest.mark.anyio
@@ -80,25 +72,16 @@ async def test_progress_coalesces_tokens_and_keeps_final_text_thinking_and_tool_
     emit = AsyncMock()
     progress = chat.ChatProgress(emit)
     with patch.object(chat.time, "monotonic", return_value=10):
-        await progress.handle(PartStartEvent(index=0, part=TextPart(content="Hello")))
+        await progress.handle({"kind": "text_delta", "text": "Hello"})
     assert emit.await_count == 1
     with patch.object(chat.time, "monotonic", return_value=10.1):
-        await progress.handle(PartDeltaEvent(index=0, delta=TextPartDelta(content_delta=" world")))
-        await progress.handle(PartStartEvent(index=1, part=ThinkingPart(content="Check")))
+        await progress.handle({"kind": "text_delta", "text": " world"})
+        await progress.handle({"kind": "thinking_delta", "text": "Check"})
+        await progress.handle({"kind": "thinking_delta", "text": " facts"})
+        call = {"name": "current_datetime", "args": {}, "id": "clock"}
+        await progress.handle({"kind": "tool_call", "call": call})
         await progress.handle(
-            PartDeltaEvent(index=1, delta=ThinkingPartDelta(content_delta=" facts"))
-        )
-        await progress.handle(
-            SimpleNamespace(
-                event_kind="function_tool_call",
-                part=ToolCallPart(tool_name="current_datetime", args={}, tool_call_id="clock"),
-            )
-        )
-        await progress.handle(
-            SimpleNamespace(
-                event_kind="function_tool_result",
-                part=SimpleNamespace(tool_call_id="clock", content={"timezone": "Asia/Shanghai"}),
-            )
+            {"kind": "tool_result", "call": call, "content": '{"timezone": "Asia/Shanghai"}'}
         )
         assert emit.await_count == 1
         await progress.flush()

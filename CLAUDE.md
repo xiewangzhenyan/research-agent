@@ -8,7 +8,7 @@ knowledge retrieval, persistent tasks, source citations, and bounded multi-role 
 Follow the GitHub synchronization and deployment disk rules in `AGENTS.md`.
 
 **Stack:** FastAPI + Pydantic v2, PostgreSQL (async via asyncpg)
-, JWT + API Key auth, Redis, PydanticAI, Celery, Next.js 15 (i18n)
+, JWT + API Key auth, Redis, LangGraph + langchain-openai (Responses), Celery, Next.js 15 (i18n)
 
 ## Commands
 

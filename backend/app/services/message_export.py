@@ -5,6 +5,7 @@ from sqlalchemy import select
 from app.core.exceptions import BadRequestError
 from app.db.models.agent_run import AgentRun
 from app.db.models.knowledge import KnowledgeCitation
+from app.services.artifact_validation import validate_files
 from app.services.conversation import ConversationService
 from app.services.document_export import DocumentRequest, render_async
 from app.services.knowledge_citations import read_citation
@@ -41,8 +42,10 @@ async def export_message(db, user_id, project_id, message_id, format):
     # Validation before worker-thread rendering, including appended citation text.
     if len(content) > 100000:
         raise BadRequestError(message="回答与引用合计超过 10 万字符，请拆分导出")
-    return await render_async(
+    file = await render_async(
         DocumentRequest(
             format=format, title=(conversation.title or "对话回答")[:120], content=content
         )
     )
+    file["validation"] = (await validate_files([file]))[0]
+    return file

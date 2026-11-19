@@ -25,6 +25,7 @@ from app.db.session import get_worker_db_context
 from app.repositories.agent_run import AgentRunRepository
 from app.services import sandbox_client
 from app.services.agent_run_graph import build_run_graph
+from app.services.execution_guard import ExecutionStalledError
 from app.services.knowledge import KnowledgeService
 from app.services.knowledge_collaboration import WORKFLOW_VERSION, build_collaboration_graph
 from app.services.task_readiness import ReadinessUnavailable
@@ -69,7 +70,7 @@ async def stop_sandbox(run_id, request):
         await sandbox_client.cancel_run(run_id)
 
 
-async def execute(run_id, conn):
+async def execute(run_id, conn, *, progress=None):
     # Confirm external processes stopped before a task can become cancelled.
     async with get_worker_db_context() as db:
         pending_cancel = await AgentRunRepository(db).get(run_id)
@@ -125,6 +126,8 @@ async def execute(run_id, conn):
         # Share the saver lock: its pipeline must not overlap heartbeat queries.
         async with saver.lock:
             await conn.execute("SELECT 1")
+        if progress:
+            progress()
 
     async def mutate(kind, data, **updates):
         # Verify the same lock/checkpoint connection is still alive before writes.
@@ -334,7 +337,9 @@ async def execute(run_id, conn):
                 else:
                     current.status, current.error = (
                         "failed",
-                        "必要信息检查暂不可用，后续执行已停止，请稍后重试"
+                        ExecutionStalledError.message
+                        if isinstance(exc, ExecutionStalledError)
+                        else "必要信息检查暂不可用，后续执行已停止，请稍后重试"
                         if isinstance(exc, ReadinessUnavailable)
                         else "任务执行失败或超时，请稍后新建任务重试",
                     )
@@ -354,28 +359,32 @@ async def execute(run_id, conn):
         await asyncio.gather(work, watcher, return_exceptions=True)
 
 
-async def try_run(run_id):
+async def try_run(run_id, *, progress=None):
     async with await connect() as conn:
         row = await (
             await conn.execute("SELECT pg_try_advisory_lock(%s) AS acquired", (lock_key(run_id),))
         ).fetchone()
+        if progress:
+            progress()
         if not row["acquired"]:
             return False
         try:
-            await execute(run_id, conn)
+            await execute(run_id, conn, **({"progress": progress} if progress else {}))
         finally:
             if not conn.closed:
                 await conn.execute("SELECT pg_advisory_unlock(%s)", (lock_key(run_id),))
         return True
 
 
-async def loop():
+async def loop(progress=None):
     while True:
         try:
             async with get_worker_db_context() as db:
                 candidates = await AgentRunRepository(db).candidates()
+            if progress:
+                progress()
             for run_id in candidates:
-                if await try_run(run_id):
+                if await try_run(run_id, **({"progress": progress} if progress else {})):
                     break
         except Exception:
             logger.exception("Background task dispatcher unavailable")
@@ -441,9 +450,20 @@ async def main():
         print("Task checkpoint schema ready")
         return
     from app.worker.conversation_context import loop as context_loop
+    from app.worker.health import WorkerPulse
     from app.worker.memory import loop as memory_loop
 
-    await asyncio.gather(loop(), loop(), maintain(), memory_loop(), context_loop())
+    pulse = WorkerPulse()
+    try:
+        await asyncio.gather(
+            loop(lambda: pulse.tick(0)),
+            loop(lambda: pulse.tick(1)),
+            maintain(),
+            memory_loop(),
+            context_loop(),
+        )
+    finally:
+        pulse.close()
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@
 
 ## 建议结论
 
-保留当前 Next.js 页面、FastAPI 账号与会话、PydanticAI 聊天及现有模型网关，将 WeKnora 作为文档入库与检索服务。第一阶段让用户完成“创建知识库 → 上传文件 → 查看处理结果 → 选择知识库提问 → 查看引用”的完整流程。
+保留当前 Next.js 页面、FastAPI 账号与会话、LangGraph 聊天及现有模型网关，将 WeKnora 作为文档入库与检索服务。第一阶段让用户完成“创建知识库 → 上传文件 → 查看处理结果 → 选择知识库提问 → 查看引用”的完整流程。
 
 这一方案能复用已部署的文档解析、分块、索引、混合检索和重排实现；业务权限与用户体验仍由当前应用负责。前端通过当前 FastAPI 适配层访问 WeKnora，服务凭证只在后端保存。
 
@@ -98,7 +98,7 @@ WeKnora 的 API Key 绑定租户，JWT/共享知识库还有相应权限处理�
 | 仅检索、不生成回答 | `POST /api/v1/knowledge-search` | 受控检索范围、超时、统一来源格式 |
 | 底层混合召回 | `GET /api/v1/knowledge-bases/:id/hybrid-search` | 本地版本使用 GET + JSON body，只能在后端适配 |
 
-优先评估 `POST /knowledge-search`：本地源码明确只执行检索、重排、合并和筛选，不调用 LLM 总结，适合将结果交回当前 PydanticAI 生成回答。初期无需再嵌套调用 WeKnora 的完整 Agent 对话流程。
+优先评估 `POST /knowledge-search`：本地源码明确只执行检索、重排、合并和筛选，不调用 LLM 总结，适合将结果交回当前 LangGraph 生成节点回答。初期无需再嵌套调用 WeKnora 的完整 Agent 对话流程。
 
 当前应用建议新增 `backend/app/clients/weknora.py` 与独立知识库服务、路由，在 `agents/assistant.py` / `services/agent_session.py` 接入受控检索，前端补齐 `/rag` 文档管理、聊天知识库选择器及结构化引用处理。
 

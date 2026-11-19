@@ -131,7 +131,7 @@ class ToolCall(Base):
     Attributes:
         id: Unique tool call identifier
         message_id: The assistant message that triggered this call
-        tool_call_id: External ID from PydanticAI
+        tool_call_id: External model tool-call ID
         tool_name: Name of the tool that was called
         args: JSON arguments passed to the tool
         result: Result returned by the tool

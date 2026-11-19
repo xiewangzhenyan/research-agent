@@ -18,8 +18,6 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 
 import numpy as np
-from pydantic_ai import Agent
-from pydantic_ai.usage import UsageLimits
 
 # Must precede importing the SDK: no telemetry, notice requests or NLP downloads.
 os.environ["MEM0_TELEMETRY"] = "false"
@@ -27,6 +25,7 @@ from mem0 import Memory
 from mem0.utils import spacy_models
 
 from app.agents.assistant import _build_model
+from app.agents.model import structured_call
 from app.schemas.memory import ExtractionResult
 from app.schemas.model_config import EffectiveGenerationConfig
 from app.services.memory_recall import estimated_tokens, terms
@@ -231,19 +230,17 @@ class ExtractionModel:
         config = EffectiveGenerationConfig.model_validate(self.configuration)
         if config.model not in allowed_models():
             raise ValueError("Extraction model no longer authorized")
-        agent = Agent(
-            _build_model(config.model),
-            output_type=ExtractionResult,
-            retries=0,
-            model_settings={**config.provider_settings(), "max_tokens": 3000, "timeout": 35},
-            system_prompt=messages[0]["content"] + "\n" + INSTRUCTIONS,
-        )
+        call_spec = {
+            "model": _build_model(config.model),
+            "schema": ExtractionResult,
+            "configuration": config,
+            "system_prompt": messages[0]["content"] + "\n" + INSTRUCTIONS,
+            "retries": 0,
+            "model_settings": {**config.provider_settings(), "max_tokens": 3000, "timeout": 35},
+        }
         async with asyncio.timeout(40):
-            response = await agent.run(
-                messages[1]["content"],
-                # The pinned SDK includes an extensive extraction system prompt.
-                # Bound auxiliary history separately; account for those rules too.
-                usage_limits=UsageLimits(request_limit=1, total_tokens_limit=32000),
+            response = await structured_call(
+                **call_spec, prompt=messages[1]["content"], request_limit=1, token_limit=32000
             )
         candidates = [
             c for c, _ in validated_candidates(response.output, self.source, self.store.selected)
@@ -251,9 +248,9 @@ class ExtractionModel:
         self.result = ExtractionResult(memories=candidates)
         self.encoder.titles = {c.content: c.title for c in candidates}
         self.usage = {
-            "requests": response.usage.requests,
-            "input_tokens": response.usage.input_tokens,
-            "output_tokens": response.usage.output_tokens,
+            "requests": response.usage.get("requests", 0),
+            "input_tokens": response.usage.get("input_tokens", 0),
+            "output_tokens": response.usage.get("output_tokens", 0),
         }
         return json.dumps({"memory": [{"text": c.content} for c in candidates]}, ensure_ascii=False)
 

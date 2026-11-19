@@ -4,13 +4,13 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
-from pydantic_ai.models.function import FunctionModel
 
 from app.agents.assistant import Deps, get_agent
 from app.core.config import settings
 from app.core.exceptions import AuthorizationError, ExternalServiceError
 from app.services import sandbox_client
 from app.services.tool_policy import resolve_tools, tool_catalog
+from tests.model_fixtures import ScriptedModel
 
 
 def test_python_is_never_implicitly_authorized():
@@ -51,14 +51,14 @@ def test_unready_sandbox_and_missing_credentials_fail_closed():
 def test_disabled_tools_are_not_advertised_to_model():
     async def model(messages, info):
         assert info.function_tools == []
-        from pydantic_ai.messages import ModelResponse, TextPart
+        from tests.model_fixtures import model_response, text_part
 
-        return ModelResponse(parts=[TextPart("无需工具")])
+        return model_response(parts=[text_part("无需工具")])
 
     async def check():
-        with patch("app.agents.assistant._build_model", return_value=FunctionModel(model)):
-            result = await get_agent().agent.run("直接回答", deps=Deps(allowed_tools=()))
-            assert result.output == "无需工具"
+        with patch("app.agents.assistant._build_model", return_value=ScriptedModel(model)):
+            result = await get_agent().execute("直接回答", deps=Deps(allowed_tools=()))
+            assert result["output"] == "无需工具"
 
     asyncio.run(check())
 

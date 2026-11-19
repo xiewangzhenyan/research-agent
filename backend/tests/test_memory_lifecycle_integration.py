@@ -7,8 +7,6 @@ from unittest.mock import AsyncMock, patch
 from uuid import UUID
 
 import pytest
-from pydantic_ai.messages import ModelResponse, ToolCallPart
-from pydantic_ai.models.function import FunctionModel
 from sqlalchemy import func, select
 
 from app.db.models.conversation import Message
@@ -19,6 +17,7 @@ from app.services import memory_extraction as extraction
 from app.services.agent import persist_user_turn
 from app.services.mem0_memory import MemoryBatch, snapshot
 from app.worker import memory as worker
+from tests.model_fixtures import ScriptedModel, model_response, tool_call
 from tests.test_project_spaces_integration import header, workspace
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_TASK_DB_TESTS") != "1", reason="disposable DB only")
@@ -289,7 +288,7 @@ def test_enabling_memory_enables_automatic_writes_and_old_jobs_cannot_overwrite_
     asyncio.run(check())
 
 
-def test_actual_pydantic_extraction_and_persisted_chat_queue_hook():
+def test_actual_structured_extraction_and_persisted_chat_queue_hook():
     async def check():
         async with workspace() as (owner, _, _, _, a, _, user, client):
             await enable(client, a)
@@ -309,14 +308,12 @@ def test_actual_pydantic_extraction_and_persisted_chat_queue_hook():
 
             def model(messages, info):
                 assert TEXT in str(messages)
-                return ModelResponse(
-                    parts=[
-                        ToolCallPart(info.output_tools[0].name, result().model_dump(mode="json"))
-                    ]
+                return model_response(
+                    parts=[tool_call(info.output_tools[0].name, result().model_dump(mode="json"))]
                 )
 
             with (
-                patch("app.services.mem0_memory._build_model", return_value=FunctionModel(model)),
+                patch("app.services.mem0_memory._build_model", return_value=ScriptedModel(model)),
                 patch(
                     "app.services.memory_semantic.encode_query",
                     return_value=([1.0] + [0.0] * 511, "test"),
@@ -527,13 +524,11 @@ def test_real_mem0_pipeline_with_cached_chinese_encoder_and_pgvector():
             job_id = await queue(owner, a, mid)
 
             def model(messages, info):
-                return ModelResponse(
-                    parts=[
-                        ToolCallPart(info.output_tools[0].name, result().model_dump(mode="json"))
-                    ]
+                return model_response(
+                    parts=[tool_call(info.output_tools[0].name, result().model_dump(mode="json"))]
                 )
 
-            with patch("app.services.mem0_memory._build_model", return_value=FunctionModel(model)):
+            with patch("app.services.mem0_memory._build_model", return_value=ScriptedModel(model)):
                 await worker.locked(7301, job_id, worker.execute)
             data = (await client.get(BASE, headers=h)).json()
             assert data["jobs"][0]["status"] == "completed", data["jobs"]

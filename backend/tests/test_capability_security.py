@@ -321,11 +321,10 @@ def test_connection_test_records_failure_and_revokes_readiness():
 def test_skill_runtime_and_mcp_schema_only_load_selected_capabilities():
     from contextlib import asynccontextmanager
 
-    from pydantic_ai import Agent
-    from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
-    from pydantic_ai.models.function import FunctionModel
-
+    from app.agents.runtime import ToolRegistry, run_tools
     from app.services.capability_runtime import install
+    from app.services.model_config import resolve_generation_config
+    from tests.model_fixtures import ScriptedModel, model_response, text_part, tool_call
 
     async def check():
         aid = str(uuid4())
@@ -349,12 +348,12 @@ def test_skill_runtime_and_mcp_schema_only_load_selected_capabilities():
         def model(messages, info):
             seen.append(str(messages))
             if len(seen) == 1:
-                return ModelResponse(
-                    parts=[ToolCallPart("read_skill_file", {"skill_id": aid}, "read")]
+                return model_response(
+                    parts=[tool_call("read_skill_file", {"skill_id": aid}, "read")]
                 )
-            return ModelResponse(parts=[TextPart("Read complete")])
+            return model_response(parts=[text_part("Read complete")])
 
-        agent = Agent(FunctionModel(model))
+        agent = ToolRegistry(ScriptedModel(model), resolve_generation_config({}))
         with (
             patch("app.services.capability_runtime.get_worker_db_context", db),
             patch(
@@ -370,8 +369,9 @@ def test_skill_runtime_and_mcp_schema_only_load_selected_capabilities():
                 decisions={},
                 emit=AsyncMock(),
             )
-            result = await agent.run("Use selected capability")
-        assert result.output == "Read complete" and len(seen) == 2
+            assert set(agent.tools) == {"read_skill_file"}
+            result = await run_tools(agent, "Use selected capability")
+        assert result["output"] == "Read complete" and len(seen) == 2
         assert "先检查来源" not in seen[0] and "先检查来源" in seen[1]
         service.read_file.assert_awaited_once_with(asset, "SKILL.md", 1)
 
@@ -381,11 +381,10 @@ def test_skill_runtime_and_mcp_schema_only_load_selected_capabilities():
 def test_mcp_schema_runtime_lists_only_enabled_tools_and_rejects_other_ids():
     from contextlib import asynccontextmanager
 
-    from pydantic_ai import Agent
-    from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
-    from pydantic_ai.models.function import FunctionModel
-
+    from app.agents.runtime import ToolRegistry, run_tools
     from app.services.capability_runtime import install
+    from app.services.model_config import resolve_generation_config
+    from tests.model_fixtures import ScriptedModel, model_response, text_part, tool_call
 
     async def check():
         aid = str(uuid4())
@@ -411,20 +410,18 @@ def test_mcp_schema_runtime_lists_only_enabled_tools_and_rejects_other_ids():
         def model(messages, info):
             seen.append(str(messages))
             if len(seen) == 1:
-                return ModelResponse(
-                    parts=[ToolCallPart("describe_mcp", {"server_id": aid}, "list")]
-                )
+                return model_response(parts=[tool_call("describe_mcp", {"server_id": aid}, "list")])
             if len(seen) == 2:
-                return ModelResponse(
+                return model_response(
                     parts=[
-                        ToolCallPart(
+                        tool_call(
                             "describe_mcp", {"server_id": aid, "tool_name": "allowed"}, "schema"
                         )
                     ]
                 )
-            return ModelResponse(parts=[TextPart("complete")])
+            return model_response(parts=[text_part("complete")])
 
-        agent = Agent(FunctionModel(model))
+        agent = ToolRegistry(ScriptedModel(model), resolve_generation_config({}))
         with (
             patch("app.services.capability_runtime.get_worker_db_context", db),
             patch("app.services.capability_runtime.checked", AsyncMock(return_value=(None, asset))),
@@ -438,7 +435,8 @@ def test_mcp_schema_runtime_lists_only_enabled_tools_and_rejects_other_ids():
                 decisions={},
                 emit=AsyncMock(),
             )
-            await agent.run("List enabled tools")
+            assert set(agent.tools) == {"describe_mcp", "call_mcp_tool"}
+            await run_tools(agent, "List enabled tools")
         assert "private tool" not in str(seen) and "inputSchema" in seen[-1]
 
     asyncio.run(check())
