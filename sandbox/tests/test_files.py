@@ -25,6 +25,22 @@ def archive(name="outputs/结果.csv", data=b"a,b\n1,2", kind=tarfile.REGTYPE, p
     return out.getvalue()
 
 
+def output_bundle(entries):
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w") as tar:
+        root = tarfile.TarInfo("outputs")
+        root.type = tarfile.DIRTYPE
+        tar.addfile(root)
+        for name, data, kind in entries:
+            item = tarfile.TarInfo(name)
+            item.type = kind
+            item.size = len(data) if item.isreg() else 0
+            if item.issym() or item.islnk():
+                item.linkname = "/etc/passwd"
+            tar.addfile(item, io.BytesIO(data) if item.isreg() else None)
+    return out.getvalue()
+
+
 def test_unicode_roundtrip_and_completion():
     item = InputFile(
         name="输入.csv",
@@ -73,6 +89,55 @@ def test_reject_oversize_truncated_and_sparse():
         parse_completion(archive(".execution-result.json", kind=tarfile.SYMTYPE))
 
 
+@pytest.mark.parametrize(
+    "marker_name", [".execution-result.json", "outputs/.execution-result.json"]
+)
+def test_completed_bundle_keeps_ten_user_files_and_excludes_internal_marker(marker_name):
+    raw = output_bundle(
+        [(marker_name, b'{"exit_code":0}', tarfile.REGTYPE)]
+        + [(f"outputs/result-{i}.csv", b"value\n3\n", tarfile.REGTYPE) for i in range(10)]
+    )
+    results = parse_artifacts(raw, completion={"exit_code": 0})
+    assert {row["name"] for row in results} == {f"result-{i}.csv" for i in range(10)}
+    assert all(base64.b64decode(row["content_base64"]) == b"value\n3\n" for row in results)
+
+
+@pytest.mark.parametrize(
+    "markers",
+    [
+        [],
+        [("outputs/.execution-result.json", b'{"exit_code":1}', tarfile.REGTYPE)],
+        [("outputs/.execution-result.json", b'{"exit_code":false}', tarfile.REGTYPE)],
+        [("outputs/.execution-result.json", b"not-json", tarfile.REGTYPE)],
+        [("outputs/.execution-result.json", b"", tarfile.SYMTYPE)],
+        [("outputs/.execution-result.json", b"", tarfile.LNKTYPE)],
+        [("outputs/.execution-result.json", b"x" * 129, tarfile.REGTYPE)],
+        [("outputs/.execution-result.json", b'{"exit_code":0}', tarfile.REGTYPE)] * 2,
+        [("outputs/.other.json", b'{"exit_code":0}', tarfile.REGTYPE)],
+    ],
+)
+def test_collecting_success_requires_one_matching_regular_completion_marker(markers):
+    with pytest.raises(ValueError):
+        parse_artifacts(
+            output_bundle(markers + [("outputs/result.csv", b"a\n1\n", tarfile.REGTYPE)]),
+            completion={"exit_code": 0},
+        )
+
+
+def test_marker_exception_does_not_relax_file_count_or_hidden_path_rules():
+    marker = ("outputs/.execution-result.json", b'{"exit_code":0}', tarfile.REGTYPE)
+    with pytest.raises(ValueError):
+        parse_artifacts(output_bundle([marker]))
+    with pytest.raises(ValueError):
+        parse_artifacts(
+            output_bundle(
+                [marker]
+                + [(f"outputs/file-{i}.csv", b"a\n1\n", tarfile.REGTYPE) for i in range(11)]
+            ),
+            completion={"exit_code": 0},
+        )
+
+
 class FileEngine(FakeEngine):
     def __init__(self, bad=False, exit_code=0):
         super().__init__()
@@ -102,7 +167,17 @@ class FileEngine(FakeEngine):
                 ".execution-result.json", json.dumps({"exit_code": self.exit_code}).encode()
             )
         assert self.paused, "Files must be frozen before collection"
-        return archive("outputs/../../secret.txt" if self.bad else "outputs/结果.csv")
+        # The real Docker directory archive includes the supervisor marker.
+        return output_bundle(
+            [
+                ("outputs/.execution-result.json", b'{"exit_code":0}', tarfile.REGTYPE),
+                (
+                    "outputs/../../secret.txt" if self.bad else "outputs/结果.csv",
+                    b"a,b\n1,2",
+                    tarfile.REGTYPE,
+                ),
+            ]
+        )
 
 
 @pytest.mark.parametrize(

@@ -55,15 +55,28 @@ def input_archive(files):
     return output.getvalue()
 
 
-def parse_artifacts(raw, root_name="outputs"):
+def parse_artifacts(raw, root_name="outputs", *, completion=None):
     if len(raw) > MAX_ARCHIVE_BYTES:
         raise ValueError("Artifact archive exceeds limit")
+    if completion is not None and (
+        completion != {"exit_code": 0} or type(completion.get("exit_code")) is not int
+    ):
+        raise ValueError("Artifacts require successful completion")
     output, total, seen = [], 0, set()
+    marker_seen = False
     with tarfile.open(fileobj=io.BytesIO(raw), mode="r:") as archive:
         for index, item in enumerate(archive):
-            if index > 10:
+            if index > 10 + (completion is not None):
                 raise ValueError("Too many artifact entries")
             if item.name.rstrip("/") == "outputs" and item.isdir():
+                continue
+            if completion is not None and item.name in {
+                ".execution-result.json",
+                f"{root_name}/.execution-result.json",
+            }:
+                if marker_seen or _completion_value(archive, item) != completion:
+                    raise ValueError("Completion metadata changed during collection")
+                marker_seen = True
                 continue
             parts = item.name.split("/")
             if root_name == "outputs" and len(parts) == 1 and safe_name(parts[0]):
@@ -101,13 +114,34 @@ def parse_artifacts(raw, root_name="outputs"):
                     "content_base64": base64.b64encode(data).decode("ascii"),
                 }
             )
+    if completion is not None and not marker_seen:
+        raise ValueError("Missing completion metadata in artifact archive")
     return output
+
+
+def _completion_value(archive, item):
+    import json
+
+    if (
+        not item.isreg()
+        or not 0 <= item.size <= 128
+        or item.sparse is not None
+        or any(k.startswith("GNU.sparse") for k in item.pax_headers)
+    ):
+        raise ValueError("Invalid completion file")
+    data = json.load(archive.extractfile(item))
+    if (
+        not isinstance(data, dict)
+        or set(data) != {"exit_code"}
+        or type(data["exit_code"]) is not int
+        or not -255 <= data["exit_code"] <= 255
+    ):
+        raise ValueError("Invalid completion result")
+    return data
 
 
 def parse_completion(raw):
     """Only a tiny regular file may announce completion; never follow links."""
-    import json
-
     if len(raw) > 16384:
         raise ValueError("Completion archive exceeds limit")
     with tarfile.open(fileobj=io.BytesIO(raw), mode="r:") as archive:
@@ -115,21 +149,6 @@ def parse_completion(raw):
         if len(members) != 1:
             raise ValueError("Invalid completion metadata")
         item = members[0]
-        if (
-            item.name != ".execution-result.json"
-            or not item.isreg()
-            or not 0 <= item.size <= 128
-            or item.sparse is not None
-            or any(k.startswith("GNU.sparse") for k in item.pax_headers)
-        ):
+        if item.name != ".execution-result.json":
             raise ValueError("Invalid completion file")
-        data = json.load(archive.extractfile(item))
-    if (
-        not isinstance(data, dict)
-        or set(data) != {"exit_code"}
-        or type(data["exit_code"]) is not int
-    ):
-        raise ValueError("Invalid completion result")
-    if not -255 <= data["exit_code"] <= 255:
-        raise ValueError("Invalid exit code")
-    return data
+        return _completion_value(archive, item)

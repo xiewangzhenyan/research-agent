@@ -664,7 +664,9 @@ class Manager:
                                     raw = await self.engine.archive(
                                         name, "/work/outputs", 5 * 1024**2
                                     )
-                                    artifacts = parse_artifacts(raw or b"", root_name="outputs")
+                                    artifacts = parse_artifacts(
+                                        raw or b"", root_name="outputs", completion=completion
+                                    )
                                 except Exception:
                                     # Artifact failure is explicit; never publish a partial bundle.
                                     artifacts, artifact_error = (
